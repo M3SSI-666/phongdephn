@@ -38,8 +38,13 @@ Chỉ trả về JSON, không giải thích. Đây là tin nhắn:
 
 ${text}`;
 
-    // Try models in order: gemini-2.0-flash, then gemini-1.5-flash as fallback
-    const models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+    // Try models in order of preference; quota is per-model so fallbacks help
+    const models = [
+      'gemini-2.0-flash',
+      'gemini-2.0-flash-lite',
+      'gemini-1.5-flash',
+      'gemini-1.5-flash-8b',
+    ];
     let lastError = null;
 
     for (const model of models) {
