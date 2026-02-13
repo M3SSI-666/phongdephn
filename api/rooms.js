@@ -39,11 +39,6 @@ export default async function handler(req, res) {
     const sheetData = await readRes.json();
     const rows = sheetData.values || [];
 
-    // Debug: return raw data if ?debug=1
-    if (req.query.debug === '1') {
-      return res.status(200).json({ totalRows: rows.length, firstRow: rows[0], dataRows: rows.slice(1) });
-    }
-
     const rooms = rows.slice(1).map((row) => ({
       id: row[0] || '',
       ma_toa: row[1] || '',
