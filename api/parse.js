@@ -1,22 +1,20 @@
-// Vercel Serverless Function: POST /api/parse
-// Google Gemini API (free) parses Zalo room text -> structured JSON
-
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  try {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
 
-  const { text } = req.body;
-  if (!text || !text.trim()) {
-    return res.status(400).json({ error: 'Missing text' });
-  }
+    const { text } = req.body;
+    if (!text || !text.trim()) {
+      return res.status(400).json({ error: 'Missing text' });
+    }
 
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-  if (!GEMINI_API_KEY) {
-    return res.status(500).json({ error: 'Gemini API key not configured' });
-  }
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    if (!GEMINI_API_KEY) {
+      return res.status(500).json({ error: 'Gemini API key not configured' });
+    }
 
-  const prompt = `Bạn là AI trích xuất thông tin phòng trọ từ tin nhắn Zalo tiếng Việt.
+    const prompt = `Bạn là AI trích xuất thông tin phòng trọ từ tin nhắn Zalo tiếng Việt.
 Trích xuất và trả về JSON với các trường sau:
 - ma_toa: string (mã toà nhà, VD: F066)
 - dia_chi: string (địa chỉ đầy đủ)
@@ -40,7 +38,6 @@ Chỉ trả về JSON, không giải thích. Đây là tin nhắn:
 
 ${text}`;
 
-  try {
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
@@ -59,16 +56,15 @@ ${text}`;
 
     if (!response.ok) {
       const errText = await response.text();
-      return res.status(500).json({ error: `Gemini API error: ${errText}` });
+      return res.status(500).json({ error: 'gemini_error', detail: errText });
     }
 
     const data = await response.json();
     const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
 
-    // Extract JSON from response
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      return res.status(500).json({ error: 'Failed to parse Gemini response' });
+      return res.status(500).json({ error: 'parse_fail', raw: content });
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
