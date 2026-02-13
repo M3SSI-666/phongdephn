@@ -14,9 +14,9 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Gemini API key not configured' });
     }
 
-    const prompt = `Extract room info from this Vietnamese Zalo message. Return ONLY a single-line compact JSON (no newlines, no pretty print) with these fields:
-ma_toa(string),dia_chi(string),quan(string from: Đống Đa/Cầu Giấy/Nam Từ Liêm/Bắc Từ Liêm/Thanh Xuân/Hai Bà Trưng/Hoàng Mai/Hà Đông/Tây Hồ/Ba Đình/Hoàn Kiếm/Long Biên),khu_vuc(string),gia(number VND,4tr5=4500000),dien_tich(number),loai_phong(string:Phòng trọ/CCMN/Studio/Chung cư/Homestay),khep_kin(bool),xe_dien(bool),pet(bool),dien(string),nuoc(string),internet(string),noi_that(string),mo_ta(string),hoa_hong(string),confidence(object with quan/gia/loai_phong/dien_tich->high/medium/low)
-
+    const prompt = `Extract room rental info from this Vietnamese Zalo message. Return ONLY a single-line compact JSON with these exact fields:
+{"ma_toa":"","dia_chi":"","quan":"","khu_vuc":"","gia":0,"dien_tich":0,"loai_phong":"","khep_kin":false,"xe_dien":false,"pet":false,"dien":"","nuoc":"","internet":"","noi_that":"","mo_ta":"","hoa_hong":"","confidence":{"quan":"low","gia":"low","loai_phong":"low","dien_tich":"low"}}
+Rules: quan must be one of: Đống Đa,Cầu Giấy,Nam Từ Liêm,Bắc Từ Liêm,Thanh Xuân,Hai Bà Trưng,Hoàng Mai,Hà Đông,Tây Hồ,Ba Đình,Hoàn Kiếm,Long Biên. gia in VND (4tr5=4500000). loai_phong: Phòng trọ/CCMN/Studio/Chung cư/Homestay. confidence: high/medium/low.
 Message: ${text}`;
 
     const response = await fetch(
@@ -28,7 +28,8 @@ Message: ${text}`;
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.1,
-            maxOutputTokens: 8192,
+            maxOutputTokens: 2048,
+            thinkingConfig: { thinkingBudget: 0 },
           },
         }),
       }
