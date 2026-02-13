@@ -8,7 +8,8 @@ export default async function handler(req, res) {
 
   const SHEET_ID = process.env.GOOGLE_SHEETS_ID;
   const SERVICE_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+  const rawKey = process.env.GOOGLE_PRIVATE_KEY || '';
+  const PRIVATE_KEY = rawKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n');
 
   if (!SHEET_ID || !SERVICE_EMAIL || !PRIVATE_KEY) {
     return res.status(500).json({ error: 'Google Sheets not configured' });
