@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(npm create:*)",
+      "Bash(where:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(cmd /c \"where npm 2>nul & where node 2>nul & dir /s /b C:\\\\Users\\\\PC\\\\AppData\\\\*node.exe 2>nul & dir /s /b \"\"C:\\\\Program Files\\\\nodejs\\\\node.exe\"\" 2>nul & dir /s /b \"\"C:\\\\Program Files \\(x86\\)\\\\nodejs\\\\node.exe\"\" 2>nul\")",
+      "Bash(cmd /c \"dir /s /b C:\\\\Users\\\\PC\\\\AppData\\\\Roaming\\\\nvm\\\\*.exe 2>nul & dir /s /b C:\\\\nvm\\\\*.exe 2>nul & dir /s /b C:\\\\nodejs\\\\*.exe 2>nul\")",
+      "Bash(cmd /c \"mkdir C:\\\\Users\\\\PC\\\\OneDrive\\\\Desktop\\\\PhongdepHN\\\\src\\\\pages & mkdir C:\\\\Users\\\\PC\\\\OneDrive\\\\Desktop\\\\PhongdepHN\\\\src\\\\components & mkdir C:\\\\Users\\\\PC\\\\OneDrive\\\\Desktop\\\\PhongdepHN\\\\src\\\\utils & mkdir C:\\\\Users\\\\PC\\\\OneDrive\\\\Desktop\\\\PhongdepHN\\\\src\\\\api & mkdir C:\\\\Users\\\\PC\\\\OneDrive\\\\Desktop\\\\PhongdepHN\\\\api & mkdir C:\\\\Users\\\\PC\\\\OneDrive\\\\Desktop\\\\PhongdepHN\\\\public\")",
+      "Bash(cmd /c:*)",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\PC\\\\OneDrive\\\\Desktop\\\\PhongdepHN\\\\install-node.ps1\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File:*)",
+      "Bash(set PATH=C:UsersPCAppDataLocalnodejs)",
+      "Bash(%PATH%)",
+      "Bash(npm install:*)"
+    ]
+  }
+}
