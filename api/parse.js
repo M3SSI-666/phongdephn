@@ -14,35 +14,12 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Gemini API key not configured' });
     }
 
-    const prompt = `Bạn là AI trích xuất thông tin phòng trọ từ tin nhắn Zalo tiếng Việt.
-Trích xuất và trả về JSON với các trường sau:
-- ma_toa: string (mã toà nhà, VD: F066)
-- dia_chi: string (địa chỉ đầy đủ)
-- quan: string (quận/huyện, phải là 1 trong: Đống Đa, Cầu Giấy, Nam Từ Liêm, Bắc Từ Liêm, Thanh Xuân, Hai Bà Trưng, Hoàng Mai, Hà Đông, Tây Hồ, Ba Đình, Hoàn Kiếm, Long Biên)
-- khu_vuc: string (tên đường/khu vực)
-- gia: number (giá phòng/tháng, đơn vị VNĐ. VD: "4tr5" = 4500000, "3.5 triệu" = 3500000)
-- dien_tich: number (m², chỉ số)
-- loai_phong: string (1 trong: "Phòng trọ", "CCMN", "Studio", "Chung cư", "Homestay")
-- khep_kin: boolean (WC khép kín hay không)
-- xe_dien: boolean (có chỗ sạc xe điện không)
-- pet: boolean (có được nuôi thú cưng không)
-- dien: string (giá điện, VD: "4.000đ/số")
-- nuoc: string (giá nước)
-- internet: string (giá/tình trạng internet)
-- noi_that: string (danh sách nội thất)
-- mo_ta: string (mô tả thêm)
-- hoa_hong: string (thông tin hoa hồng CTV nếu có)
-- confidence: object với key là tên trường và value là "high"/"medium"/"low" (chỉ cần cho: quan, gia, loai_phong, dien_tich)
+    const prompt = `Trích xuất thông tin phòng trọ từ tin nhắn Zalo. Trả về JSON gồm:
+ma_toa(string), dia_chi(string), quan(string, 1 trong: Đống Đa/Cầu Giấy/Nam Từ Liêm/Bắc Từ Liêm/Thanh Xuân/Hai Bà Trưng/Hoàng Mai/Hà Đông/Tây Hồ/Ba Đình/Hoàn Kiếm/Long Biên), khu_vuc(string), gia(number VNĐ, 4tr5=4500000), dien_tich(number m2), loai_phong(string: Phòng trọ/CCMN/Studio/Chung cư/Homestay), khep_kin(bool), xe_dien(bool), pet(bool), dien(string), nuoc(string), internet(string), noi_that(string), mo_ta(string), hoa_hong(string), confidence(object: quan/gia/loai_phong/dien_tich -> high/medium/low)
 
-Chỉ trả về JSON, không giải thích. Đây là tin nhắn:
+Tin nhắn: ${text}`;
 
-${text}`;
-
-    // gemini-2.5-flash works on free tier; older models have limit: 0
-    const models = [
-      'gemini-2.5-flash',
-      'gemini-2.0-flash',
-    ];
+    const models = ['gemini-2.5-flash', 'gemini-2.0-flash'];
     let lastError = null;
 
     for (const model of models) {
@@ -56,7 +33,7 @@ ${text}`;
               contents: [{ parts: [{ text: prompt }] }],
               generationConfig: {
                 temperature: 0.1,
-                maxOutputTokens: 4096,
+                maxOutputTokens: 8192,
                 responseMimeType: 'application/json',
                 thinkingConfig: { thinkingBudget: 0 },
               },
@@ -66,13 +43,13 @@ ${text}`;
 
         if (response.status === 429) {
           lastError = `Rate limit on ${model}`;
-          continue; // Try next model
+          continue;
         }
 
         if (!response.ok) {
           const errText = await response.text();
           lastError = `${model} error: ${errText}`;
-          continue; // Try next model
+          continue;
         }
 
         const data = await response.json();
@@ -91,7 +68,6 @@ ${text}`;
       }
     }
 
-    // All models failed
     return res.status(429).json({
       error: 'Gemini API rate limit. Vui lòng thử lại sau 1 phút.',
       detail: lastError,
@@ -100,4 +76,3 @@ ${text}`;
     return res.status(500).json({ error: err.message });
   }
 }
-// deploy trigger
