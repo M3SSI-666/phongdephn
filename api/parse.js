@@ -38,37 +38,60 @@ Chỉ trả về JSON, không giải thích. Đây là tin nhắn:
 
 ${text}`;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 1024,
-            responseMimeType: 'application/json',
-          },
-        }),
+    // Try models in order: gemini-2.0-flash, then gemini-1.5-flash as fallback
+    const models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+    let lastError = null;
+
+    for (const model of models) {
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature: 0.1,
+                maxOutputTokens: 1024,
+                responseMimeType: 'application/json',
+              },
+            }),
+          }
+        );
+
+        if (response.status === 429) {
+          lastError = `Rate limit on ${model}`;
+          continue; // Try next model
+        }
+
+        if (!response.ok) {
+          const errText = await response.text();
+          lastError = `${model} error: ${errText}`;
+          continue; // Try next model
+        }
+
+        const data = await response.json();
+        const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+          return res.status(500).json({ error: 'parse_fail', raw: content });
+        }
+
+        const parsed = JSON.parse(jsonMatch[0]);
+        return res.status(200).json(parsed);
+      } catch (modelErr) {
+        lastError = `${model}: ${modelErr.message}`;
+        continue;
       }
-    );
-
-    if (!response.ok) {
-      const errText = await response.text();
-      return res.status(500).json({ error: 'gemini_error', detail: errText });
     }
 
-    const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return res.status(500).json({ error: 'parse_fail', raw: content });
-    }
-
-    const parsed = JSON.parse(jsonMatch[0]);
-    return res.status(200).json(parsed);
+    // All models failed
+    return res.status(429).json({
+      error: 'Gemini API rate limit. Vui lòng thử lại sau 1 phút.',
+      detail: lastError,
+    });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
