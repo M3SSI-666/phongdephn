@@ -38,12 +38,10 @@ Chỉ trả về JSON, không giải thích. Đây là tin nhắn:
 
 ${text}`;
 
-    // Try models in order of preference; quota is per-model so fallbacks help
+    // gemini-2.5-flash works on free tier; older models have limit: 0
     const models = [
+      'gemini-2.5-flash',
       'gemini-2.0-flash',
-      'gemini-2.0-flash-lite',
-      'gemini-1.5-flash',
-      'gemini-1.5-flash-8b',
     ];
     let lastError = null;
 
