@@ -12,7 +12,16 @@ export default async function handler(req, res) {
   const PRIVATE_KEY = rawKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n');
 
   if (!SHEET_ID || !SERVICE_EMAIL || !PRIVATE_KEY) {
-    return res.status(500).json({ error: 'Google Sheets not configured' });
+    return res.status(500).json({
+      error: 'Google Sheets not configured',
+      debug: {
+        hasSheetId: !!SHEET_ID,
+        hasEmail: !!SERVICE_EMAIL,
+        hasKey: !!PRIVATE_KEY,
+        keyStart: rawKey.substring(0, 30),
+        keyLength: rawKey.length,
+      }
+    });
   }
 
   try {
@@ -60,7 +69,7 @@ export default async function handler(req, res) {
     res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate');
     return res.status(200).json(rooms);
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message, stack: err.stack?.split('\n').slice(0,3) });
   }
 }
 
@@ -88,7 +97,7 @@ async function getAccessToken(email, privateKey) {
 
   const tokenData = await tokenRes.json();
   if (!tokenData.access_token) {
-    throw new Error('Failed to get access token');
+    throw new Error('Failed to get access token: ' + JSON.stringify(tokenData));
   }
   return tokenData.access_token;
 }
