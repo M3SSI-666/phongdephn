@@ -19,7 +19,7 @@ export default async function handler(req, res) {
 
 Rules:
 - quan_huyen: one of Ba Đình,Bắc Từ Liêm,Cầu Giấy,Đống Đa,Hà Đông,Hai Bà Trưng,Hoàn Kiếm,Hoàng Mai,Long Biên,Nam Từ Liêm,Tây Hồ,Thanh Xuân,Ba Vì,Chương Mỹ,Đan Phượng,Đông Anh,Gia Lâm,Hoài Đức,Mê Linh,Mỹ Đức,Phú Xuyên,Phúc Thọ,Quốc Oai,Sóc Sơn,Sơn Tây,Thạch Thất,Thanh Oai,Thanh Trì,Thường Tín,Ứng Hòa
-- khu_vuc: extract street/neighborhood name from address using Hanoi geography (e.g. "Ngõ 158 Ngọc Hà"→"Ngọc Hà", "Kim Mã"→"Kim Mã", "Khương Trung"→"Khương Trung")
+- khu_vuc: MUST be the phường/xã (ward) name where the address is located, NOT the street name. Use your knowledge of Hanoi geography to determine the correct ward. Examples: "244 Trịnh Đình Cửu, Hoàng Mai"→"Định Công" (because Trịnh Đình Cửu street is in Định Công ward), "Ngõ 158 Ngọc Hà, Ba Đình"→"Ngọc Hà" (Ngọc Hà is both street and ward), "55 Kim Mã, Ba Đình"→"Kim Mã" (Kim Mã is both street and ward), "Khương Trung, Thanh Xuân"→"Khương Trung", "Giải Phóng, Hoàng Mai"→"Giáp Bát" or "Phương Liệt" depending on exact number. If you cannot determine the ward, use the most prominent neighborhood/area name near the address. NEVER just copy the street name - always resolve to the actual phường/xã
 - dia_chi: full specific address
 - gia: price in VND (4tr5=4500000)
 - loai_phong: Phòng trọ/CCMN/Studio/Chung cư/Homestay
