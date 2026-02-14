@@ -904,19 +904,26 @@ function WebsitePreview({ data, images, videos }) {
           style={{
             display: 'flex',
             gap: 12,
-            fontSize: 12,
+            fontSize: 11,
             color: C.textMuted,
-            marginBottom: 8,
+            marginBottom: 6,
           }}
         >
-          {data.gia_dien && <span>Điện: {data.gia_dien}</span>}
-          {data.gia_nuoc && <span>Nước: {data.gia_nuoc}</span>}
-          {data.gia_internet && <span>Internet: {data.gia_internet}</span>}
+          <span>Điện: {data.gia_dien || '-'}</span>
+          <span>|</span>
+          <span>Nước: {data.gia_nuoc || '-'}</span>
+          <span>|</span>
+          <span>Net: {data.gia_internet || '-'}</span>
         </div>
+        {data.dich_vu_chung && (
+          <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 6 }}>
+            DV chung: {data.dich_vu_chung}
+          </div>
+        )}
         {data.noi_that && (
           <div
             style={{
-              fontSize: 12,
+              fontSize: 11,
               color: C.textMuted,
               marginBottom: 4,
               lineHeight: 1.5,
@@ -928,14 +935,17 @@ function WebsitePreview({ data, images, videos }) {
         {data.ghi_chu && (
           <div
             style={{
-              fontSize: 12,
+              fontSize: 11,
               color: C.textMuted,
               lineHeight: 1.5,
-              paddingTop: 8,
+              paddingTop: 6,
               borderTop: `1px solid ${C.border}`,
             }}
           >
-            {data.ghi_chu}
+            {data.ghi_chu.split(',').map((item, i) => {
+              const t = item.trim();
+              return t ? <div key={i}>• {t}</div> : null;
+            })}
           </div>
         )}
       </div>

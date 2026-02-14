@@ -49,14 +49,12 @@ export const formatVND = (v) => {
   if (!v) return '';
   const num = Number(v);
   if (isNaN(num)) return v;
-  if (num >= 1000000) return (num / 1000000).toFixed(1).replace('.0', '') + ' tr';
-  if (num >= 1000) return (num / 1000).toFixed(0) + 'k';
-  return num.toString();
+  return num.toLocaleString('vi-VN') + ' đ';
 };
 
 export const formatVNDFull = (v) => {
   if (!v) return '';
   const num = Number(v);
   if (isNaN(num)) return v;
-  return num.toLocaleString('vi-VN') + 'đ';
+  return num.toLocaleString('vi-VN') + ' đ';
 };

@@ -216,12 +216,13 @@ function RoomCard({ room }) {
           {room.quan_huyen ? `, ${room.quan_huyen}` : ''}
         </div>
         <div style={s.cardMeta}>
-          {room.gia_dien && <span>Điện: {room.gia_dien}</span>}
-          {room.gia_nuoc && <span>Nước: {room.gia_nuoc}</span>}
+          <span>Điện: {room.gia_dien || '-'}</span>
+          <span>Nước: {room.gia_nuoc || '-'}</span>
+          <span>Net: {room.gia_internet || '-'}</span>
         </div>
         {room.id && (
           <div style={{ fontSize: 10, color: C.textDim, marginTop: 4 }}>
-            ID: {room.id}
+            {room.id}
           </div>
         )}
       </div>

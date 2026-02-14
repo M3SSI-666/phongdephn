@@ -131,38 +131,28 @@ export default function RoomDetail() {
                 </div>
               )}
 
-              {/* Specs */}
-              <div style={s.specsGrid}>
-                {room.gia_dien && (
-                  <div style={s.specItem}>
-                    <div style={s.specLabel}>Giá điện</div>
-                    <div style={s.specValue}>{room.gia_dien}</div>
-                  </div>
-                )}
-                {room.gia_nuoc && (
-                  <div style={s.specItem}>
-                    <div style={s.specLabel}>Giá nước</div>
-                    <div style={s.specValue}>{room.gia_nuoc}</div>
-                  </div>
-                )}
-                {room.gia_internet && (
-                  <div style={s.specItem}>
-                    <div style={s.specLabel}>Internet</div>
-                    <div style={s.specValue}>{room.gia_internet}</div>
-                  </div>
-                )}
-                {room.dich_vu_chung && (
-                  <div style={s.specItem}>
-                    <div style={s.specLabel}>Dịch vụ chung</div>
-                    <div style={s.specValue}>{room.dich_vu_chung}</div>
-                  </div>
-                )}
-                {room.so_phong && (
-                  <div style={s.specItem}>
-                    <div style={s.specLabel}>Số phòng</div>
-                    <div style={s.specValue}>{room.so_phong}</div>
-                  </div>
-                )}
+              {/* Chi phí điện / nước / internet - 1 dòng */}
+              <div style={s.utilityRow}>
+                <div style={s.utilityItem}>
+                  <span style={s.utilityLabel}>Điện</span>
+                  <span style={s.utilityValue}>{room.gia_dien || '-'}</span>
+                </div>
+                <div style={s.utilityDivider} />
+                <div style={s.utilityItem}>
+                  <span style={s.utilityLabel}>Nước</span>
+                  <span style={s.utilityValue}>{room.gia_nuoc || '-'}</span>
+                </div>
+                <div style={s.utilityDivider} />
+                <div style={s.utilityItem}>
+                  <span style={s.utilityLabel}>Internet</span>
+                  <span style={s.utilityValue}>{room.gia_internet || '-'}</span>
+                </div>
+              </div>
+
+              {/* Dịch vụ chung - dòng riêng */}
+              <div style={s.serviceSection}>
+                <h3 style={s.sectionTitle}>Phí dịch vụ chung</h3>
+                <p style={s.sectionText}>{room.dich_vu_chung || '-'}</p>
               </div>
 
               {room.noi_that && (
@@ -175,7 +165,12 @@ export default function RoomDetail() {
               {room.ghi_chu && (
                 <div style={s.section}>
                   <h3 style={s.sectionTitle}>Ghi chú</h3>
-                  <p style={s.sectionText}>{room.ghi_chu}</p>
+                  <ul style={s.noteList}>
+                    {room.ghi_chu.split(',').map((item, i) => {
+                      const trimmed = item.trim();
+                      return trimmed ? <li key={i} style={s.noteItem}>{trimmed}</li> : null;
+                    })}
+                  </ul>
                 </div>
               )}
             </div>
@@ -343,22 +338,35 @@ const s = {
   },
   title: { fontSize: 20, fontWeight: 800, color: C.white, marginBottom: 8, lineHeight: 1.3 },
   price: { fontSize: 26, fontWeight: 900, color: C.primary, marginBottom: 20 },
-  specsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-    gap: 12,
-    marginBottom: 20,
-    paddingBottom: 20,
-    borderBottom: `1px solid ${C.border}`,
-  },
-  specItem: {
+  utilityRow: {
+    display: 'flex',
+    alignItems: 'center',
     background: C.bg,
     borderRadius: 8,
-    padding: '10px 14px',
     border: `1px solid ${C.border}`,
+    padding: '12px 0',
+    marginBottom: 16,
   },
-  specLabel: { fontSize: 11, color: C.textMuted, fontWeight: 600, marginBottom: 2 },
-  specValue: { fontSize: 14, fontWeight: 700, color: C.text },
+  utilityItem: {
+    flex: 1,
+    textAlign: 'center',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+  },
+  utilityLabel: { fontSize: 11, color: C.textMuted, fontWeight: 600 },
+  utilityValue: { fontSize: 13, fontWeight: 700, color: C.text },
+  utilityDivider: {
+    width: 1,
+    height: 28,
+    background: C.border,
+    flexShrink: 0,
+  },
+  serviceSection: {
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottom: `1px solid ${C.border}`,
+  },
   section: { marginBottom: 16 },
   sectionTitle: {
     fontSize: 14,
@@ -367,6 +375,16 @@ const s = {
     marginBottom: 6,
   },
   sectionText: { fontSize: 13, color: C.textMuted, lineHeight: 1.6 },
+  noteList: {
+    margin: 0,
+    paddingLeft: 18,
+    listStyleType: 'disc',
+  },
+  noteItem: {
+    fontSize: 13,
+    color: C.textMuted,
+    lineHeight: 1.8,
+  },
   contactCard: {
     background: C.bgCard,
     borderRadius: 12,
