@@ -24,10 +24,12 @@ Rules:
 - gia: price in VND (4tr5=4500000)
 - loai_phong: Phòng trọ/CCMN/Studio/Chung cư/Homestay
 - so_phong: room number if mentioned (e.g. "P401"→"401"), empty if not found
-- gia_dien/gia_nuoc/gia_internet: as text, empty if not mentioned
-- dich_vu_chung: common service fee if mentioned
-- noi_that: list of furnishings
-- ghi_chu: aggregate ALL remaining info here: khép kín (yes/no), diện tích (m2), xe điện, pet, hoa hồng/commission, mã toà nhà, and any other details
+- gia_dien: MUST write full VND format with dot separators. Convert abbreviations: "4k"→"4.000 đ/số", "3k5"→"3.500 đ/số", "4000đ"→"4.000 đ/số". Always include unit like "đ/số" or "đ/người". Example: "4.000 đ/số". Empty if not mentioned.
+- gia_nuoc: MUST write full VND format. Convert: "100k"→"100.000 đ/người", "80k/người"→"80.000 đ/người", "30k/số"→"30.000 đ/số". Always include unit. Example: "100.000 đ/người". Empty if not mentioned.
+- gia_internet: MUST write full VND format. Convert: "50k"→"50.000 đ/người", "100k/phòng"→"100.000 đ/phòng". If free, write "Miễn phí". Example: "50.000 đ/phòng". Empty if not mentioned.
+- dich_vu_chung: Format MUST be: price first, then parentheses listing included services. Convert price to full VND. Example: "200.000 đ (Vệ sinh, Thang máy, Điện hành lang)" or "150.000 đ (Vệ sinh, An ninh, Rác)". If no price found but services mentioned, just list services. Empty if not mentioned.
+- noi_that: List ALL furnishings/equipment. Include shared amenities like máy giặt chung, máy sấy miễn phí, máy giặt. If original says "như hình" or "nội thất như hình", write "Nội thất như hình ảnh mô tả". Combine all furniture items into one string.
+- ghi_chu: ONLY include info that TENANTS would care about. List POSITIVE things first, then NEGATIVE things. Positives examples: Giờ giấc tự do, Không chung chủ, Cho nuôi pet, Nhận xe điện, Nhận khách nước ngoài, Khóa vân tay, WC khép kín, Ban công. Negatives examples: Không nuôi pet, Không nhận khách nước ngoài, Chung chủ, Giờ giấc. DO NOT include: diện tích, hoa hồng, mã toà nhà, commission - these are NOT relevant to tenants. Keep concise, comma-separated.
 - confidence: high/medium/low
 
 Message: ${text}`;

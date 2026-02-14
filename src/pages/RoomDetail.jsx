@@ -23,8 +23,8 @@ export default function RoomDetail() {
   if (!room) return <div style={s.loading}>Không tìm thấy phòng</div>;
 
   const allMedia = [
-    ...(room.images || []).map((u) => ({ type: 'image', url: u })),
     ...(room.videos || []).map((u) => ({ type: 'video', url: u })),
+    ...(room.images || []).map((u) => ({ type: 'image', url: u })),
   ];
 
   const zaloLink = `https://zalo.me/0961685136`;

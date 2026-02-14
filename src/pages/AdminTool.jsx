@@ -760,8 +760,8 @@ function ConfBadge({ level }) {
 function WebsitePreview({ data, images, videos }) {
   const [activeImg, setActiveImg] = useState(0);
   const allMedia = [
-    ...(images || []).map((u) => ({ type: 'image', url: u })),
     ...(videos || []).map((u) => ({ type: 'video', url: u })),
+    ...(images || []).map((u) => ({ type: 'image', url: u })),
   ];
 
   return (
