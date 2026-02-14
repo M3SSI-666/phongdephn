@@ -9,6 +9,7 @@ import {
 
 export default function AdminTool() {
   const [rawText, setRawText] = useState('');
+  const [nguonPhong, setNguonPhong] = useState('');
   const [images, setImages] = useState([]);
   const [videos, setVideos] = useState([]);
   const [phase, setPhase] = useState('input'); // input | processing | review | done
@@ -98,12 +99,15 @@ export default function AdminTool() {
         ...parsedData,
         images: mediaUrls.images,
         videos: mediaUrls.videos,
-        ngay_dang: new Date().toISOString(),
+        nguon_phong: nguonPhong,
+        thong_tin_raw: rawText,
+        ngay_input: new Date().toISOString(),
       });
       setPhase('done');
       setTimeout(() => {
         setPhase('input');
         setRawText('');
+        setNguonPhong('');
         setImages([]);
         setVideos([]);
         setParsedData(null);
@@ -117,6 +121,7 @@ export default function AdminTool() {
   const handleReset = () => {
     setPhase('input');
     setRawText('');
+    setNguonPhong('');
     setImages([]);
     setVideos([]);
     setParsedData(null);
@@ -184,6 +189,24 @@ export default function AdminTool() {
                   disabled={phase === 'processing'}
                 />
                 {rawText && <div style={st.charCount}>{rawText.length} ký tự</div>}
+              </div>
+
+              {/* NGUON PHONG */}
+              <div style={st.inputZone}>
+                <div style={st.zoneHeader}>
+                  <div style={st.zoneIcon('text')}>N</div>
+                  <div>
+                    <div style={st.zoneTitle}>Nguồn phòng</div>
+                    <div style={st.zoneDesc}>VD: ZL (Zalo), FB (Facebook), TT (TikTok)...</div>
+                  </div>
+                </div>
+                <input
+                  style={{ ...st.formInput, background: C.bgInput }}
+                  placeholder="VD: ZL, FB, TT..."
+                  value={nguonPhong}
+                  onChange={(e) => setNguonPhong(e.target.value)}
+                  disabled={phase === 'processing'}
+                />
               </div>
 
               {/* IMAGES */}
@@ -545,31 +568,15 @@ function ReviewForm({ data, onChange }) {
 
   return (
     <div style={st.formGrid}>
-      <div>
-        <label style={st.formLabel}>Mã toà nhà</label>
-        <input
-          style={st.formInput}
-          value={data.ma_toa || ''}
-          onChange={(e) => update('ma_toa', e.target.value)}
-        />
-      </div>
-      <div>
-        <label style={st.formLabel}>Địa chỉ</label>
-        <input
-          style={st.formInput}
-          value={data.dia_chi || ''}
-          onChange={(e) => update('dia_chi', e.target.value)}
-        />
-      </div>
       <div style={st.formRow}>
         <div style={{ flex: 1 }}>
           <label style={st.formLabel}>
-            Quận <ConfBadge level={conf.quan} />
+            Quận/Huyện <ConfBadge level={conf.quan_huyen} />
           </label>
           <select
-            style={fi('quan')}
-            value={data.quan || ''}
-            onChange={(e) => update('quan', e.target.value)}
+            style={fi('quan_huyen')}
+            value={data.quan_huyen || ''}
+            onChange={(e) => update('quan_huyen', e.target.value)}
           >
             <option value="">-- Chọn --</option>
             {QUAN_LIST.map((q) => (
@@ -580,13 +587,23 @@ function ReviewForm({ data, onChange }) {
           </select>
         </div>
         <div style={{ flex: 1 }}>
-          <label style={st.formLabel}>Khu vực</label>
+          <label style={st.formLabel}>
+            Khu vực <ConfBadge level={conf.khu_vuc} />
+          </label>
           <input
-            style={st.formInput}
+            style={fi('khu_vuc')}
             value={data.khu_vuc || ''}
             onChange={(e) => update('khu_vuc', e.target.value)}
           />
         </div>
+      </div>
+      <div>
+        <label style={st.formLabel}>Địa chỉ</label>
+        <input
+          style={st.formInput}
+          value={data.dia_chi || ''}
+          onChange={(e) => update('dia_chi', e.target.value)}
+        />
       </div>
       <div style={st.formRow}>
         <div style={{ flex: 1 }}>
@@ -602,105 +619,64 @@ function ReviewForm({ data, onChange }) {
         </div>
         <div style={{ flex: 1 }}>
           <label style={st.formLabel}>
-            Diện tích (m2) <ConfBadge level={conf.dien_tich} />
+            Loại phòng <ConfBadge level={conf.loai_phong} />
           </label>
-          <input
-            style={fi('dien_tich')}
-            type="number"
-            value={data.dien_tich || ''}
-            onChange={(e) => update('dien_tich', Number(e.target.value))}
-          />
+          <select
+            style={fi('loai_phong')}
+            value={data.loai_phong || ''}
+            onChange={(e) => update('loai_phong', e.target.value)}
+          >
+            <option value="">-- Chọn --</option>
+            {LOAI_PHONG.map((l) => (
+              <option key={l} value={l}>
+                {l}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
       <div>
-        <label style={st.formLabel}>
-          Loại phòng <ConfBadge level={conf.loai_phong} />
-        </label>
-        <select
-          style={fi('loai_phong')}
-          value={data.loai_phong || ''}
-          onChange={(e) => update('loai_phong', e.target.value)}
-        >
-          <option value="">-- Chọn --</option>
-          {LOAI_PHONG.map((l) => (
-            <option key={l} value={l}>
-              {l}
-            </option>
-          ))}
-        </select>
+        <label style={st.formLabel}>Số phòng</label>
+        <input
+          style={st.formInput}
+          value={data.so_phong || ''}
+          onChange={(e) => update('so_phong', e.target.value)}
+          placeholder="VD: 401, 301..."
+        />
       </div>
-
-      {/* Toggles */}
-      <div style={{ display: 'flex', gap: 16, padding: '8px 0' }}>
-        {[
-          ['WC Khép kín', 'khep_kin'],
-          ['Xe điện', 'xe_dien'],
-          ['Nuôi Pet', 'pet'],
-        ].map(([label, key]) => (
-          <div
-            key={key}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-            onClick={() => update(key, !data[key])}
-          >
-            <div
-              style={{
-                width: 38,
-                height: 20,
-                borderRadius: 10,
-                background: data[key] ? C.primary : C.border,
-                position: 'relative',
-                transition: 'background 0.2s',
-              }}
-            >
-              <div
-                style={{
-                  width: 16,
-                  height: 16,
-                  borderRadius: '50%',
-                  background: '#fff',
-                  position: 'absolute',
-                  top: 2,
-                  left: data[key] ? 20 : 2,
-                  transition: 'left 0.2s',
-                }}
-              />
-            </div>
-            <span style={{ fontSize: 13, color: C.text }}>{label}</span>
-          </div>
-        ))}
-      </div>
-
       <div style={st.formRow}>
         <div style={{ flex: 1 }}>
-          <label style={st.formLabel}>Điện</label>
+          <label style={st.formLabel}>Giá điện</label>
           <input
             style={st.formInput}
-            value={data.dien || ''}
-            onChange={(e) => update('dien', e.target.value)}
+            value={data.gia_dien || ''}
+            onChange={(e) => update('gia_dien', e.target.value)}
           />
         </div>
         <div style={{ flex: 1 }}>
-          <label style={st.formLabel}>Nước</label>
+          <label style={st.formLabel}>Giá nước</label>
           <input
             style={st.formInput}
-            value={data.nuoc || ''}
-            onChange={(e) => update('nuoc', e.target.value)}
+            value={data.gia_nuoc || ''}
+            onChange={(e) => update('gia_nuoc', e.target.value)}
           />
         </div>
         <div style={{ flex: 1 }}>
           <label style={st.formLabel}>Internet</label>
           <input
             style={st.formInput}
-            value={data.internet || ''}
-            onChange={(e) => update('internet', e.target.value)}
+            value={data.gia_internet || ''}
+            onChange={(e) => update('gia_internet', e.target.value)}
           />
         </div>
+      </div>
+      <div>
+        <label style={st.formLabel}>Dịch vụ chung</label>
+        <input
+          style={st.formInput}
+          value={data.dich_vu_chung || ''}
+          onChange={(e) => update('dich_vu_chung', e.target.value)}
+        />
       </div>
       <div>
         <label style={st.formLabel}>Nội thất</label>
@@ -711,19 +687,12 @@ function ReviewForm({ data, onChange }) {
         />
       </div>
       <div>
-        <label style={st.formLabel}>Mô tả</label>
+        <label style={st.formLabel}>Ghi chú</label>
         <textarea
-          style={{ ...st.formInput, height: 56, resize: 'vertical' }}
-          value={data.mo_ta || ''}
-          onChange={(e) => update('mo_ta', e.target.value)}
-        />
-      </div>
-      <div>
-        <label style={st.formLabel}>Hoa hồng CTV</label>
-        <input
-          style={st.formInput}
-          value={data.hoa_hong || ''}
-          onChange={(e) => update('hoa_hong', e.target.value)}
+          style={{ ...st.formInput, height: 72, resize: 'vertical' }}
+          value={data.ghi_chu || ''}
+          onChange={(e) => update('ghi_chu', e.target.value)}
+          placeholder="Khép kín, diện tích, xe điện, pet, hoa hồng..."
         />
       </div>
 
@@ -914,10 +883,8 @@ function WebsitePreview({ data, images, videos }) {
       <div style={{ padding: 16 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
           {data.loai_phong && <span style={st.tag}>{data.loai_phong}</span>}
-          {data.quan && <span style={st.tag}>{data.quan}</span>}
-          {data.khep_kin && <span style={st.tagGreen}>Khép kín</span>}
-          {data.pet && <span style={st.tagGreen}>Pet OK</span>}
-          {data.xe_dien && <span style={st.tagGreen}>Xe điện</span>}
+          {data.quan_huyen && <span style={st.tag}>{data.quan_huyen}</span>}
+          {data.khu_vuc && <span style={st.tag}>{data.khu_vuc}</span>}
         </div>
         <div
           style={{
@@ -931,7 +898,7 @@ function WebsitePreview({ data, images, videos }) {
         </div>
         <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 8 }}>
           {data.dia_chi}
-          {data.quan ? `, ${data.quan}` : ''}
+          {data.quan_huyen ? `, ${data.quan_huyen}` : ''}
         </div>
         <div
           style={{
@@ -942,9 +909,9 @@ function WebsitePreview({ data, images, videos }) {
             marginBottom: 8,
           }}
         >
-          {data.dien_tich && <span>{data.dien_tich}m2</span>}
-          {data.dien && <span>Điện: {data.dien}</span>}
-          {data.nuoc && <span>Nước: {data.nuoc}</span>}
+          {data.gia_dien && <span>Điện: {data.gia_dien}</span>}
+          {data.gia_nuoc && <span>Nước: {data.gia_nuoc}</span>}
+          {data.gia_internet && <span>Internet: {data.gia_internet}</span>}
         </div>
         {data.noi_that && (
           <div
@@ -958,18 +925,17 @@ function WebsitePreview({ data, images, videos }) {
             Nội thất: {data.noi_that}
           </div>
         )}
-        {data.mo_ta && (
+        {data.ghi_chu && (
           <div
             style={{
               fontSize: 12,
               color: C.textMuted,
-              fontStyle: 'italic',
               lineHeight: 1.5,
               paddingTop: 8,
               borderTop: `1px solid ${C.border}`,
             }}
           >
-            {data.mo_ta}
+            {data.ghi_chu}
           </div>
         )}
       </div>

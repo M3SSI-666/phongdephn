@@ -26,7 +26,7 @@ export default async function handler(req, res) {
 
     const token = await getAccessToken(SERVICE_EMAIL, PRIVATE_KEY);
 
-    const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Sheet1!A:U`;
+    const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Sheet1!A:S`;
     const readRes = await fetch(readUrl, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -39,31 +39,30 @@ export default async function handler(req, res) {
     const sheetData = await readRes.json();
     const rows = sheetData.values || [];
 
+    // 19 columns A-S
     const rooms = rows.slice(1).map((row) => ({
       id: row[0] || '',
-      ma_toa: row[1] || '',
-      dia_chi: row[2] || '',
-      quan: row[3] || '',
-      khu_vuc: row[4] || '',
-      gia: Number(row[5]) || 0,
-      dien_tich: Number(row[6]) || 0,
-      loai_phong: row[7] || '',
-      khep_kin: row[8] === 'TRUE',
-      xe_dien: row[9] === 'TRUE',
-      pet: row[10] === 'TRUE',
-      dien: row[11] || '',
-      nuoc: row[12] || '',
-      internet: row[13] || '',
-      noi_that: row[14] || '',
-      mo_ta: row[15] || '',
-      hoa_hong: row[16] || '',
-      images: (row[17] || '').split(', ').filter(Boolean),
-      videos: (row[18] || '').split(', ').filter(Boolean),
-      ngay_dang: row[19] || '',
-      trang_thai: row[20] || 'available',
-    })).filter((r) => r.trang_thai === 'available');
+      quan_huyen: row[1] || '',
+      khu_vuc: row[2] || '',
+      dia_chi: row[3] || '',
+      gia: Number(row[4]) || 0,
+      loai_phong: row[5] || '',
+      so_phong: row[6] || '',
+      trang_thai: row[7] || 'Còn',
+      nguon_phong: row[8] || '',
+      images: (row[9] || '').split(', ').filter(Boolean),
+      videos: (row[10] || '').split(', ').filter(Boolean),
+      gia_dien: row[11] || '',
+      gia_nuoc: row[12] || '',
+      gia_internet: row[13] || '',
+      dich_vu_chung: row[14] || '',
+      noi_that: row[15] || '',
+      ghi_chu: row[16] || '',
+      ngay_input: row[17] || '',
+      thong_tin_raw: row[18] || '',
+    })).filter((r) => r.trang_thai === 'Còn');
 
-    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate');
+    res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
     return res.status(200).json(rooms);
   } catch (err) {
     return res.status(500).json({ error: err.message });

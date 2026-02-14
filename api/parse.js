@@ -15,8 +15,21 @@ export default async function handler(req, res) {
     }
 
     const prompt = `Extract room rental info from this Vietnamese Zalo message. Return ONLY a single-line compact JSON with these exact fields:
-{"ma_toa":"","dia_chi":"","quan":"","khu_vuc":"","gia":0,"dien_tich":0,"loai_phong":"","khep_kin":false,"xe_dien":false,"pet":false,"dien":"","nuoc":"","internet":"","noi_that":"","mo_ta":"","hoa_hong":"","confidence":{"quan":"low","gia":"low","loai_phong":"low","dien_tich":"low"}}
-Rules: quan must be one of: Đống Đa,Cầu Giấy,Nam Từ Liêm,Bắc Từ Liêm,Thanh Xuân,Hai Bà Trưng,Hoàng Mai,Hà Đông,Tây Hồ,Ba Đình,Hoàn Kiếm,Long Biên. gia in VND (4tr5=4500000). loai_phong: Phòng trọ/CCMN/Studio/Chung cư/Homestay. confidence: high/medium/low.
+{"quan_huyen":"","khu_vuc":"","dia_chi":"","gia":0,"loai_phong":"","so_phong":"","gia_dien":"","gia_nuoc":"","gia_internet":"","dich_vu_chung":"","noi_that":"","ghi_chu":"","confidence":{"quan_huyen":"low","gia":"low","loai_phong":"low","khu_vuc":"low"}}
+
+Rules:
+- quan_huyen: one of Ba Đình,Bắc Từ Liêm,Cầu Giấy,Đống Đa,Hà Đông,Hai Bà Trưng,Hoàn Kiếm,Hoàng Mai,Long Biên,Nam Từ Liêm,Tây Hồ,Thanh Xuân,Ba Vì,Chương Mỹ,Đan Phượng,Đông Anh,Gia Lâm,Hoài Đức,Mê Linh,Mỹ Đức,Phú Xuyên,Phúc Thọ,Quốc Oai,Sóc Sơn,Sơn Tây,Thạch Thất,Thanh Oai,Thanh Trì,Thường Tín,Ứng Hòa
+- khu_vuc: extract street/neighborhood name from address using Hanoi geography (e.g. "Ngõ 158 Ngọc Hà"→"Ngọc Hà", "Kim Mã"→"Kim Mã", "Khương Trung"→"Khương Trung")
+- dia_chi: full specific address
+- gia: price in VND (4tr5=4500000)
+- loai_phong: Phòng trọ/CCMN/Studio/Chung cư/Homestay
+- so_phong: room number if mentioned (e.g. "P401"→"401"), empty if not found
+- gia_dien/gia_nuoc/gia_internet: as text, empty if not mentioned
+- dich_vu_chung: common service fee if mentioned
+- noi_that: list of furnishings
+- ghi_chu: aggregate ALL remaining info here: khép kín (yes/no), diện tích (m2), xe điện, pet, hoa hồng/commission, mã toà nhà, and any other details
+- confidence: high/medium/low
+
 Message: ${text}`;
 
     const response = await fetch(
@@ -47,7 +60,6 @@ Message: ${text}`;
     const data = await response.json();
     const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-    // Find JSON object in response
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       return res.status(500).json({ error: 'parse_fail', raw: content.substring(0, 500) });
@@ -59,4 +71,3 @@ Message: ${text}`;
     return res.status(500).json({ error: err.message });
   }
 }
-

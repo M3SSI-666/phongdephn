@@ -20,11 +20,28 @@ export const C = {
   purple: '#9333EA',
 };
 
+// 12 Quận + 18 Huyện/Thị xã Hà Nội
 export const QUAN_LIST = [
-  'Đống Đa', 'Cầu Giấy', 'Nam Từ Liêm', 'Bắc Từ Liêm',
-  'Thanh Xuân', 'Hai Bà Trưng', 'Hoàng Mai', 'Hà Đông',
-  'Tây Hồ', 'Ba Đình', 'Hoàn Kiếm', 'Long Biên',
+  'Ba Đình', 'Bắc Từ Liêm', 'Cầu Giấy', 'Đống Đa',
+  'Hà Đông', 'Hai Bà Trưng', 'Hoàn Kiếm', 'Hoàng Mai',
+  'Long Biên', 'Nam Từ Liêm', 'Tây Hồ', 'Thanh Xuân',
+  'Ba Vì', 'Chương Mỹ', 'Đan Phượng', 'Đông Anh',
+  'Gia Lâm', 'Hoài Đức', 'Mê Linh', 'Mỹ Đức',
+  'Phú Xuyên', 'Phúc Thọ', 'Quốc Oai', 'Sóc Sơn',
+  'Sơn Tây', 'Thạch Thất', 'Thanh Oai', 'Thanh Trì',
+  'Thường Tín', 'Ứng Hòa',
 ];
+
+export const QUAN_VIETTAT = {
+  'Ba Đình': 'BD', 'Bắc Từ Liêm': 'BTL', 'Cầu Giấy': 'CG', 'Đống Đa': 'DD',
+  'Hà Đông': 'HD', 'Hai Bà Trưng': 'HBT', 'Hoàn Kiếm': 'HK', 'Hoàng Mai': 'HM',
+  'Long Biên': 'LB', 'Nam Từ Liêm': 'NTL', 'Tây Hồ': 'TH', 'Thanh Xuân': 'TX',
+  'Ba Vì': 'BV', 'Chương Mỹ': 'CM', 'Đan Phượng': 'DP', 'Đông Anh': 'DA',
+  'Gia Lâm': 'GL', 'Hoài Đức': 'HoD', 'Mê Linh': 'ML', 'Mỹ Đức': 'MD',
+  'Phú Xuyên': 'PX', 'Phúc Thọ': 'PT', 'Quốc Oai': 'QO', 'Sóc Sơn': 'SS',
+  'Sơn Tây': 'ST', 'Thạch Thất': 'TT', 'Thanh Oai': 'TO', 'Thanh Trì': 'TTr',
+  'Thường Tín': 'TTi', 'Ứng Hòa': 'UH',
+};
 
 export const LOAI_PHONG = ['Phòng trọ', 'CCMN', 'Studio', 'Chung cư', 'Homestay'];
 

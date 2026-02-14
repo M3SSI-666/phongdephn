@@ -16,12 +16,9 @@ export default function RoomList() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
-    quan: '',
+    quan_huyen: '',
     loai_phong: '',
     priceRange: 0,
-    khep_kin: false,
-    pet: false,
-    xe_dien: false,
     search: '',
   });
 
@@ -35,15 +32,12 @@ export default function RoomList() {
   const filtered = useMemo(() => {
     const range = PRICE_RANGES[filters.priceRange];
     return rooms.filter((r) => {
-      if (filters.quan && r.quan !== filters.quan) return false;
+      if (filters.quan_huyen && r.quan_huyen !== filters.quan_huyen) return false;
       if (filters.loai_phong && r.loai_phong !== filters.loai_phong) return false;
       if (r.gia < range.min || r.gia > range.max) return false;
-      if (filters.khep_kin && !r.khep_kin) return false;
-      if (filters.pet && !r.pet) return false;
-      if (filters.xe_dien && !r.xe_dien) return false;
       if (filters.search) {
         const q = filters.search.toLowerCase();
-        const haystack = `${r.dia_chi} ${r.quan} ${r.khu_vuc} ${r.mo_ta} ${r.noi_that}`.toLowerCase();
+        const haystack = `${r.dia_chi} ${r.quan_huyen} ${r.khu_vuc} ${r.noi_that} ${r.ghi_chu}`.toLowerCase();
         if (!haystack.includes(q)) return false;
       }
       return true;
@@ -93,13 +87,13 @@ export default function RoomList() {
             <h3 style={s.filterTitle}>Bộ lọc</h3>
 
             <div style={s.filterGroup}>
-              <label style={s.filterLabel}>Quận</label>
+              <label style={s.filterLabel}>Quận/Huyện</label>
               <select
                 style={s.filterSelect}
-                value={filters.quan}
-                onChange={(e) => updateFilter('quan', e.target.value)}
+                value={filters.quan_huyen}
+                onChange={(e) => updateFilter('quan_huyen', e.target.value)}
               >
-                <option value="">Tất cả quận</option>
+                <option value="">Tất cả</option>
                 {QUAN_LIST.map((q) => (
                   <option key={q} value={q}>
                     {q}
@@ -138,36 +132,13 @@ export default function RoomList() {
               ))}
             </div>
 
-            <div style={s.filterGroup}>
-              <label style={s.filterLabel}>Tiện ích</label>
-              {[
-                ['Khép kín', 'khep_kin'],
-                ['Nuôi Pet', 'pet'],
-                ['Sạc xe điện', 'xe_dien'],
-              ].map(([label, key]) => (
-                <div
-                  key={key}
-                  style={s.checkItem}
-                  onClick={() => updateFilter(key, !filters[key])}
-                >
-                  <div style={s.checkbox(filters[key])}>
-                    {filters[key] && <span style={{ fontSize: 10 }}>v</span>}
-                  </div>
-                  <span>{label}</span>
-                </div>
-              ))}
-            </div>
-
             <button
               style={s.resetBtn}
               onClick={() =>
                 setFilters({
-                  quan: '',
+                  quan_huyen: '',
                   loai_phong: '',
                   priceRange: 0,
-                  khep_kin: false,
-                  pet: false,
-                  xe_dien: false,
                   search: '',
                 })
               }
@@ -236,18 +207,23 @@ function RoomCard({ room }) {
       <div style={s.cardBody}>
         <div style={s.cardTags}>
           {room.loai_phong && <span style={s.cardTag}>{room.loai_phong}</span>}
-          {room.khep_kin && <span style={s.cardTagGreen}>Khép kín</span>}
-          {room.pet && <span style={s.cardTagGreen}>Pet</span>}
+          {room.quan_huyen && <span style={s.cardTag}>{room.quan_huyen}</span>}
+          {room.khu_vuc && <span style={s.cardTagGreen}>{room.khu_vuc}</span>}
         </div>
         <div style={s.cardPrice}>{formatVND(room.gia)}/tháng</div>
         <div style={s.cardAddr}>
           {room.dia_chi}
-          {room.quan ? `, ${room.quan}` : ''}
+          {room.quan_huyen ? `, ${room.quan_huyen}` : ''}
         </div>
         <div style={s.cardMeta}>
-          {room.dien_tich && <span>{room.dien_tich}m2</span>}
-          {room.dien && <span>Điện: {room.dien}</span>}
+          {room.gia_dien && <span>Điện: {room.gia_dien}</span>}
+          {room.gia_nuoc && <span>Nước: {room.gia_nuoc}</span>}
         </div>
+        {room.id && (
+          <div style={{ fontSize: 10, color: C.textDim, marginTop: 4 }}>
+            ID: {room.id}
+          </div>
+        )}
       </div>
     </Link>
   );

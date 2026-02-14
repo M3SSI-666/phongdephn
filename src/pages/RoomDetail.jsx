@@ -114,43 +114,53 @@ export default function RoomDetail() {
             <div style={s.detailCard}>
               <div style={s.tags}>
                 {room.loai_phong && <span style={s.tag}>{room.loai_phong}</span>}
-                {room.quan && <span style={s.tag}>{room.quan}</span>}
-                {room.khep_kin && <span style={s.tagGreen}>Khép kín</span>}
-                {room.pet && <span style={s.tagGreen}>Pet OK</span>}
-                {room.xe_dien && <span style={s.tagGreen}>Xe điện</span>}
+                {room.quan_huyen && <span style={s.tag}>{room.quan_huyen}</span>}
+                {room.khu_vuc && <span style={s.tagGreen}>{room.khu_vuc}</span>}
               </div>
 
               <h1 style={s.title}>
                 {room.loai_phong || 'Phòng trọ'} - {room.dia_chi}
-                {room.quan ? `, ${room.quan}` : ''}
+                {room.quan_huyen ? `, ${room.quan_huyen}` : ''}
               </h1>
 
               <div style={s.price}>{formatVND(room.gia)}/tháng</div>
 
+              {room.id && (
+                <div style={{ fontSize: 12, color: C.textDim, marginBottom: 16 }}>
+                  ID: {room.id}
+                </div>
+              )}
+
               {/* Specs */}
               <div style={s.specsGrid}>
-                {room.dien_tich && (
+                {room.gia_dien && (
                   <div style={s.specItem}>
-                    <div style={s.specLabel}>Diện tích</div>
-                    <div style={s.specValue}>{room.dien_tich} m2</div>
+                    <div style={s.specLabel}>Giá điện</div>
+                    <div style={s.specValue}>{room.gia_dien}</div>
                   </div>
                 )}
-                {room.dien && (
+                {room.gia_nuoc && (
                   <div style={s.specItem}>
-                    <div style={s.specLabel}>Điện</div>
-                    <div style={s.specValue}>{room.dien}</div>
+                    <div style={s.specLabel}>Giá nước</div>
+                    <div style={s.specValue}>{room.gia_nuoc}</div>
                   </div>
                 )}
-                {room.nuoc && (
-                  <div style={s.specItem}>
-                    <div style={s.specLabel}>Nước</div>
-                    <div style={s.specValue}>{room.nuoc}</div>
-                  </div>
-                )}
-                {room.internet && (
+                {room.gia_internet && (
                   <div style={s.specItem}>
                     <div style={s.specLabel}>Internet</div>
-                    <div style={s.specValue}>{room.internet}</div>
+                    <div style={s.specValue}>{room.gia_internet}</div>
+                  </div>
+                )}
+                {room.dich_vu_chung && (
+                  <div style={s.specItem}>
+                    <div style={s.specLabel}>Dịch vụ chung</div>
+                    <div style={s.specValue}>{room.dich_vu_chung}</div>
+                  </div>
+                )}
+                {room.so_phong && (
+                  <div style={s.specItem}>
+                    <div style={s.specLabel}>Số phòng</div>
+                    <div style={s.specValue}>{room.so_phong}</div>
                   </div>
                 )}
               </div>
@@ -162,10 +172,10 @@ export default function RoomDetail() {
                 </div>
               )}
 
-              {room.mo_ta && (
+              {room.ghi_chu && (
                 <div style={s.section}>
-                  <h3 style={s.sectionTitle}>Mô tả</h3>
-                  <p style={s.sectionText}>{room.mo_ta}</p>
+                  <h3 style={s.sectionTitle}>Ghi chú</h3>
+                  <p style={s.sectionText}>{room.ghi_chu}</p>
                 </div>
               )}
             </div>
@@ -182,7 +192,7 @@ export default function RoomDetail() {
             </div>
             <div style={s.contactAddr}>
               {room.dia_chi}
-              {room.quan ? `, ${room.quan}` : ''}
+              {room.quan_huyen ? `, ${room.quan_huyen}` : ''}
             </div>
 
             <a href={zaloLink} target="_blank" rel="noopener noreferrer" style={s.zaloBtn}>
@@ -193,7 +203,7 @@ export default function RoomDetail() {
             </a>
 
             <div style={s.contactNote}>
-              Nói mã phòng <strong>{room.ma_toa || 'N/A'}</strong> để được hỗ trợ nhanh hơn
+              Nói mã phòng <strong>{room.id || 'N/A'}</strong> để được hỗ trợ nhanh hơn
             </div>
           </div>
         </div>
