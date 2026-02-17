@@ -1,26 +1,17 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { C, QUAN_LIST, LOAI_PHONG, formatVND } from '../utils/theme';
+import { C, QUAN_LIST, formatVND } from '../utils/theme';
 import { fetchRoomsFromSheets } from '../utils/api';
-
-const PRICE_RANGES = [
-  { label: 'Tất cả', min: 0, max: Infinity },
-  { label: 'Dưới 3 triệu', min: 0, max: 3000000 },
-  { label: '3 - 5 triệu', min: 3000000, max: 5000000 },
-  { label: '5 - 7 triệu', min: 5000000, max: 7000000 },
-  { label: '7 - 10 triệu', min: 7000000, max: 10000000 },
-  { label: 'Trên 10 triệu', min: 10000000, max: Infinity },
-];
 
 export default function RoomList() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({
-    quan_huyen: '',
-    loai_phong: '',
-    priceRange: 0,
-    search: '',
-  });
+  const [selectedQuan, setSelectedQuan] = useState([]);
+  const [selectedKhuVuc, setSelectedKhuVuc] = useState([]);
+  const [priceMin, setPriceMin] = useState(0);
+  const [priceMax, setPriceMax] = useState(5000000);
+  const [sort, setSort] = useState('newest'); // newest | price_asc | price_desc
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     fetchRoomsFromSheets()
@@ -29,22 +20,74 @@ export default function RoomList() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Build khu_vuc options based on selected quận, with quận prefix for disambiguation
+  const khuVucOptions = useMemo(() => {
+    const map = new Map();
+    rooms.forEach((r) => {
+      if (!r.khu_vuc) return;
+      if (selectedQuan.length > 0 && !selectedQuan.includes(r.quan_huyen)) return;
+      const key = `${r.khu_vuc}|||${r.quan_huyen}`;
+      if (!map.has(key)) {
+        map.set(key, { khu_vuc: r.khu_vuc, quan_huyen: r.quan_huyen });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.khu_vuc.localeCompare(b.khu_vuc, 'vi'));
+  }, [rooms, selectedQuan]);
+
+  // Check for duplicate khu_vuc names across quận
+  const duplicateKhuVuc = useMemo(() => {
+    const counts = {};
+    khuVucOptions.forEach((o) => {
+      counts[o.khu_vuc] = (counts[o.khu_vuc] || 0) + 1;
+    });
+    return counts;
+  }, [khuVucOptions]);
+
+  // When selectedQuan changes, remove khuVuc selections that no longer apply
+  useEffect(() => {
+    if (selectedQuan.length === 0) return;
+    setSelectedKhuVuc((prev) =>
+      prev.filter((kv) => {
+        const [, quan] = kv.split('|||');
+        return selectedQuan.includes(quan);
+      })
+    );
+  }, [selectedQuan]);
+
   const filtered = useMemo(() => {
-    const range = PRICE_RANGES[filters.priceRange];
-    return rooms.filter((r) => {
-      if (filters.quan_huyen && r.quan_huyen !== filters.quan_huyen) return false;
-      if (filters.loai_phong && r.loai_phong !== filters.loai_phong) return false;
-      if (r.gia < range.min || r.gia > range.max) return false;
-      if (filters.search) {
-        const q = filters.search.toLowerCase();
-        const haystack = `${r.dia_chi} ${r.quan_huyen} ${r.khu_vuc} ${r.noi_that} ${r.ghi_chu}`.toLowerCase();
-        if (!haystack.includes(q)) return false;
+    let result = rooms.filter((r) => {
+      if (selectedQuan.length > 0 && !selectedQuan.includes(r.quan_huyen)) return false;
+      if (selectedKhuVuc.length > 0) {
+        const key = `${r.khu_vuc}|||${r.quan_huyen}`;
+        if (!selectedKhuVuc.includes(key)) return false;
+      }
+      if (r.gia < priceMin || r.gia > priceMax) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        const h = `${r.dia_chi} ${r.quan_huyen} ${r.khu_vuc} ${r.noi_that} ${r.ghi_chu}`.toLowerCase();
+        if (!h.includes(q)) return false;
       }
       return true;
     });
-  }, [rooms, filters]);
 
-  const updateFilter = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
+    if (sort === 'price_asc') result.sort((a, b) => a.gia - b.gia);
+    else if (sort === 'price_desc') result.sort((a, b) => b.gia - a.gia);
+    // newest = default order from sheets (latest appended last, reversed)
+    else result.sort((a, b) => (b.ngay_input || '').localeCompare(a.ngay_input || ''));
+
+    return result;
+  }, [rooms, selectedQuan, selectedKhuVuc, priceMin, priceMax, sort, search]);
+
+  const clearFilters = () => {
+    setSelectedQuan([]);
+    setSelectedKhuVuc([]);
+    setPriceMin(0);
+    setPriceMax(5000000);
+    setSort('newest');
+    setSearch('');
+  };
+
+  const hasFilters = selectedQuan.length > 0 || selectedKhuVuc.length > 0 || priceMin > 0 || priceMax < 5000000 || search;
 
   return (
     <div style={s.page}>
@@ -58,125 +101,133 @@ export default function RoomList() {
               <div style={s.logoSub}>Tìm phòng trọ Hà Nội</div>
             </div>
           </Link>
-          <div style={s.headerContact}>
-            <span style={{ fontSize: 13, color: C.textMuted }}>Zalo: 0961 685 136</span>
-          </div>
+          <div style={{ fontSize: 13, color: C.textMuted }}>Zalo: 0961 685 136</div>
         </div>
       </header>
 
-      {/* Hero */}
+      {/* Hero + Search */}
       <div style={s.hero}>
         <h1 style={s.heroTitle}>Tìm phòng trọ đẹp tại Hà Nội</h1>
         <p style={s.heroDesc}>
-          {rooms.length}+ phòng được cập nhật hàng ngày. Lọc theo quận, giá, loại phòng.
+          {rooms.length}+ phòng được cập nhật hàng ngày
         </p>
         <div style={s.searchBar}>
           <input
             style={s.searchInput}
             placeholder="Tìm theo địa chỉ, khu vực..."
-            value={filters.search}
-            onChange={(e) => updateFilter('search', e.target.value)}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
       </div>
 
-      <main style={s.main}>
-        <div style={s.layout}>
-          {/* Sidebar filters */}
-          <aside style={s.sidebar}>
-            <h3 style={s.filterTitle}>Bộ lọc</h3>
-
-            <div style={s.filterGroup}>
-              <label style={s.filterLabel}>Quận/Huyện</label>
-              <select
-                style={s.filterSelect}
-                value={filters.quan_huyen}
-                onChange={(e) => updateFilter('quan_huyen', e.target.value)}
-              >
-                <option value="">Tất cả</option>
-                {QUAN_LIST.map((q) => (
-                  <option key={q} value={q}>
-                    {q}
-                  </option>
-                ))}
-              </select>
+      {/* Filter bar - centered */}
+      <div style={s.filterBar}>
+        <div style={s.filterInner}>
+          <MultiSelect
+            label="Quận/Huyện"
+            options={QUAN_LIST.map((q) => ({ value: q, label: q }))}
+            selected={selectedQuan}
+            onChange={setSelectedQuan}
+          />
+          <MultiSelect
+            label="Khu vực"
+            options={khuVucOptions.map((o) => ({
+              value: `${o.khu_vuc}|||${o.quan_huyen}`,
+              label: duplicateKhuVuc[o.khu_vuc] > 1 ? `${o.khu_vuc} (${o.quan_huyen})` : o.khu_vuc,
+            }))}
+            selected={selectedKhuVuc}
+            onChange={setSelectedKhuVuc}
+            disabled={khuVucOptions.length === 0}
+            placeholder={selectedQuan.length > 0 ? 'Chọn khu vực' : 'Chọn quận trước'}
+          />
+          <div style={s.priceFilter}>
+            <div style={s.filterLabel}>Giá</div>
+            <div style={s.priceInputs}>
+              <input
+                style={s.priceInput}
+                type="number"
+                value={priceMin}
+                onChange={(e) => setPriceMin(Math.max(0, Number(e.target.value)))}
+                step={100000}
+                min={0}
+                max={50000000}
+                placeholder="Từ"
+              />
+              <span style={{ color: C.textDim }}>-</span>
+              <input
+                style={s.priceInput}
+                type="number"
+                value={priceMax}
+                onChange={(e) => setPriceMax(Math.min(50000000, Number(e.target.value)))}
+                step={100000}
+                min={0}
+                max={50000000}
+                placeholder="Đến"
+              />
             </div>
-
-            <div style={s.filterGroup}>
-              <label style={s.filterLabel}>Loại phòng</label>
-              <select
-                style={s.filterSelect}
-                value={filters.loai_phong}
-                onChange={(e) => updateFilter('loai_phong', e.target.value)}
-              >
-                <option value="">Tất cả</option>
-                {LOAI_PHONG.map((l) => (
-                  <option key={l} value={l}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div style={s.filterGroup}>
-              <label style={s.filterLabel}>Mức giá</label>
-              {PRICE_RANGES.map((range, i) => (
-                <div
-                  key={i}
-                  style={s.radioItem(filters.priceRange === i)}
-                  onClick={() => updateFilter('priceRange', i)}
-                >
-                  <div style={s.radio(filters.priceRange === i)} />
-                  <span>{range.label}</span>
-                </div>
-              ))}
-            </div>
-
-            <button
-              style={s.resetBtn}
-              onClick={() =>
-                setFilters({
-                  quan_huyen: '',
-                  loai_phong: '',
-                  priceRange: 0,
-                  search: '',
-                })
-              }
-            >
-              Xoá bộ lọc
-            </button>
-          </aside>
-
-          {/* Room grid */}
-          <div style={s.content}>
-            <div style={s.resultBar}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>
-                {filtered.length} phòng
-              </span>
-            </div>
-
-            {loading ? (
-              <div style={s.emptyState}>Đang tải...</div>
-            ) : filtered.length === 0 ? (
-              <div style={s.emptyState}>
-                <div style={{ fontSize: 32, marginBottom: 8 }}>--</div>
-                <div>Không tìm thấy phòng phù hợp</div>
-                <div style={{ fontSize: 12, color: C.textDim, marginTop: 4 }}>
-                  Thử điều chỉnh bộ lọc
-                </div>
-              </div>
-            ) : (
-              <div style={s.roomGrid}>
-                {filtered.map((room, i) => (
-                  <RoomCard key={room.id || i} room={room} />
-                ))}
-              </div>
-            )}
           </div>
+          <div style={s.sortFilter}>
+            <div style={s.filterLabel}>Sắp xếp</div>
+            <select style={s.sortSelect} value={sort} onChange={(e) => setSort(e.target.value)}>
+              <option value="newest">Phòng mới</option>
+              <option value="price_asc">Giá thấp đến cao</option>
+              <option value="price_desc">Giá cao đến thấp</option>
+            </select>
+          </div>
+          {hasFilters && (
+            <button style={s.clearBtn} onClick={clearFilters}>Xoá lọc</button>
+          )}
         </div>
+      </div>
+
+      {/* Selected tags */}
+      {(selectedQuan.length > 0 || selectedKhuVuc.length > 0) && (
+        <div style={s.tagBar}>
+          {selectedQuan.map((q) => (
+            <span key={q} style={s.filterTag} onClick={() => setSelectedQuan((p) => p.filter((x) => x !== q))}>
+              {q} x
+            </span>
+          ))}
+          {selectedKhuVuc.map((kv) => {
+            const [name, quan] = kv.split('|||');
+            const label = duplicateKhuVuc[name] > 1 ? `${name} (${quan})` : name;
+            return (
+              <span key={kv} style={s.filterTagGreen} onClick={() => setSelectedKhuVuc((p) => p.filter((x) => x !== kv))}>
+                {label} x
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Room grid */}
+      <main style={s.main}>
+        <div style={s.resultBar}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>
+            {filtered.length} phòng
+          </span>
+        </div>
+
+        {loading ? (
+          <div style={s.emptyState}>Đang tải...</div>
+        ) : filtered.length === 0 ? (
+          <div style={s.emptyState}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>--</div>
+            <div>Không tìm thấy phòng phù hợp</div>
+            <div style={{ fontSize: 12, color: C.textDim, marginTop: 4 }}>
+              Thử điều chỉnh bộ lọc
+            </div>
+          </div>
+        ) : (
+          <div style={s.roomGrid}>
+            {filtered.map((room, i) => (
+              <RoomCard key={room.id || i} room={room} />
+            ))}
+          </div>
+        )}
       </main>
 
-      {/* Footer */}
       <footer style={s.footer}>
         <div style={s.footerInner}>
           <div style={{ fontSize: 13, color: C.textMuted }}>
@@ -189,19 +240,83 @@ export default function RoomList() {
   );
 }
 
+// ── MultiSelect dropdown ──────────────────────────
+function MultiSelect({ label, options, selected, onChange, disabled, placeholder }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const toggle = (val) => {
+    onChange(selected.includes(val) ? selected.filter((v) => v !== val) : [...selected, val]);
+  };
+
+  return (
+    <div ref={ref} style={s.multiWrap}>
+      <div style={s.filterLabel}>{label}</div>
+      <div
+        style={{ ...s.multiTrigger, opacity: disabled ? 0.5 : 1, cursor: disabled ? 'default' : 'pointer' }}
+        onClick={() => !disabled && setOpen(!open)}
+      >
+        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {selected.length === 0
+            ? (placeholder || 'Tất cả')
+            : `${selected.length} đã chọn`}
+        </span>
+        <span style={{ fontSize: 10, color: C.textDim }}>{open ? '\u25B2' : '\u25BC'}</span>
+      </div>
+      {open && (
+        <div style={s.multiDropdown}>
+          {options.length === 0 ? (
+            <div style={{ padding: 12, fontSize: 12, color: C.textDim, textAlign: 'center' }}>Không có dữ liệu</div>
+          ) : (
+            <>
+              {selected.length > 0 && (
+                <div style={s.multiClear} onClick={() => onChange([])}>Bỏ chọn tất cả</div>
+              )}
+              {options.map((opt) => (
+                <div
+                  key={opt.value}
+                  style={s.multiOption(selected.includes(opt.value))}
+                  onClick={() => toggle(opt.value)}
+                >
+                  <div style={s.multiCheck(selected.includes(opt.value))}>
+                    {selected.includes(opt.value) && '\u2713'}
+                  </div>
+                  <span>{opt.label}</span>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Room Card ──────────────────────────────────────
 function RoomCard({ room }) {
   const mainImage = room.images?.[0];
+  const mainVideo = room.videos?.[0];
 
   return (
     <Link to={`/phong/${room.id}`} style={s.card}>
       <div style={s.cardImage}>
-        {mainImage ? (
+        {mainVideo ? (
+          <video src={mainVideo} style={s.cardImg} muted />
+        ) : mainImage ? (
           <img src={mainImage} alt="" style={s.cardImg} />
         ) : (
           <div style={s.cardNoImg}>Chưa có ảnh</div>
         )}
-        {room.images?.length > 1 && (
-          <div style={s.cardImgCount}>{room.images.length} ảnh</div>
+        {(room.images?.length + room.videos?.length) > 1 && (
+          <div style={s.cardImgCount}>{room.images?.length + room.videos?.length} media</div>
         )}
       </div>
       <div style={s.cardBody}>
@@ -221,16 +336,14 @@ function RoomCard({ room }) {
           <span>Net: {room.gia_internet || '-'}</span>
         </div>
         {room.id && (
-          <div style={{ fontSize: 10, color: C.textDim, marginTop: 4 }}>
-            {room.id}
-          </div>
+          <div style={{ fontSize: 10, color: C.textDim, marginTop: 4 }}>{room.id}</div>
         )}
       </div>
     </Link>
   );
 }
 
-// ── Styles ──────────────────────────────────────────────────
+// ── Styles ──────────────────────────────────────────
 const s = {
   page: {
     fontFamily: "'Nunito', 'Segoe UI', sans-serif",
@@ -266,128 +379,181 @@ const s = {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoText: { fontSize: 18, fontWeight: 800, color: C.white, letterSpacing: -0.5 },
-  logoSub: {
-    fontSize: 11,
-    color: C.textMuted,
-    fontWeight: 600,
-  },
-  headerContact: { display: 'flex', alignItems: 'center', gap: 8 },
+  logoText: { fontSize: 18, fontWeight: 800, color: C.text, letterSpacing: -0.5 },
+  logoSub: { fontSize: 11, color: C.textMuted, fontWeight: 600 },
   hero: {
     textAlign: 'center',
-    padding: '40px 24px 32px',
-    background: `linear-gradient(180deg, ${C.bgCard} 0%, ${C.bg} 100%)`,
+    padding: '32px 24px 24px',
+    background: C.bgCard,
+    borderBottom: `1px solid ${C.border}`,
   },
-  heroTitle: {
-    fontSize: 28,
-    fontWeight: 900,
-    color: C.white,
-    marginBottom: 8,
-  },
-  heroDesc: { fontSize: 14, color: C.textMuted, marginBottom: 20 },
+  heroTitle: { fontSize: 26, fontWeight: 900, color: C.text, marginBottom: 6 },
+  heroDesc: { fontSize: 14, color: C.textMuted, marginBottom: 16 },
   searchBar: { maxWidth: 500, margin: '0 auto' },
   searchInput: {
     width: '100%',
-    padding: '12px 16px',
-    background: C.bgInput,
+    padding: '10px 16px',
+    background: C.bg,
     border: `1px solid ${C.border}`,
-    borderRadius: 10,
+    borderRadius: 8,
     color: C.text,
     fontSize: 14,
     outline: 'none',
     boxSizing: 'border-box',
   },
-  main: { maxWidth: 1400, margin: '0 auto', padding: '0 24px 60px' },
-  layout: { display: 'grid', gridTemplateColumns: '260px 1fr', gap: 24, alignItems: 'start' },
-  sidebar: {
+  // Filter bar
+  filterBar: {
     background: C.bgCard,
-    borderRadius: 12,
-    border: `1px solid ${C.border}`,
-    padding: 20,
-    position: 'sticky',
-    top: 80,
-  },
-  filterTitle: {
-    fontSize: 15,
-    fontWeight: 700,
-    color: C.text,
-    marginBottom: 16,
-    paddingBottom: 8,
     borderBottom: `1px solid ${C.border}`,
+    padding: '12px 24px',
   },
-  filterGroup: { marginBottom: 16 },
+  filterInner: {
+    maxWidth: 1400,
+    margin: '0 auto',
+    display: 'flex',
+    alignItems: 'flex-end',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
   filterLabel: {
-    display: 'block',
     fontSize: 11,
     fontWeight: 700,
     color: C.textMuted,
-    marginBottom: 6,
+    marginBottom: 4,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  filterSelect: {
-    width: '100%',
-    padding: '8px 10px',
-    background: C.bgInput,
+  // MultiSelect
+  multiWrap: { position: 'relative', minWidth: 160 },
+  multiTrigger: {
+    padding: '7px 10px',
+    background: C.bg,
     border: `1px solid ${C.border}`,
     borderRadius: 6,
-    color: C.text,
     fontSize: 13,
-    outline: 'none',
-    boxSizing: 'border-box',
+    color: C.text,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 140,
   },
-  radioItem: (active) => ({
+  multiDropdown: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    minWidth: 220,
+    background: C.bgCard,
+    border: `1px solid ${C.border}`,
+    borderRadius: 8,
+    boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+    zIndex: 200,
+    maxHeight: 280,
+    overflowY: 'auto',
+    marginTop: 4,
+  },
+  multiClear: {
+    padding: '6px 12px',
+    fontSize: 11,
+    color: C.primary,
+    cursor: 'pointer',
+    borderBottom: `1px solid ${C.border}`,
+    fontWeight: 600,
+  },
+  multiOption: (active) => ({
     display: 'flex',
     alignItems: 'center',
     gap: 8,
-    padding: '4px 0',
-    cursor: 'pointer',
+    padding: '6px 12px',
     fontSize: 13,
-    color: active ? C.text : C.textMuted,
-  }),
-  radio: (active) => ({
-    width: 14,
-    height: 14,
-    borderRadius: '50%',
-    border: `2px solid ${active ? C.primary : C.border}`,
-    background: active ? C.primary : 'transparent',
-    flexShrink: 0,
-  }),
-  checkItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '4px 0',
     cursor: 'pointer',
-    fontSize: 13,
+    background: active ? C.primaryBg : 'transparent',
     color: C.text,
-  },
-  checkbox: (checked) => ({
+  }),
+  multiCheck: (active) => ({
     width: 16,
     height: 16,
-    borderRadius: 4,
-    border: `2px solid ${checked ? C.primary : C.border}`,
-    background: checked ? C.primary : 'transparent',
+    borderRadius: 3,
+    border: `2px solid ${active ? C.primary : C.border}`,
+    background: active ? C.primary : 'transparent',
+    color: '#fff',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: C.bg,
+    fontSize: 10,
     fontWeight: 700,
     flexShrink: 0,
   }),
-  resetBtn: {
+  // Price filter
+  priceFilter: { minWidth: 200 },
+  priceInputs: { display: 'flex', alignItems: 'center', gap: 6 },
+  priceInput: {
+    width: 100,
+    padding: '7px 8px',
+    background: C.bg,
+    border: `1px solid ${C.border}`,
+    borderRadius: 6,
+    fontSize: 12,
+    color: C.text,
+    outline: 'none',
+    boxSizing: 'border-box',
+  },
+  // Sort
+  sortFilter: { minWidth: 140 },
+  sortSelect: {
+    padding: '7px 10px',
+    background: C.bg,
+    border: `1px solid ${C.border}`,
+    borderRadius: 6,
+    fontSize: 13,
+    color: C.text,
+    outline: 'none',
+    boxSizing: 'border-box',
     width: '100%',
-    padding: '8px 12px',
+  },
+  clearBtn: {
+    padding: '7px 14px',
     borderRadius: 6,
     border: `1px solid ${C.border}`,
     background: 'transparent',
     color: C.textMuted,
     fontSize: 12,
     cursor: 'pointer',
-    marginTop: 8,
+    fontWeight: 600,
+    alignSelf: 'flex-end',
   },
-  content: { minHeight: 400 },
-  resultBar: { marginBottom: 16 },
+  // Tag bar
+  tagBar: {
+    maxWidth: 1400,
+    margin: '0 auto',
+    padding: '8px 24px',
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  filterTag: {
+    background: C.bg,
+    border: `1px solid ${C.border}`,
+    color: C.text,
+    padding: '3px 10px',
+    borderRadius: 16,
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  filterTagGreen: {
+    background: C.primaryBg,
+    border: `1px solid ${C.primary}44`,
+    color: C.primaryDark,
+    padding: '3px 10px',
+    borderRadius: 16,
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  // Main content
+  main: { maxWidth: 1400, margin: '0 auto', padding: '16px 24px 60px' },
+  resultBar: { marginBottom: 12 },
   emptyState: {
     textAlign: 'center',
     padding: 60,
@@ -396,9 +562,10 @@ const s = {
   },
   roomGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))',
     gap: 16,
   },
+  // Card
   card: {
     background: C.bgCard,
     borderRadius: 12,
@@ -406,12 +573,12 @@ const s = {
     overflow: 'hidden',
     textDecoration: 'none',
     color: 'inherit',
-    transition: 'border-color 0.2s',
+    transition: 'box-shadow 0.2s',
   },
   cardImage: {
     position: 'relative',
     aspectRatio: '16/10',
-    background: '#111',
+    background: '#f0f0f0',
     overflow: 'hidden',
   },
   cardImg: { width: '100%', height: '100%', objectFit: 'cover' },
@@ -427,7 +594,7 @@ const s = {
     position: 'absolute',
     bottom: 6,
     right: 6,
-    background: 'rgba(0,0,0,0.7)',
+    background: 'rgba(0,0,0,0.6)',
     color: '#fff',
     padding: '2px 8px',
     borderRadius: 4,
@@ -437,17 +604,18 @@ const s = {
   cardBody: { padding: 14 },
   cardTags: { display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 },
   cardTag: {
-    background: C.border,
+    background: C.bg,
     color: C.text,
-    padding: '1px 6px',
+    padding: '1px 8px',
     borderRadius: 4,
     fontSize: 10,
     fontWeight: 600,
+    border: `1px solid ${C.border}`,
   },
   cardTagGreen: {
     background: C.primaryBg,
-    color: C.primary,
-    padding: '1px 6px',
+    color: C.primaryDark,
+    padding: '1px 8px',
     borderRadius: 4,
     fontSize: 10,
     fontWeight: 600,
