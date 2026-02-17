@@ -34,11 +34,16 @@ export default function RoomDetail() {
       <header style={s.header}>
         <div style={s.headerInner}>
           <Link to="/" style={s.logo}>
-            <div style={s.logoIcon}>P</div>
-            <div style={s.logoText}>Phòng Đẹp HN</div>
+            <div style={s.logoIcon}>
+              <span style={s.logoIconEmoji}>🏠</span>
+            </div>
+            <div>
+              <div style={s.logoText}>PHÒNG ĐẸP</div>
+              <div style={s.logoSlogan}>GIÁ YÊU</div>
+            </div>
           </Link>
           <Link to="/" style={s.backLink}>
-            Quay lại danh sách
+            ← Quay lại danh sách
           </Link>
         </div>
       </header>
@@ -207,9 +212,11 @@ export default function RoomDetail() {
   );
 }
 
+const FONT = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
+
 const s = {
   page: {
-    fontFamily: "'Nunito', 'Segoe UI', sans-serif",
+    fontFamily: FONT,
     background: C.bg,
     minHeight: '100vh',
     color: C.text,
@@ -220,16 +227,17 @@ const s = {
     justifyContent: 'center',
     minHeight: '100vh',
     color: C.textMuted,
-    fontFamily: "'Nunito', sans-serif",
+    fontFamily: FONT,
     background: C.bg,
   },
   header: {
     background: C.bgCard,
     borderBottom: `1px solid ${C.border}`,
-    padding: '12px 24px',
+    padding: '10px 24px',
     position: 'sticky',
     top: 0,
     zIndex: 100,
+    boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
   },
   headerInner: {
     display: 'flex',
@@ -240,23 +248,40 @@ const s = {
   },
   logo: { display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' },
   logoIcon: {
-    fontSize: 18,
-    fontWeight: 900,
-    color: '#fff',
+    width: 38,
+    height: 38,
+    borderRadius: 9,
     background: `linear-gradient(135deg, ${C.primaryDark}, ${C.primary})`,
-    borderRadius: 8,
-    width: 36,
-    height: 36,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoText: { fontSize: 16, fontWeight: 800, color: C.white },
+  logoIconEmoji: {
+    fontSize: 20,
+    filter: 'brightness(10)',
+  },
+  logoText: {
+    fontSize: 15,
+    fontWeight: 800,
+    color: C.primaryDark,
+    letterSpacing: 0.5,
+    lineHeight: 1.1,
+    fontFamily: FONT,
+  },
+  logoSlogan: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: C.accent,
+    letterSpacing: 1,
+    lineHeight: 1.2,
+    fontFamily: FONT,
+  },
   backLink: {
     fontSize: 13,
     color: C.primary,
     textDecoration: 'none',
     fontWeight: 600,
+    fontFamily: FONT,
   },
   main: { maxWidth: 1200, margin: '0 auto', padding: '24px 24px 60px' },
   layout: {
