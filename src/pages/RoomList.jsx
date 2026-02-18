@@ -44,10 +44,10 @@ export default function RoomList() {
   const [loading, setLoading] = useState(true);
   const [selectedQuan, setSelectedQuan] = useState([]);
   const [selectedKhuVuc, setSelectedKhuVuc] = useState([]);
-  const [priceMin, setPriceMin] = useState(0);
-  const [priceMax, setPriceMax] = useState(50000000);
-  const [priceMinText, setPriceMinText] = useState('');
-  const [priceMaxText, setPriceMaxText] = useState('');
+  const [priceMin, setPriceMin] = useState(2000000);
+  const [priceMax, setPriceMax] = useState(15000000);
+  const [priceMinText, setPriceMinText] = useState('2.000.000');
+  const [priceMaxText, setPriceMaxText] = useState('15.000.000');
   const [sort, setSort] = useState('price_asc');
 
   useEffect(() => {
@@ -99,11 +99,11 @@ export default function RoomList() {
 
   const clearFilters = () => {
     setSelectedQuan([]); setSelectedKhuVuc([]);
-    setPriceMin(0); setPriceMax(50000000);
-    setPriceMinText(''); setPriceMaxText('');
+    setPriceMin(2000000); setPriceMax(15000000);
+    setPriceMinText('2.000.000'); setPriceMaxText('15.000.000');
     setSort('price_asc');
   };
-  const hasFilters = selectedQuan.length > 0 || selectedKhuVuc.length > 0 || priceMin > 0 || priceMax < 50000000;
+  const hasFilters = selectedQuan.length > 0 || selectedKhuVuc.length > 0 || priceMin !== 2000000 || priceMax !== 15000000;
 
   const handlePriceMinChange = (t) => { setPriceMinText(t); setPriceMin(parsePrice(t)); };
   const handlePriceMinBlur = () => { setPriceMinText(priceMin > 0 ? fmtPrice(priceMin) : ''); };
