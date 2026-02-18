@@ -34,8 +34,11 @@ export default function RoomDetail() {
       <header style={s.header}>
         <div style={s.headerInner}>
           <Link to="/" style={s.logo}>
-            <div style={s.logoIcon}>
-              <span style={s.logoIconEmoji}>🏠</span>
+            <div style={s.logoMark}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M3 10.5L12 3L21 10.5V20C21 20.55 20.55 21 20 21H4C3.45 21 3 20.55 3 20V10.5Z" fill="white" fillOpacity="0.9"/>
+                <path d="M9 21V13H15V21" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
             </div>
             <div>
               <div style={s.logoText}>PHÒNG ĐẸP</div>
@@ -237,7 +240,7 @@ const s = {
     position: 'sticky',
     top: 0,
     zIndex: 100,
-    boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+    boxShadow: C.shadow,
   },
   headerInner: {
     display: 'flex',
@@ -247,18 +250,15 @@ const s = {
     margin: '0 auto',
   },
   logo: { display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' },
-  logoIcon: {
+  logoMark: {
     width: 38,
     height: 38,
     borderRadius: 9,
-    background: `linear-gradient(135deg, ${C.primaryDark}, ${C.primary})`,
+    background: C.gradient,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  logoIconEmoji: {
-    fontSize: 20,
-    filter: 'brightness(10)',
+    boxShadow: C.shadowGreen,
   },
   logoText: {
     fontSize: 15,
@@ -272,7 +272,7 @@ const s = {
     fontSize: 11,
     fontWeight: 700,
     color: C.accent,
-    letterSpacing: 1,
+    letterSpacing: 1.2,
     lineHeight: 1.2,
     fontFamily: FONT,
   },
@@ -445,8 +445,8 @@ const s = {
     padding: '12px 0',
     borderRadius: 8,
     border: 'none',
-    background: `linear-gradient(135deg, ${C.primaryDark}, ${C.primary})`,
-    color: C.bg,
+    background: C.gradient,
+    color: '#fff',
     fontSize: 14,
     fontWeight: 700,
     textAlign: 'center',
