@@ -3,14 +3,28 @@ import { Link } from 'react-router-dom';
 import { C, QUAN_LIST, formatVND } from '../utils/theme';
 import { fetchRoomsFromSheets } from '../utils/api';
 
+// Format number with Vietnamese dot separator: 5200000 → "5.200.000"
+const fmtPrice = (v) => {
+  if (!v && v !== 0) return '';
+  return Number(v).toLocaleString('vi-VN');
+};
+
+// Parse Vietnamese price string back to number: "5.200.000" → 5200000
+const parsePrice = (str) => {
+  const cleaned = str.replace(/\./g, '').replace(/[^\d]/g, '');
+  return cleaned ? Number(cleaned) : 0;
+};
+
 export default function RoomList() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedQuan, setSelectedQuan] = useState([]);
   const [selectedKhuVuc, setSelectedKhuVuc] = useState([]);
-  const [priceMin, setPriceMin] = useState(0);
+  const [priceMin, setPriceMin] = useState(2000000);
   const [priceMax, setPriceMax] = useState(5000000);
-  const [sort, setSort] = useState('newest');
+  const [priceMinText, setPriceMinText] = useState('2.000.000');
+  const [priceMaxText, setPriceMaxText] = useState('5.000.000');
+  const [sort, setSort] = useState('price_asc');
 
   useEffect(() => {
     fetchRoomsFromSheets()
@@ -74,12 +88,34 @@ export default function RoomList() {
   const clearFilters = () => {
     setSelectedQuan([]);
     setSelectedKhuVuc([]);
-    setPriceMin(0);
+    setPriceMin(2000000);
     setPriceMax(5000000);
-    setSort('newest');
+    setPriceMinText('2.000.000');
+    setPriceMaxText('5.000.000');
+    setSort('price_asc');
   };
 
-  const hasFilters = selectedQuan.length > 0 || selectedKhuVuc.length > 0 || priceMin > 0 || priceMax < 5000000;
+  const hasFilters = selectedQuan.length > 0 || selectedKhuVuc.length > 0 || priceMin !== 2000000 || priceMax !== 5000000;
+
+  const handlePriceMinChange = (text) => {
+    setPriceMinText(text);
+    const num = parsePrice(text);
+    setPriceMin(num);
+  };
+
+  const handlePriceMinBlur = () => {
+    setPriceMinText(priceMin > 0 ? fmtPrice(priceMin) : '');
+  };
+
+  const handlePriceMaxChange = (text) => {
+    setPriceMaxText(text);
+    const num = parsePrice(text);
+    setPriceMax(num || 50000000);
+  };
+
+  const handlePriceMaxBlur = () => {
+    setPriceMaxText(priceMax > 0 ? fmtPrice(priceMax) : '');
+  };
 
   return (
     <div style={s.page}>
@@ -123,13 +159,14 @@ export default function RoomList() {
       {/* Filter bar - centered, bigger */}
       <div style={s.filterBar}>
         <div style={s.filterInner}>
-          <MultiSelect
+          <SearchableMultiSelect
             label="Quận / Huyện"
             options={QUAN_LIST.map((q) => ({ value: q, label: q }))}
             selected={selectedQuan}
             onChange={setSelectedQuan}
+            searchPlaceholder="Nhập tên quận..."
           />
-          <MultiSelect
+          <SearchableMultiSelect
             label="Khu vực"
             options={khuVucOptions.map((o) => ({
               value: `${o.khu_vuc}|||${o.quan_huyen}`,
@@ -139,29 +176,30 @@ export default function RoomList() {
             onChange={setSelectedKhuVuc}
             disabled={khuVucOptions.length === 0}
             placeholder={selectedQuan.length > 0 ? 'Chọn khu vực' : 'Chọn quận trước'}
+            searchPlaceholder="Nhập tên khu vực..."
           />
           <div style={s.priceFilter}>
-            <div style={s.filterLabel}>Giá thuê</div>
+            <div style={s.filterLabel}>Giá phòng</div>
             <div style={s.priceInputs}>
               <input
                 style={s.priceInput}
-                type="number"
-                value={priceMin}
-                onChange={(e) => setPriceMin(Math.max(0, Number(e.target.value)))}
-                step={100000}
-                min={0}
-                max={50000000}
+                type="text"
+                inputMode="numeric"
+                value={priceMinText}
+                onChange={(e) => handlePriceMinChange(e.target.value)}
+                onBlur={handlePriceMinBlur}
+                onFocus={() => setPriceMinText(priceMin > 0 ? String(priceMin) : '')}
                 placeholder="Từ"
               />
               <span style={{ color: C.textDim, fontSize: 14, fontWeight: 600 }}>→</span>
               <input
                 style={s.priceInput}
-                type="number"
-                value={priceMax}
-                onChange={(e) => setPriceMax(Math.min(50000000, Number(e.target.value)))}
-                step={100000}
-                min={0}
-                max={50000000}
+                type="text"
+                inputMode="numeric"
+                value={priceMaxText}
+                onChange={(e) => handlePriceMaxChange(e.target.value)}
+                onBlur={handlePriceMaxBlur}
+                onFocus={() => setPriceMaxText(priceMax > 0 ? String(priceMax) : '')}
                 placeholder="Đến"
               />
             </div>
@@ -169,13 +207,13 @@ export default function RoomList() {
           <div style={s.sortFilter}>
             <div style={s.filterLabel}>Sắp xếp</div>
             <select style={s.sortSelect} value={sort} onChange={(e) => setSort(e.target.value)}>
-              <option value="newest">Mới nhất</option>
               <option value="price_asc">Giá thấp → cao</option>
               <option value="price_desc">Giá cao → thấp</option>
+              <option value="newest">Mới nhất</option>
             </select>
           </div>
           {hasFilters && (
-            <button style={s.clearBtn} onClick={clearFilters}>✕ Xoá lọc</button>
+            <button style={s.clearBtn} onClick={clearFilters}>✕ Xoá bộ lọc</button>
           )}
         </div>
       </div>
@@ -242,22 +280,39 @@ export default function RoomList() {
   );
 }
 
-// ── MultiSelect dropdown ──────────────────────────
-function MultiSelect({ label, options, selected, onChange, disabled, placeholder }) {
+// ── Searchable MultiSelect dropdown ──────────────────────────
+function SearchableMultiSelect({ label, options, selected, onChange, disabled, placeholder, searchPlaceholder }) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const ref = useRef(null);
+  const searchRef = useRef(null);
 
   useEffect(() => {
     const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target)) {
+        setOpen(false);
+        setSearch('');
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  useEffect(() => {
+    if (open && searchRef.current) {
+      searchRef.current.focus();
+    }
+  }, [open]);
+
   const toggle = (val) => {
     onChange(selected.includes(val) ? selected.filter((v) => v !== val) : [...selected, val]);
   };
+
+  const filteredOptions = useMemo(() => {
+    if (!search.trim()) return options;
+    const q = search.toLowerCase().trim();
+    return options.filter((opt) => opt.label.toLowerCase().includes(q));
+  }, [options, search]);
 
   return (
     <div ref={ref} style={s.multiWrap}>
@@ -275,26 +330,38 @@ function MultiSelect({ label, options, selected, onChange, disabled, placeholder
       </div>
       {open && (
         <div style={s.multiDropdown}>
-          {options.length === 0 ? (
-            <div style={{ padding: 14, fontSize: 13, color: C.textDim, textAlign: 'center' }}>Không có dữ liệu</div>
+          {/* Search input */}
+          <div style={s.multiSearchWrap}>
+            <input
+              ref={searchRef}
+              style={s.multiSearchInput}
+              type="text"
+              placeholder={searchPlaceholder || 'Tìm kiếm...'}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          {selected.length > 0 && (
+            <div style={s.multiClear} onClick={() => { onChange([]); setSearch(''); }}>Bỏ chọn tất cả</div>
+          )}
+          {filteredOptions.length === 0 ? (
+            <div style={{ padding: 14, fontSize: 13, color: C.textDim, textAlign: 'center' }}>
+              {search ? 'Không tìm thấy' : 'Không có dữ liệu'}
+            </div>
           ) : (
-            <>
-              {selected.length > 0 && (
-                <div style={s.multiClear} onClick={() => onChange([])}>Bỏ chọn tất cả</div>
-              )}
-              {options.map((opt) => (
-                <div
-                  key={opt.value}
-                  style={s.multiOption(selected.includes(opt.value))}
-                  onClick={() => toggle(opt.value)}
-                >
-                  <div style={s.multiCheck(selected.includes(opt.value))}>
-                    {selected.includes(opt.value) && '✓'}
-                  </div>
-                  <span>{opt.label}</span>
+            filteredOptions.map((opt) => (
+              <div
+                key={opt.value}
+                style={s.multiOption(selected.includes(opt.value))}
+                onClick={() => toggle(opt.value)}
+              >
+                <div style={s.multiCheck(selected.includes(opt.value))}>
+                  {selected.includes(opt.value) && '✓'}
                 </div>
-              ))}
-            </>
+                <span>{opt.label}</span>
+              </div>
+            ))
           )}
         </div>
       )}
@@ -482,6 +549,7 @@ const s = {
     marginBottom: 5,
     letterSpacing: 0.3,
     fontFamily: FONT,
+    textAlign: 'center',
   },
   // MultiSelect
   multiWrap: { position: 'relative', minWidth: 170 },
@@ -510,9 +578,30 @@ const s = {
     borderRadius: 10,
     boxShadow: '0 8px 30px rgba(0,0,0,0.10)',
     zIndex: 200,
-    maxHeight: 300,
+    maxHeight: 340,
     overflowY: 'auto',
     marginTop: 4,
+  },
+  multiSearchWrap: {
+    padding: '8px 10px',
+    borderBottom: `1px solid ${C.border}`,
+    position: 'sticky',
+    top: 0,
+    background: C.bgCard,
+    zIndex: 1,
+  },
+  multiSearchInput: {
+    width: '100%',
+    padding: '7px 10px',
+    border: `1px solid ${C.border}`,
+    borderRadius: 6,
+    fontSize: 13,
+    color: C.text,
+    outline: 'none',
+    background: C.bg,
+    fontFamily: FONT,
+    fontWeight: 500,
+    boxSizing: 'border-box',
   },
   multiClear: {
     padding: '8px 14px',
@@ -550,10 +639,10 @@ const s = {
     flexShrink: 0,
   }),
   // Price filter
-  priceFilter: { minWidth: 210 },
+  priceFilter: { minWidth: 240 },
   priceInputs: { display: 'flex', alignItems: 'center', gap: 8 },
   priceInput: {
-    width: 105,
+    width: 115,
     padding: '9px 10px',
     background: C.bg,
     border: `1px solid ${C.border}`,
@@ -564,6 +653,7 @@ const s = {
     boxSizing: 'border-box',
     fontFamily: FONT,
     fontWeight: 500,
+    textAlign: 'right',
   },
   // Sort
   sortFilter: { minWidth: 150 },
