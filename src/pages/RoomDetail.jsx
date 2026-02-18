@@ -31,14 +31,26 @@ export default function RoomDetail() {
 
   const zaloLink = `https://zalo.me/0961685136`;
 
-  // Phòng gợi ý: cùng khu vực, giá ±30%, loại trừ phòng hiện tại
-  const suggestedRooms = allRooms.filter((r) => {
-    if (r.id === room.id) return false;
-    if (!room.khu_vuc || !r.khu_vuc) return false;
-    const sameKhuVuc = r.khu_vuc.toLowerCase() === room.khu_vuc.toLowerCase();
-    const priceDiff = Math.abs(r.gia - room.gia) / (room.gia || 1);
-    return sameKhuVuc && priceDiff <= 0.3;
-  }).slice(0, 4);
+  // Phòng gợi ý: ưu tiên cùng khu vực, rồi cùng quận/huyện, giá ±30%
+  const suggestedRooms = (() => {
+    const norm = (s) => (s || '').trim().toLowerCase();
+    const priceFit = (r) => Math.abs(r.gia - room.gia) / (room.gia || 1) <= 0.3;
+    const notSelf = (r) => r.id !== room.id;
+
+    // Ưu tiên 1: cùng khu vực + giá tương đồng
+    const sameKhuVuc = allRooms.filter((r) =>
+      notSelf(r) && norm(r.khu_vuc) === norm(room.khu_vuc) && room.khu_vuc && priceFit(r)
+    );
+    if (sameKhuVuc.length >= 4) return sameKhuVuc.slice(0, 4);
+
+    // Ưu tiên 2: cùng quận/huyện + giá tương đồng
+    const usedIds = new Set(sameKhuVuc.map((r) => r.id));
+    const sameQuan = allRooms.filter((r) =>
+      notSelf(r) && !usedIds.has(r.id) && norm(r.quan_huyen) === norm(room.quan_huyen) && room.quan_huyen && priceFit(r)
+    );
+
+    return [...sameKhuVuc, ...sameQuan].slice(0, 4);
+  })();
 
   return (
     <div style={s.page}>
