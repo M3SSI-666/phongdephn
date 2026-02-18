@@ -5,6 +5,7 @@ import {
   uploadImagesToCloudinary,
   uploadVideosToCloudinary,
   pushToGoogleSheets,
+  fetchRoomsFromSheets,
 } from '../utils/api';
 
 export default function AdminTool() {
@@ -17,6 +18,9 @@ export default function AdminTool() {
   const [uploadProgress, setUploadProgress] = useState({ images: 0, videos: 0, text: 0 });
   const [mediaUrls, setMediaUrls] = useState({ images: [], videos: [] });
   const [error, setError] = useState(null);
+
+  const [duplicateWarning, setDuplicateWarning] = useState(null);
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
 
   const imgInputRef = useRef(null);
   const vidInputRef = useRef(null);
@@ -93,7 +97,7 @@ export default function AdminTool() {
     }
   };
 
-  const handleConfirm = async () => {
+  const doPush = async () => {
     try {
       await pushToGoogleSheets({
         ...parsedData,
@@ -103,6 +107,7 @@ export default function AdminTool() {
         thong_tin_raw: rawText,
         ngay_input: new Date().toISOString(),
       });
+      setDuplicateWarning(null);
       setPhase('done');
       setTimeout(() => {
         setPhase('input');
@@ -118,6 +123,31 @@ export default function AdminTool() {
     }
   };
 
+  const handleConfirm = async () => {
+    setCheckingDuplicate(true);
+    setError(null);
+    try {
+      const existingRooms = await fetchRoomsFromSheets();
+      const norm = (s) => (s || '').trim().toLowerCase();
+      const duplicates = existingRooms.filter((r) =>
+        norm(r.quan_huyen) === norm(parsedData.quan_huyen) &&
+        norm(r.khu_vuc) === norm(parsedData.khu_vuc) &&
+        norm(r.dia_chi) === norm(parsedData.dia_chi) &&
+        Number(r.gia) === Number(parsedData.gia)
+      );
+      if (duplicates.length > 0) {
+        setDuplicateWarning(duplicates);
+        setCheckingDuplicate(false);
+        return;
+      }
+      setCheckingDuplicate(false);
+      await doPush();
+    } catch (err) {
+      setCheckingDuplicate(false);
+      setError('Lỗi kiểm tra trùng: ' + err.message);
+    }
+  };
+
   const handleReset = () => {
     setPhase('input');
     setRawText('');
@@ -126,6 +156,7 @@ export default function AdminTool() {
     setVideos([]);
     setParsedData(null);
     setError(null);
+    setDuplicateWarning(null);
   };
 
   return (
@@ -159,6 +190,35 @@ export default function AdminTool() {
           <div style={st.errorBanner}>
             <span>{error}</span>
             <button style={st.errorClose} onClick={() => setError(null)}>x</button>
+          </div>
+        )}
+
+        {/* Duplicate Warning Modal */}
+        {duplicateWarning && (
+          <div style={st.modalOverlay}>
+            <div style={st.modalBox}>
+              <div style={st.modalIcon}>⚠️</div>
+              <div style={st.modalTitle}>Phát hiện phòng trùng!</div>
+              <div style={st.modalDesc}>
+                Tìm thấy {duplicateWarning.length} phòng trùng khớp Quận/Huyện, Khu vực, Địa chỉ và Giá:
+              </div>
+              <div style={st.modalDupList}>
+                {duplicateWarning.map((d, i) => (
+                  <div key={i} style={st.modalDupItem}>
+                    <strong>{d.id}</strong> — {d.dia_chi}, {d.khu_vuc}, {d.quan_huyen} — {formatVND(d.gia)}
+                  </div>
+                ))}
+              </div>
+              <div style={st.modalQuestion}>Bạn vẫn muốn thêm phòng này?</div>
+              <div style={st.modalActions}>
+                <button style={st.modalCancelBtn} onClick={() => setDuplicateWarning(null)}>
+                  Huỷ bỏ
+                </button>
+                <button style={st.modalConfirmBtn} onClick={() => { setDuplicateWarning(null); doPush(); }}>
+                  Vẫn thêm
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -468,8 +528,8 @@ export default function AdminTool() {
                 <button style={st.backBtn} onClick={handleReset}>
                   Nhập lại
                 </button>
-                <button style={st.confirmBtn} onClick={handleConfirm}>
-                  Xác nhận & Đẩy vào Sheet
+                <button style={st.confirmBtn} onClick={handleConfirm} disabled={checkingDuplicate}>
+                  {checkingDuplicate ? 'Đang kiểm tra trùng...' : 'Xác nhận & Đẩy vào Sheet'}
                 </button>
               </div>
             </div>
@@ -1330,5 +1390,54 @@ const st = {
     color: C.bg,
     fontSize: 14,
     fontWeight: 700,
+  },
+
+  /* ── Duplicate Modal ── */
+  modalOverlay: {
+    position: 'fixed', inset: 0,
+    background: 'rgba(0,0,0,0.5)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    zIndex: 1000,
+    backdropFilter: 'blur(2px)',
+  },
+  modalBox: {
+    background: C.bgCard, borderRadius: 16,
+    border: `1px solid ${C.border}`,
+    padding: '28px 24px', maxWidth: 480, width: '90%',
+    boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+    textAlign: 'center',
+  },
+  modalIcon: { fontSize: 40, marginBottom: 8 },
+  modalTitle: {
+    fontSize: 18, fontWeight: 800, color: C.warn,
+    marginBottom: 8,
+  },
+  modalDesc: {
+    fontSize: 13, color: C.textMuted, marginBottom: 12, lineHeight: 1.5,
+  },
+  modalDupList: {
+    background: C.bg, borderRadius: 8,
+    border: `1px solid ${C.border}`,
+    padding: 12, marginBottom: 16, textAlign: 'left',
+    maxHeight: 150, overflowY: 'auto',
+  },
+  modalDupItem: {
+    fontSize: 12, color: C.text, padding: '4px 0',
+    borderBottom: `1px solid ${C.borderLight}`,
+    lineHeight: 1.5,
+  },
+  modalQuestion: {
+    fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 16,
+  },
+  modalActions: { display: 'flex', gap: 12, justifyContent: 'center' },
+  modalCancelBtn: {
+    padding: '10px 24px', borderRadius: 8,
+    border: `1px solid ${C.border}`, background: 'transparent',
+    color: C.textMuted, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+  },
+  modalConfirmBtn: {
+    padding: '10px 24px', borderRadius: 8,
+    border: 'none', background: C.warn, color: '#fff',
+    fontSize: 13, fontWeight: 700, cursor: 'pointer',
   },
 };
