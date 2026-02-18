@@ -6,12 +6,14 @@ import { fetchRoomsFromSheets } from '../utils/api';
 export default function RoomDetail() {
   const { id } = useParams();
   const [room, setRoom] = useState(null);
+  const [allRooms, setAllRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeMedia, setActiveMedia] = useState(0);
 
   useEffect(() => {
     fetchRoomsFromSheets()
       .then((rooms) => {
+        setAllRooms(rooms);
         const found = rooms.find((r) => String(r.id) === id);
         setRoom(found || null);
       })
@@ -28,6 +30,15 @@ export default function RoomDetail() {
   ];
 
   const zaloLink = `https://zalo.me/0961685136`;
+
+  // Phòng gợi ý: cùng khu vực, giá ±30%, loại trừ phòng hiện tại
+  const suggestedRooms = allRooms.filter((r) => {
+    if (r.id === room.id) return false;
+    if (!room.khu_vuc || !r.khu_vuc) return false;
+    const sameKhuVuc = r.khu_vuc.toLowerCase() === room.khu_vuc.toLowerCase();
+    const priceDiff = Math.abs(r.gia - room.gia) / (room.gia || 1);
+    return sameKhuVuc && priceDiff <= 0.3;
+  }).slice(0, 4);
 
   return (
     <div style={s.page}>
@@ -134,8 +145,8 @@ export default function RoomDetail() {
               <div style={s.price}>{formatVND(room.gia)}/tháng</div>
 
               {room.id && (
-                <div style={{ fontSize: 12, color: C.textDim, marginBottom: 16 }}>
-                  ID: {room.id}
+                <div style={{ fontSize: 14, marginBottom: 16 }}>
+                  <span style={{ fontWeight: 800, color: C.error }}>Mã phòng: {room.id}</span>
                 </div>
               )}
 
@@ -206,10 +217,40 @@ export default function RoomDetail() {
             </a>
 
             <div style={s.contactNote}>
-              Nói mã phòng <strong>{room.id || 'N/A'}</strong> để được hỗ trợ nhanh hơn
+              Nói <span style={{ fontWeight: 800, color: C.error }}>Mã phòng: {room.id || 'N/A'}</span> để được hỗ trợ nhanh hơn
             </div>
           </div>
         </div>
+
+        {/* Phòng gợi ý */}
+        {suggestedRooms.length > 0 && (
+          <div style={s.suggestSection}>
+            <h2 style={s.suggestTitle}>Các phòng bạn có thể quan tâm</h2>
+            <div style={s.suggestGrid}>
+              {suggestedRooms.map((r) => (
+                <Link key={r.id} to={`/phong/${r.id}`} style={s.suggestCard} onClick={() => window.scrollTo(0, 0)}>
+                  <div style={s.suggestMedia}>
+                    {r.images?.[0] ? (
+                      <img src={r.images[0]} alt="" style={s.suggestImg} loading="lazy" />
+                    ) : (
+                      <div style={s.suggestNoImg}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.textDim} strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                      </div>
+                    )}
+                    <div style={s.suggestPriceTag}>{formatVND(r.gia)}/th</div>
+                  </div>
+                  <div style={s.suggestBody}>
+                    <div style={s.suggestAddr}>{r.dia_chi}</div>
+                    <div style={s.suggestMeta}>
+                      {r.loai_phong && <span style={s.suggestMetaTag}>{r.loai_phong}</span>}
+                      <span style={s.suggestMetaTag}>{r.khu_vuc}</span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
@@ -474,5 +515,54 @@ const s = {
     color: C.textDim,
     textAlign: 'center',
     lineHeight: 1.5,
+  },
+
+  /* ── Phòng gợi ý ── */
+  suggestSection: {
+    marginTop: 32,
+    paddingTop: 24,
+    borderTop: `1px solid ${C.border}`,
+  },
+  suggestTitle: {
+    fontSize: 18, fontWeight: 800, color: C.text,
+    marginBottom: 16, fontFamily: FONT,
+  },
+  suggestGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+    gap: 16,
+  },
+  suggestCard: {
+    background: C.bgCard, borderRadius: 12,
+    border: `1px solid ${C.border}`,
+    overflow: 'hidden', textDecoration: 'none', color: 'inherit',
+    boxShadow: C.shadow,
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+  },
+  suggestMedia: {
+    position: 'relative', aspectRatio: '16/10',
+    background: '#F1F5F9', overflow: 'hidden',
+  },
+  suggestImg: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
+  suggestNoImg: {
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    height: '100%', background: '#F1F5F9',
+  },
+  suggestPriceTag: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    background: 'linear-gradient(transparent, rgba(0,0,0,0.6))',
+    padding: '16px 12px 8px',
+    color: '#fff', fontSize: 16, fontWeight: 800, fontFamily: FONT,
+  },
+  suggestBody: { padding: '10px 12px 12px' },
+  suggestAddr: {
+    fontSize: 13, color: C.text, fontWeight: 500,
+    marginBottom: 6, lineHeight: 1.4, fontFamily: FONT,
+  },
+  suggestMeta: { display: 'flex', flexWrap: 'wrap', gap: 4 },
+  suggestMetaTag: {
+    background: C.primaryBg, color: C.primaryDark,
+    padding: '2px 8px', borderRadius: 4,
+    fontSize: 11, fontWeight: 600, fontFamily: FONT,
   },
 };
