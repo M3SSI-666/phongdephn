@@ -32,12 +32,14 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
     .filter-input:focus { border-color: ${C.primary} !important; box-shadow: 0 0 0 3px ${C.primaryGlow} !important; }
     @keyframes fadeInUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
     .fade-in { animation: fadeInUp 0.3s ease forwards; }
+    .rl-desktop-header { display: flex; }
+    .rl-mobile-banner { display: none; }
     @media (max-width: 768px) {
+      .rl-desktop-header { display: none !important; }
+      .rl-mobile-banner { display: block !important; }
       .rl-filter-card { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
       .rl-filter-card > div { min-width: 0 !important; }
       .rl-grid { grid-template-columns: 1fr !important; }
-      .rl-banner { height: 160px !important; }
-      .rl-banner-headline { font-size: 22px !important; }
     }
   `;
   document.head.appendChild(style);
@@ -119,12 +121,28 @@ export default function RoomList() {
 
   return (
     <div style={s.page}>
-      {/* ─── BANNER HEADER ─── */}
-      <div className="rl-banner" style={s.banner}>
+      {/* ─── DESKTOP HEADER (ẩn trên mobile) ─── */}
+      <header className="rl-desktop-header" style={s.desktopHeader}>
+        <div style={s.desktopHeaderInner}>
+          <Link to="/" style={s.desktopLogo}>
+            <div style={s.desktopLogoIcon}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M3 10.5L12 3L21 10.5V20C21 20.55 20.55 21 20 21H4C3.45 21 3 20.55 3 20V10.5Z" fill="white" fillOpacity="0.9"/>
+                <path d="M9 21V13H15V21" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <span style={s.desktopLogoText}>Phòng Đẹp - Giá Yêu</span>
+          </Link>
+          <span style={s.desktopSlogan}>Kênh tìm phòng uy tín tại Hà Nội</span>
+        </div>
+      </header>
+
+      {/* ─── MOBILE BANNER (ẩn trên desktop) ─── */}
+      <div className="rl-mobile-banner" style={s.mobileBanner}>
         <img src={BANNER_URL} alt="" style={s.bannerImg} />
         <div style={s.bannerOverlay} />
         <div style={s.bannerContent}>
-          <h1 className="rl-banner-headline" style={s.bannerHeadline}>Phòng Đẹp - Giá Yêu</h1>
+          <h1 style={s.bannerHeadline}>Phòng Đẹp - Giá Yêu</h1>
           <p style={s.bannerDesc}>Kênh tìm phòng uy tín tại Hà Nội</p>
         </div>
       </div>
@@ -371,11 +389,42 @@ const s = {
   /* ── Page ── */
   page: { fontFamily: F, background: C.bg, minHeight: '100vh', color: C.text },
 
-  /* ── Banner ── */
-  banner: {
+  /* ── Desktop Header ── */
+  desktopHeader: {
+    background: C.gradient,
+    padding: '0 24px',
+    height: 56,
+    alignItems: 'center',
+    position: 'sticky', top: 0, zIndex: 100,
+    boxShadow: '0 2px 12px rgba(34,197,94,0.15)',
+  },
+  desktopHeaderInner: {
+    width: '100%', maxWidth: 1320, margin: '0 auto', height: '100%',
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+  },
+  desktopLogo: {
+    display: 'flex', alignItems: 'center', gap: 10,
+    textDecoration: 'none',
+  },
+  desktopLogoIcon: {
+    width: 36, height: 36, borderRadius: 9,
+    background: 'rgba(255,255,255,0.2)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
+  desktopLogoText: {
+    fontSize: 18, fontWeight: 900, color: '#fff',
+    letterSpacing: 0.5, fontFamily: F,
+  },
+  desktopSlogan: {
+    fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.85)',
+    fontFamily: F, letterSpacing: 0.3,
+  },
+
+  /* ── Mobile Banner ── */
+  mobileBanner: {
     position: 'relative',
     width: '100%',
-    height: 200,
+    height: 170,
     overflow: 'hidden',
   },
   bannerImg: {
@@ -394,12 +443,12 @@ const s = {
     gap: 6, padding: '0 24px', textAlign: 'center',
   },
   bannerHeadline: {
-    fontSize: 28, fontWeight: 900, color: '#fff',
+    fontSize: 24, fontWeight: 900, color: '#fff',
     fontFamily: F, margin: 0, letterSpacing: 1,
     textShadow: '0 2px 12px rgba(0,0,0,0.4)',
   },
   bannerDesc: {
-    fontSize: 14, color: 'rgba(255,255,255,0.85)', fontWeight: 500,
+    fontSize: 13, color: 'rgba(255,255,255,0.85)', fontWeight: 500,
     fontFamily: F, margin: 0,
     textShadow: '0 1px 4px rgba(0,0,0,0.3)',
   },
