@@ -3,6 +3,25 @@ import { useParams, Link } from 'react-router-dom';
 import { C, formatVND, formatVNDFull } from '../utils/theme';
 import { fetchRoomsFromSheets } from '../utils/api';
 
+/* ── Inject responsive CSS ── */
+const RD_STYLE_ID = 'roomdetail-responsive';
+if (typeof document !== 'undefined' && !document.getElementById(RD_STYLE_ID)) {
+  const style = document.createElement('style');
+  style.id = RD_STYLE_ID;
+  style.textContent = `
+    @media (max-width: 768px) {
+      .rd-layout { grid-template-columns: 1fr !important; }
+      .rd-contact { position: static !important; }
+      .rd-main-media { aspect-ratio: 16/10 !important; }
+      .rd-suggest-grid { grid-template-columns: 1fr 1fr !important; }
+    }
+    @media (max-width: 480px) {
+      .rd-suggest-grid { grid-template-columns: 1fr !important; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 export default function RoomDetail() {
   const { id } = useParams();
   const [room, setRoom] = useState(null);
@@ -75,13 +94,13 @@ export default function RoomDetail() {
       </header>
 
       <main style={s.main}>
-        <div style={s.layout}>
+        <div className="rd-layout" style={s.layout}>
           {/* Left - Media + Info */}
           <div>
             {/* Gallery */}
             {allMedia.length > 0 && (
               <div style={s.gallery}>
-                <div style={s.mainMedia}>
+                <div className="rd-main-media" style={s.mainMedia}>
                   {allMedia[activeMedia]?.type === 'video' ? (
                     <video
                       src={allMedia[activeMedia].url}
@@ -208,7 +227,7 @@ export default function RoomDetail() {
           </div>
 
           {/* Right - Contact */}
-          <div style={s.contactCard}>
+          <div className="rd-contact" style={s.contactCard}>
             <div style={s.contactTitle}>Liên hệ xem phòng</div>
             <div style={s.contactPrice}>
               {formatVNDFull(room.gia)}
@@ -235,7 +254,7 @@ export default function RoomDetail() {
         {suggestedRooms.length > 0 && (
           <div style={s.suggestSection}>
             <h2 style={s.suggestTitle}>Các phòng bạn có thể quan tâm</h2>
-            <div style={s.suggestGrid}>
+            <div className="rd-suggest-grid" style={s.suggestGrid}>
               {suggestedRooms.map((r) => (
                 <Link key={r.id} to={`/phong/${r.id}`} style={s.suggestCard} onClick={() => window.scrollTo(0, 0)}>
                   <div style={s.suggestMedia}>
@@ -333,11 +352,11 @@ const s = {
     fontWeight: 600,
     fontFamily: FONT,
   },
-  main: { maxWidth: 1200, margin: '0 auto', padding: '24px 24px 60px' },
+  main: { maxWidth: 1200, margin: '0 auto', padding: '16px 12px 60px' },
   layout: {
     display: 'grid',
     gridTemplateColumns: '1fr 340px',
-    gap: 24,
+    gap: 20,
     alignItems: 'start',
   },
   gallery: {

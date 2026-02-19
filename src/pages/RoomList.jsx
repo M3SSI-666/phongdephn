@@ -32,6 +32,13 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
     .filter-input:focus { border-color: ${C.primary} !important; box-shadow: 0 0 0 3px ${C.primaryGlow} !important; }
     @keyframes fadeInUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
     .fade-in { animation: fadeInUp 0.3s ease forwards; }
+    @media (max-width: 768px) {
+      .rl-filter-card { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
+      .rl-filter-card > div { min-width: 0 !important; }
+      .rl-grid { grid-template-columns: 1fr !important; }
+      .rl-banner { height: 160px !important; }
+      .rl-banner-headline { font-size: 22px !important; }
+    }
   `;
   document.head.appendChild(style);
 }
@@ -113,35 +120,18 @@ export default function RoomList() {
   return (
     <div style={s.page}>
       {/* ─── BANNER HEADER ─── */}
-      <div style={s.banner}>
+      <div className="rl-banner" style={s.banner}>
         <img src={BANNER_URL} alt="" style={s.bannerImg} />
         <div style={s.bannerOverlay} />
         <div style={s.bannerContent}>
-          <Link to="/" style={s.bannerLogo}>
-            <div style={s.logoMark}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path d="M3 10.5L12 3L21 10.5V20C21 20.55 20.55 21 20 21H4C3.45 21 3 20.55 3 20V10.5Z" fill="white" fillOpacity="0.9"/>
-                <path d="M9 21V13H15V21" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-            </div>
-            <div>
-              <div style={s.bannerTitle}>PHÒNG ĐẸP</div>
-              <div style={s.bannerSlogan}>GIÁ YÊU</div>
-            </div>
-          </Link>
-          <p style={s.bannerDesc}>
-            Kênh phòng trọ uy tín tại Hà Nội
-            {rooms.length > 0 && <span style={s.bannerBadge}>{rooms.length} phòng</span>}
-          </p>
-          <a href="https://zalo.me/0961685136" target="_blank" rel="noopener noreferrer" className="zalo-btn" style={s.bannerCTA}>
-            Nhắn Zalo tư vấn
-          </a>
+          <h1 className="rl-banner-headline" style={s.bannerHeadline}>Phòng Đẹp - Giá Yêu</h1>
+          <p style={s.bannerDesc}>Kênh tìm phòng uy tín tại Hà Nội</p>
         </div>
       </div>
 
       {/* ─── FILTER BAR ─── */}
       <div style={s.filterSection}>
-        <div style={s.filterCard}>
+        <div className="rl-filter-card" style={s.filterCard}>
           <SearchableMultiSelect
             label="Quận / Huyện"
             options={QUAN_LIST.map((q) => ({ value: q, label: q }))}
@@ -230,7 +220,7 @@ export default function RoomList() {
             <div style={{ fontSize: 13, color: C.textDim, marginTop: 6 }}>Thử điều chỉnh bộ lọc để xem thêm phòng</div>
           </div>
         ) : (
-          <div style={s.grid}>
+          <div className="rl-grid" style={s.grid}>
             {filtered.map((room, i) => (
               <RoomCard key={room.id || i} room={room} />
             ))}
@@ -332,15 +322,12 @@ function SearchableMultiSelect({ label, options, selected, onChange, disabled, p
    ══════════════════════════════════════════════════════ */
 function RoomCard({ room }) {
   const mainImage = room.images?.[0];
-  const mainVideo = room.videos?.[0];
   const mediaCount = (room.images?.length || 0) + (room.videos?.length || 0);
 
   return (
     <Link to={`/phong/${room.id}`} className="room-card" style={s.card}>
       <div style={s.cardMedia}>
-        {mainVideo ? (
-          <video src={mainVideo} style={s.cardImg} muted />
-        ) : mainImage ? (
+        {mainImage ? (
           <img src={mainImage} alt="" style={s.cardImg} loading="lazy" />
         ) : (
           <div style={s.cardNoImg}>
@@ -388,7 +375,7 @@ const s = {
   banner: {
     position: 'relative',
     width: '100%',
-    height: 220,
+    height: 200,
     overflow: 'hidden',
   },
   bannerImg: {
@@ -398,54 +385,23 @@ const s = {
   },
   bannerOverlay: {
     position: 'absolute', inset: 0,
-    background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.55) 100%)',
+    background: 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.6) 100%)',
   },
   bannerContent: {
     position: 'absolute', inset: 0,
     display: 'flex', flexDirection: 'column',
     alignItems: 'center', justifyContent: 'center',
-    gap: 8, padding: '0 24px',
+    gap: 6, padding: '0 24px', textAlign: 'center',
   },
-  bannerLogo: {
-    display: 'flex', alignItems: 'center', gap: 10,
-    textDecoration: 'none',
-  },
-  logoMark: {
-    width: 44, height: 44, borderRadius: 11,
-    background: C.gradient,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    boxShadow: '0 4px 14px rgba(34,197,94,0.35)',
-  },
-  bannerTitle: {
-    fontSize: 22, fontWeight: 900, color: '#fff',
-    letterSpacing: 1, lineHeight: 1.15, fontFamily: F,
-    textShadow: '0 2px 8px rgba(0,0,0,0.3)',
-  },
-  bannerSlogan: {
-    fontSize: 13, fontWeight: 700, color: C.accent,
-    letterSpacing: 2, lineHeight: 1.15, fontFamily: F,
-    textShadow: '0 1px 4px rgba(0,0,0,0.3)',
+  bannerHeadline: {
+    fontSize: 28, fontWeight: 900, color: '#fff',
+    fontFamily: F, margin: 0, letterSpacing: 1,
+    textShadow: '0 2px 12px rgba(0,0,0,0.4)',
   },
   bannerDesc: {
     fontSize: 14, color: 'rgba(255,255,255,0.85)', fontWeight: 500,
     fontFamily: F, margin: 0,
     textShadow: '0 1px 4px rgba(0,0,0,0.3)',
-  },
-  bannerBadge: {
-    display: 'inline-block',
-    background: 'rgba(255,255,255,0.2)', color: '#fff',
-    padding: '2px 10px', borderRadius: 12,
-    fontSize: 12, fontWeight: 700, marginLeft: 8,
-    backdropFilter: 'blur(4px)',
-  },
-  bannerCTA: {
-    marginTop: 4,
-    fontSize: 13, fontWeight: 700, color: '#fff',
-    textDecoration: 'none',
-    padding: '9px 22px', borderRadius: 8,
-    background: C.gradient,
-    boxShadow: '0 4px 14px rgba(34,197,94,0.35)',
-    fontFamily: F,
   },
 
   /* ── Filter Section ── */
