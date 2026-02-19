@@ -241,7 +241,7 @@ export default function RoomDetail() {
             </div>
 
             <a href={zaloLink} target="_blank" rel="noopener noreferrer" style={s.zaloBtn}>
-              Đặt lịch xem phòng tại đây
+              Tư vấn và đặt lịch xem phòng tại đây
             </a>
 
             <div style={s.contactNote}>
