@@ -222,10 +222,7 @@ export default function RoomDetail() {
             </div>
 
             <a href={zaloLink} target="_blank" rel="noopener noreferrer" style={s.zaloBtn}>
-              Nhắn Zalo xem phòng
-            </a>
-            <a href="tel:0961685136" style={s.phoneBtn}>
-              Gọi: 0961 685 136
+              Đặt lịch xem phòng tại đây
             </a>
 
             <div style={s.contactNote}>
