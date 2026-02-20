@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { C, QUAN_LIST, formatVND } from '../utils/theme';
+import { C, QUAN_LIST, LOAI_PHONG, formatVND } from '../utils/theme';
 import { fetchRoomsFromSheets } from '../utils/api';
 
 /* ── Helpers ─────────────────────────────────────── */
@@ -53,6 +53,7 @@ export default function RoomList() {
   const [loading, setLoading] = useState(true);
   const [selectedQuan, setSelectedQuan] = useState([]);
   const [selectedKhuVuc, setSelectedKhuVuc] = useState([]);
+  const [selectedLoaiPhong, setSelectedLoaiPhong] = useState('Phòng đơn');
   const [priceMin, setPriceMin] = useState(2000000);
   const [priceMax, setPriceMax] = useState(15000000);
   const [priceMinText, setPriceMinText] = useState('2.000.000');
@@ -98,21 +99,23 @@ export default function RoomList() {
         const key = `${r.khu_vuc}|||${r.quan_huyen}`;
         if (!selectedKhuVuc.includes(key)) return false;
       }
+      if (selectedLoaiPhong && r.loai_phong !== selectedLoaiPhong) return false;
       if (r.gia < priceMin || r.gia > priceMax) return false;
       return true;
     });
     if (sort === 'price_asc') result.sort((a, b) => a.gia - b.gia);
     else if (sort === 'price_desc') result.sort((a, b) => b.gia - a.gia);
     return result;
-  }, [rooms, selectedQuan, selectedKhuVuc, priceMin, priceMax, sort]);
+  }, [rooms, selectedQuan, selectedKhuVuc, selectedLoaiPhong, priceMin, priceMax, sort]);
 
   const clearFilters = () => {
     setSelectedQuan([]); setSelectedKhuVuc([]);
+    setSelectedLoaiPhong('Phòng đơn');
     setPriceMin(2000000); setPriceMax(15000000);
     setPriceMinText('2.000.000'); setPriceMaxText('15.000.000');
     setSort('price_asc');
   };
-  const hasFilters = selectedQuan.length > 0 || selectedKhuVuc.length > 0 || priceMin !== 2000000 || priceMax !== 15000000;
+  const hasFilters = selectedQuan.length > 0 || selectedKhuVuc.length > 0 || selectedLoaiPhong !== 'Phòng đơn' || priceMin !== 2000000 || priceMax !== 15000000;
 
   const handlePriceMinChange = (t) => { setPriceMinText(t); setPriceMin(parsePrice(t)); };
   const handlePriceMinBlur = () => { setPriceMinText(priceMin > 0 ? fmtPrice(priceMin) : ''); };
@@ -169,6 +172,15 @@ export default function RoomList() {
             placeholder={selectedQuan.length > 0 ? 'Chọn khu vực' : 'Chọn quận trước'}
             searchPlaceholder="Nhập tên khu vực..."
           />
+          <div style={s.filterGroup}>
+            <div style={s.filterLabel}>Loại phòng</div>
+            <select className="filter-input" style={s.sortSelect} value={selectedLoaiPhong} onChange={(e) => setSelectedLoaiPhong(e.target.value)}>
+              <option value="">Tất cả</option>
+              {LOAI_PHONG.map((lp) => (
+                <option key={lp} value={lp}>{lp}</option>
+              ))}
+            </select>
+          </div>
           <div style={s.filterGroup}>
             <div style={s.filterLabel}>Giá phòng</div>
             <div style={s.priceRow}>

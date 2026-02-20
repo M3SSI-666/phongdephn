@@ -51,7 +51,7 @@ export const QUAN_VIETTAT = {
   'Thường Tín': 'TTi', 'Ứng Hòa': 'UH',
 };
 
-export const LOAI_PHONG = ['Phòng trọ đơn', 'Nguyên căn', 'Chung cư', 'Homestay', '1N1K', '2N1K', '3N1K', '1N1B', '2N1B'];
+export const LOAI_PHONG = ['Phòng đơn', 'Nguyên căn', 'Chung cư', 'Homestay', '1N1K', '2N1K', '3N1K', '1N1B', '2N1B'];
 
 export const formatVND = (v) => {
   if (!v) return '';
