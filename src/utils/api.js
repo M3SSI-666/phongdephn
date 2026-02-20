@@ -7,7 +7,10 @@ export async function parseTextWithClaude(rawText) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text: rawText }),
   });
-  if (!res.ok) throw new Error('Parse failed');
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || `Parse failed (${res.status})`);
+  }
   return res.json();
 }
 
