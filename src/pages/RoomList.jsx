@@ -468,16 +468,16 @@ const s = {
   /* ── Filter Section ── */
   filterSection: { padding: '16px 24px', background: C.bg },
   filterCard: {
-    maxWidth: 1020, margin: '0 auto',
+    maxWidth: 1320, margin: '0 auto',
     background: C.bgCard,
     borderRadius: 14,
     border: `1px solid ${C.border}`,
     boxShadow: C.shadowMd,
     padding: '16px 20px',
     display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-    gap: 14, flexWrap: 'wrap',
+    gap: 12,
   },
-  filterGroup: { position: 'relative', minWidth: 170 },
+  filterGroup: { position: 'relative', minWidth: 140, flex: 1 },
   filterLabel: {
     fontSize: 11, fontWeight: 700, color: C.textMuted,
     textTransform: 'uppercase', letterSpacing: 0.8,
@@ -490,7 +490,7 @@ const s = {
     background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8,
     fontSize: 14, color: C.text,
     display: 'flex', alignItems: 'center', gap: 8,
-    minWidth: 155, fontFamily: F, fontWeight: 500,
+    minWidth: 130, fontFamily: F, fontWeight: 500,
     transition: 'border-color 0.2s, box-shadow 0.2s',
   },
   selectText: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
@@ -539,7 +539,7 @@ const s = {
   priceRow: { display: 'flex', alignItems: 'center', gap: 8 },
   priceSep: { color: C.textDim, fontSize: 14, fontWeight: 600 },
   priceInput: {
-    width: 115, padding: '9px 10px',
+    width: 105, padding: '9px 10px',
     background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8,
     fontSize: 13, color: C.text, outline: 'none',
     boxSizing: 'border-box', fontFamily: F, fontWeight: 500, textAlign: 'right',
@@ -548,7 +548,7 @@ const s = {
 
   /* ── Sort ── */
   sortSelect: {
-    padding: '9px 12px', width: '100%', minWidth: 155,
+    padding: '9px 12px', width: '100%', minWidth: 130,
     background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8,
     fontSize: 14, color: C.text, outline: 'none',
     boxSizing: 'border-box', fontFamily: F, fontWeight: 500,
@@ -558,7 +558,7 @@ const s = {
     padding: '9px 18px', borderRadius: 8,
     border: `1px solid ${C.border}`, background: C.bgCard,
     color: C.textMuted, fontSize: 13, fontWeight: 600,
-    cursor: 'pointer', fontFamily: F, alignSelf: 'flex-end',
+    cursor: 'pointer', fontFamily: F, alignSelf: 'flex-end', flexShrink: 0, whiteSpace: 'nowrap',
     transition: 'all 0.2s ease',
   },
 
