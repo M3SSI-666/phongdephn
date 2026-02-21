@@ -9,8 +9,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing text' });
     }
 
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    if (!GEMINI_API_KEY) {
+    // Support multiple API keys: GEMINI_API_KEY, GEMINI_API_KEY_2, GEMINI_API_KEY_3
+    const keys = [
+      process.env.GEMINI_API_KEY,
+      process.env.GEMINI_API_KEY_2,
+      process.env.GEMINI_API_KEY_3,
+    ].filter(Boolean);
+
+    if (keys.length === 0) {
       return res.status(500).json({ error: 'Gemini API key not configured' });
     }
 
@@ -44,94 +50,97 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no code blocks, no explanation.
 
 Message: ${cleanText}`;
 
-    // Attempt up to 2 tries
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
+    const requestBody = JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.1,
+        maxOutputTokens: 2048,
+        thinkingConfig: { thinkingBudget: 0 },
+      },
+    });
 
-      let response;
-      try {
-        response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: {
-                temperature: 0.1,
-                maxOutputTokens: 2048,
-                thinkingConfig: { thinkingBudget: 0 },
-              },
-            }),
-            signal: controller.signal,
-          }
-        );
-      } catch (fetchErr) {
-        clearTimeout(timeout);
-        if (attempt === 1) {
-          return res.status(500).json({ error: 'Gemini timeout. Thử lại.' });
-        }
-        continue;
-      } finally {
-        clearTimeout(timeout);
-      }
+    // Try each API key, rotate on 429
+    for (let ki = 0; ki < keys.length; ki++) {
+      const apiKey = keys[ki];
 
-      if (response.status === 429) {
-        return res.status(429).json({ error: 'Gemini rate limit. Thử lại sau 1 phút.' });
-      }
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
 
-      if (!response.ok) {
-        const errText = await response.text();
-        if (attempt === 1) {
-          return res.status(500).json({ error: 'gemini_error', detail: errText.substring(0, 500) });
-        }
-        continue;
-      }
-
-      const data = await response.json();
-      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-      // Try to extract JSON - handle markdown code blocks too
-      let jsonStr = '';
-      const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (codeBlockMatch) {
-        jsonStr = codeBlockMatch[1].trim();
-      } else {
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          jsonStr = jsonMatch[0];
-        }
-      }
-
-      if (!jsonStr) {
-        if (attempt === 1) {
-          return res.status(500).json({ error: 'parse_fail', raw: content.substring(0, 500) });
-        }
-        continue;
-      }
-
-      try {
-        const parsed = JSON.parse(jsonStr);
-        return res.status(200).json(parsed);
-      } catch (jsonErr) {
-        // Try to fix common JSON issues
+        let response;
         try {
-          const fixed = jsonStr
-            .replace(/,\s*}/g, '}')
-            .replace(/,\s*]/g, ']')
-            .replace(/'/g, '"');
-          const parsed = JSON.parse(fixed);
-          return res.status(200).json(parsed);
-        } catch {
+          response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: requestBody,
+              signal: controller.signal,
+            }
+          );
+        } catch (fetchErr) {
+          clearTimeout(timeout);
+          if (attempt === 1) break; // try next key
+          continue;
+        } finally {
+          clearTimeout(timeout);
+        }
+
+        // Rate limited → try next key
+        if (response.status === 429) {
+          break;
+        }
+
+        if (!response.ok) {
+          const errText = await response.text();
           if (attempt === 1) {
-            return res.status(500).json({ error: 'json_parse_fail', raw: jsonStr.substring(0, 500) });
+            return res.status(500).json({ error: 'gemini_error', detail: errText.substring(0, 500) });
+          }
+          continue;
+        }
+
+        const data = await response.json();
+        const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+        // Try to extract JSON - handle markdown code blocks too
+        let jsonStr = '';
+        const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (codeBlockMatch) {
+          jsonStr = codeBlockMatch[1].trim();
+        } else {
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            jsonStr = jsonMatch[0];
+          }
+        }
+
+        if (!jsonStr) {
+          if (attempt === 1) break; // try next key
+          continue;
+        }
+
+        try {
+          const parsed = JSON.parse(jsonStr);
+          return res.status(200).json(parsed);
+        } catch (jsonErr) {
+          try {
+            const fixed = jsonStr
+              .replace(/,\s*}/g, '}')
+              .replace(/,\s*]/g, ']')
+              .replace(/'/g, '"');
+            const parsed = JSON.parse(fixed);
+            return res.status(200).json(parsed);
+          } catch {
+            if (attempt === 1) break;
           }
         }
       }
     }
 
-    return res.status(500).json({ error: 'Parse failed after retries' });
+    // All keys exhausted
+    return res.status(429).json({
+      error: `Rate limit trên tất cả ${keys.length} API key. Thử lại sau 1 phút.`,
+    });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
