@@ -51,12 +51,12 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
 export default function RoomList() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedQuan, setSelectedQuan] = useState(saved.quan ?? []);
-  const [selectedKhuVuc, setSelectedKhuVuc] = useState(saved.khuVuc ?? []);
   // Restore filters from sessionStorage (persists when navigating back from RoomDetail)
   const saved = useMemo(() => {
     try { return JSON.parse(sessionStorage.getItem('rl_filters') || '{}'); } catch { return {}; }
   }, []);
+  const [selectedQuan, setSelectedQuan] = useState(saved.quan ?? []);
+  const [selectedKhuVuc, setSelectedKhuVuc] = useState(saved.khuVuc ?? []);
   const [selectedLoaiPhong, setSelectedLoaiPhong] = useState(saved.loaiPhong ?? '');
   const [priceMin, setPriceMin] = useState(saved.priceMin ?? 2000000);
   const [priceMax, setPriceMax] = useState(saved.priceMax ?? 15000000);
