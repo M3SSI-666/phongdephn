@@ -9,7 +9,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing text' });
     }
 
-    // Support multiple API keys for rotation
     const keys = [
       process.env.GEMINI_API_KEY,
       process.env.GEMINI_API_KEY_2,
@@ -20,7 +19,9 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Gemini API key not configured' });
     }
 
-    // Clean input: remove emojis and excessive whitespace
+    // Rate limit is per-model per-project, so rotating models multiplies quota
+    const MODELS = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'];
+
     const cleanText = text
       .replace(/[\u{1F000}-\u{1F9FF}]/gu, '')
       .replace(/[\u{2600}-\u{27BF}]/gu, '')
@@ -55,77 +56,64 @@ Message: ${cleanText}`;
       },
     });
 
-    // Use Flash-Lite: 15 RPM + 1000 RPD (vs Flash: 10 RPM + 250 RPD)
-    const MODEL = 'gemini-2.5-flash-lite';
+    // Try every combination: key1+model1, key1+model2, key2+model1, key2+model2...
+    // With 2 keys × 2 models = 4 slots → ~2500 RPD + 50 RPM
+    for (const apiKey of keys) {
+      for (const model of MODELS) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
 
-    // Try each API key, rotate on 429
-    for (let ki = 0; ki < keys.length; ki++) {
-      const apiKey = keys[ki];
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
-
-      let response;
-      try {
-        response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: requestBody,
-            signal: controller.signal,
-          }
-        );
-      } catch (fetchErr) {
-        clearTimeout(timeout);
-        continue; // try next key
-      } finally {
-        clearTimeout(timeout);
-      }
-
-      // Rate limited → try next key
-      if (response.status === 429) continue;
-
-      if (!response.ok) {
-        const errText = await response.text();
-        // If not last key, try next
-        if (ki < keys.length - 1) continue;
-        return res.status(500).json({ error: 'gemini_error', detail: errText.substring(0, 500) });
-      }
-
-      const data = await response.json();
-      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-      // Extract JSON from response
-      let jsonStr = '';
-      const codeBlock = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (codeBlock) {
-        jsonStr = codeBlock[1].trim();
-      } else {
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) jsonStr = jsonMatch[0];
-      }
-
-      if (!jsonStr) {
-        if (ki < keys.length - 1) continue;
-        return res.status(500).json({ error: 'parse_fail', raw: content.substring(0, 300) });
-      }
-
-      try {
-        return res.status(200).json(JSON.parse(jsonStr));
-      } catch {
-        // Fix common JSON issues
-        const fixed = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']').replace(/'/g, '"');
+        let response;
         try {
-          return res.status(200).json(JSON.parse(fixed));
+          response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: requestBody,
+              signal: controller.signal,
+            }
+          );
         } catch {
-          if (ki < keys.length - 1) continue;
-          return res.status(500).json({ error: 'json_fail', raw: jsonStr.substring(0, 300) });
+          clearTimeout(timeout);
+          continue;
+        } finally {
+          clearTimeout(timeout);
+        }
+
+        if (response.status === 429) continue;
+
+        if (!response.ok) continue;
+
+        const data = await response.json();
+        const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+        let jsonStr = '';
+        const codeBlock = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (codeBlock) {
+          jsonStr = codeBlock[1].trim();
+        } else {
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) jsonStr = jsonMatch[0];
+        }
+
+        if (!jsonStr) continue;
+
+        try {
+          return res.status(200).json(JSON.parse(jsonStr));
+        } catch {
+          const fixed = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']').replace(/'/g, '"');
+          try {
+            return res.status(200).json(JSON.parse(fixed));
+          } catch {
+            continue;
+          }
         }
       }
     }
 
     return res.status(429).json({
-      error: `Rate limit trên ${keys.length} API key. Thử lại sau 1 phút.`,
+      error: `Rate limit trên tất cả ${keys.length} key × ${MODELS.length} model. Thử lại sau 1 phút.`,
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
