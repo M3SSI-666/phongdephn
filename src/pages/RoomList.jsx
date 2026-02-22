@@ -51,14 +51,18 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
 export default function RoomList() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedQuan, setSelectedQuan] = useState([]);
-  const [selectedKhuVuc, setSelectedKhuVuc] = useState([]);
-  const [selectedLoaiPhong, setSelectedLoaiPhong] = useState('Phòng đơn');
-  const [priceMin, setPriceMin] = useState(2000000);
-  const [priceMax, setPriceMax] = useState(15000000);
-  const [priceMinText, setPriceMinText] = useState('2.000.000');
-  const [priceMaxText, setPriceMaxText] = useState('15.000.000');
-  const [sort, setSort] = useState('price_asc');
+  const [selectedQuan, setSelectedQuan] = useState(saved.quan ?? []);
+  const [selectedKhuVuc, setSelectedKhuVuc] = useState(saved.khuVuc ?? []);
+  // Restore filters from sessionStorage (persists when navigating back from RoomDetail)
+  const saved = useMemo(() => {
+    try { return JSON.parse(sessionStorage.getItem('rl_filters') || '{}'); } catch { return {}; }
+  }, []);
+  const [selectedLoaiPhong, setSelectedLoaiPhong] = useState(saved.loaiPhong ?? '');
+  const [priceMin, setPriceMin] = useState(saved.priceMin ?? 2000000);
+  const [priceMax, setPriceMax] = useState(saved.priceMax ?? 15000000);
+  const [priceMinText, setPriceMinText] = useState(saved.priceMinText ?? '2.000.000');
+  const [priceMaxText, setPriceMaxText] = useState(saved.priceMaxText ?? '15.000.000');
+  const [sort, setSort] = useState(saved.sort ?? 'price_asc');
 
   useEffect(() => {
     fetchRoomsFromSheets()
@@ -66,6 +70,14 @@ export default function RoomList() {
       .catch(() => setRooms([]))
       .finally(() => setLoading(false));
   }, []);
+
+  // Save filters to sessionStorage so they persist when navigating back
+  useEffect(() => {
+    sessionStorage.setItem('rl_filters', JSON.stringify({
+      quan: selectedQuan, khuVuc: selectedKhuVuc, loaiPhong: selectedLoaiPhong,
+      priceMin, priceMax, priceMinText, priceMaxText, sort,
+    }));
+  }, [selectedQuan, selectedKhuVuc, selectedLoaiPhong, priceMin, priceMax, priceMinText, priceMaxText, sort]);
 
   const khuVucOptions = useMemo(() => {
     const map = new Map();
@@ -110,12 +122,12 @@ export default function RoomList() {
 
   const clearFilters = () => {
     setSelectedQuan([]); setSelectedKhuVuc([]);
-    setSelectedLoaiPhong('Phòng đơn');
+    setSelectedLoaiPhong('');
     setPriceMin(2000000); setPriceMax(15000000);
     setPriceMinText('2.000.000'); setPriceMaxText('15.000.000');
     setSort('price_asc');
   };
-  const hasFilters = selectedQuan.length > 0 || selectedKhuVuc.length > 0 || selectedLoaiPhong !== 'Phòng đơn' || priceMin !== 2000000 || priceMax !== 15000000;
+  const hasFilters = selectedQuan.length > 0 || selectedKhuVuc.length > 0 || selectedLoaiPhong !== '' || priceMin !== 2000000 || priceMax !== 15000000;
 
   const handlePriceMinChange = (t) => { setPriceMinText(t); setPriceMin(parsePrice(t)); };
   const handlePriceMinBlur = () => { setPriceMinText(priceMin > 0 ? fmtPrice(priceMin) : ''); };
@@ -182,7 +194,7 @@ export default function RoomList() {
             </select>
           </div>
           <div style={s.filterGroup}>
-            <div style={s.filterLabel}>Giá phòng</div>
+            <div style={s.filterLabel}>Chọn khoảng giá</div>
             <div style={s.priceRow}>
               <input className="filter-input" style={s.priceInput} type="text" inputMode="numeric"
                 value={priceMinText}
