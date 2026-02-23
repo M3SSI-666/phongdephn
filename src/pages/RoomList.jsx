@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { C, QUAN_LIST, LOAI_PHONG, formatVND } from '../utils/theme';
-import { fetchRoomsFromSheets } from '../utils/api';
+import { fetchRoomsFromSheets, smartSearch } from '../utils/api';
 
 /* ── Helpers ─────────────────────────────────────── */
 const fmtPrice = (v) => {
@@ -32,6 +32,14 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
     .filter-input:focus { border-color: ${C.primary} !important; box-shadow: 0 0 0 3px ${C.primaryGlow} !important; }
     @keyframes fadeInUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
     .fade-in { animation: fadeInUp 0.3s ease forwards; }
+    .ai-search-input:focus { border-color: #EF4444 !important; box-shadow: 0 0 0 3px rgba(239,68,68,0.15) !important; }
+    .ai-search-btn { transition: all 0.2s ease; }
+    .ai-search-btn:hover:not(:disabled) { transform: scale(1.02); box-shadow: 0 4px 16px rgba(239,68,68,0.3); }
+    .ai-tag { transition: all 0.18s ease; }
+    .ai-tag:hover { transform: scale(1.05); }
+    @keyframes aiPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .ai-loading { animation: aiPulse 1.5s ease infinite; }
+    .manual-dimmed { opacity: 0.45; pointer-events: none; filter: grayscale(0.3); transition: all 0.3s ease; }
     .rl-desktop-header { display: flex; }
     .rl-mobile-banner { display: none; }
     @media (max-width: 768px) {
@@ -40,6 +48,8 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
       .rl-filter-card { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
       .rl-filter-card > div { min-width: 0 !important; }
       .rl-grid { grid-template-columns: 1fr !important; }
+      .ai-input-row { flex-direction: column !important; }
+      .ai-input-row > button { width: 100% !important; }
     }
   `;
   document.head.appendChild(style);
@@ -64,6 +74,12 @@ export default function RoomList() {
   const [priceMaxText, setPriceMaxText] = useState(saved.priceMaxText ?? '15.000.000');
   const [sort, setSort] = useState(saved.sort ?? 'price_asc');
 
+  // AI Smart Search state
+  const [aiQuery, setAiQuery] = useState(saved.aiQuery ?? '');
+  const [aiSearching, setAiSearching] = useState(false);
+  const [aiResult, setAiResult] = useState(saved.aiResult ?? null);
+  const [aiError, setAiError] = useState('');
+
   useEffect(() => {
     fetchRoomsFromSheets()
       .then(setRooms)
@@ -76,8 +92,9 @@ export default function RoomList() {
     sessionStorage.setItem('rl_filters', JSON.stringify({
       quan: selectedQuan, khuVuc: selectedKhuVuc, loaiPhong: selectedLoaiPhong,
       priceMin, priceMax, priceMinText, priceMaxText, sort,
+      aiQuery, aiResult,
     }));
-  }, [selectedQuan, selectedKhuVuc, selectedLoaiPhong, priceMin, priceMax, priceMinText, priceMaxText, sort]);
+  }, [selectedQuan, selectedKhuVuc, selectedLoaiPhong, priceMin, priceMax, priceMinText, priceMaxText, sort, aiQuery, aiResult]);
 
   const khuVucOptions = useMemo(() => {
     const map = new Map();
@@ -105,20 +122,39 @@ export default function RoomList() {
   }, [selectedQuan]);
 
   const filtered = useMemo(() => {
-    let result = rooms.filter((r) => {
-      if (selectedQuan.length > 0 && !selectedQuan.includes(r.quan_huyen)) return false;
-      if (selectedKhuVuc.length > 0) {
-        const key = `${r.khu_vuc}|||${r.quan_huyen}`;
-        if (!selectedKhuVuc.includes(key)) return false;
-      }
-      if (selectedLoaiPhong && r.loai_phong !== selectedLoaiPhong) return false;
-      if (r.gia < priceMin || r.gia > priceMax) return false;
-      return true;
-    });
-    if (sort === 'price_asc') result.sort((a, b) => a.gia - b.gia);
-    else if (sort === 'price_desc') result.sort((a, b) => b.gia - a.gia);
+    let result;
+
+    if (aiResult) {
+      // AI search mode
+      result = rooms.filter((r) => {
+        if (aiResult.quan_huyen.length > 0 && !aiResult.quan_huyen.includes(r.quan_huyen)) return false;
+        if (aiResult.khu_vuc.length > 0) {
+          const normalizedKhuVuc = aiResult.khu_vuc.map((kv) => kv.toLowerCase().trim());
+          if (!normalizedKhuVuc.includes((r.khu_vuc || '').toLowerCase().trim())) return false;
+        }
+        if (aiResult.gia_max > 0 && r.gia > aiResult.gia_max) return false;
+        if (aiResult.loai_phong && r.loai_phong !== aiResult.loai_phong) return false;
+        return true;
+      });
+      result.sort((a, b) => a.gia - b.gia);
+    } else {
+      // Manual filter mode
+      result = rooms.filter((r) => {
+        if (selectedQuan.length > 0 && !selectedQuan.includes(r.quan_huyen)) return false;
+        if (selectedKhuVuc.length > 0) {
+          const key = `${r.khu_vuc}|||${r.quan_huyen}`;
+          if (!selectedKhuVuc.includes(key)) return false;
+        }
+        if (selectedLoaiPhong && r.loai_phong !== selectedLoaiPhong) return false;
+        if (r.gia < priceMin || r.gia > priceMax) return false;
+        return true;
+      });
+      if (sort === 'price_asc') result.sort((a, b) => a.gia - b.gia);
+      else if (sort === 'price_desc') result.sort((a, b) => b.gia - a.gia);
+    }
+
     return result;
-  }, [rooms, selectedQuan, selectedKhuVuc, selectedLoaiPhong, priceMin, priceMax, sort]);
+  }, [rooms, aiResult, selectedQuan, selectedKhuVuc, selectedLoaiPhong, priceMin, priceMax, sort]);
 
   const clearFilters = () => {
     setSelectedQuan([]); setSelectedKhuVuc([]);
@@ -128,6 +164,27 @@ export default function RoomList() {
     setSort('price_asc');
   };
   const hasFilters = selectedQuan.length > 0 || selectedKhuVuc.length > 0 || selectedLoaiPhong !== '' || priceMin !== 2000000 || priceMax !== 15000000;
+
+  const handleAiSearch = async () => {
+    if (!aiQuery.trim()) return;
+    setAiSearching(true);
+    setAiError('');
+    try {
+      const result = await smartSearch(aiQuery.trim());
+      setAiResult(result);
+    } catch (err) {
+      setAiError(err.message || 'Lỗi tìm kiếm AI. Thử lại sau.');
+      setAiResult(null);
+    } finally {
+      setAiSearching(false);
+    }
+  };
+
+  const clearAiSearch = () => {
+    setAiResult(null);
+    setAiQuery('');
+    setAiError('');
+  };
 
   const handlePriceMinChange = (t) => { setPriceMinText(t); setPriceMin(parsePrice(t)); };
   const handlePriceMinBlur = () => { setPriceMinText(priceMin > 0 ? fmtPrice(priceMin) : ''); };
@@ -162,8 +219,71 @@ export default function RoomList() {
         </div>
       </div>
 
+      {/* ─── AI SMART SEARCH ─── */}
+      <div style={s.aiSection}>
+        <div style={s.aiCard}>
+          <h2 style={s.aiTitle}>🔍 TÌM PHÒNG THÔNG MINH</h2>
+          <p style={s.aiDesc}>
+            Mô tả phòng bạn muốn tìm bằng ngôn ngữ tự nhiên — AI sẽ hiểu và tìm giúp bạn!
+          </p>
+          <div className="ai-input-row" style={s.aiInputRow}>
+            <input
+              className="ai-search-input"
+              style={s.aiInput}
+              type="text"
+              placeholder='VD: "Phòng gần ĐH Bách Khoa, khoảng 3 triệu" hoặc "Phòng Hà Đông dưới 4 triệu"'
+              value={aiQuery}
+              onChange={(e) => setAiQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && !aiSearching && handleAiSearch()}
+              disabled={aiSearching}
+            />
+            <button
+              className="ai-search-btn"
+              style={{ ...s.aiBtn, opacity: (aiSearching || !aiQuery.trim()) ? 0.6 : 1 }}
+              onClick={handleAiSearch}
+              disabled={aiSearching || !aiQuery.trim()}
+            >
+              {aiSearching ? '⏳ Đang tìm...' : '🤖 Tìm kiếm AI'}
+            </button>
+          </div>
+
+          {aiSearching && (
+            <div className="ai-loading" style={s.aiLoading}>🤖 AI đang phân tích yêu cầu của bạn...</div>
+          )}
+
+          {aiError && (
+            <div style={s.aiErrorMsg}>{aiError}</div>
+          )}
+
+          {aiResult && (
+            <div style={s.aiResultBar} className="fade-in">
+              <div style={s.aiResultLabel}>🎯 AI đã hiểu yêu cầu của bạn:</div>
+              {aiResult.summary && <div style={s.aiSummary}>{aiResult.summary}</div>}
+              <div style={s.aiTagRow}>
+                {aiResult.quan_huyen.map((q) => (
+                  <span key={q} className="ai-tag" style={s.aiTagQuan}>📍 {q}</span>
+                ))}
+                {aiResult.khu_vuc.map((kv) => (
+                  <span key={kv} className="ai-tag" style={s.aiTagKhuVuc}>{kv}</span>
+                ))}
+                {aiResult.gia_max > 0 && (
+                  <span className="ai-tag" style={s.aiTagPrice}>
+                    💰 ≤ {Number(aiResult.gia_max).toLocaleString('vi-VN')}đ
+                  </span>
+                )}
+                {aiResult.loai_phong && (
+                  <span className="ai-tag" style={s.aiTagType}>🏠 {aiResult.loai_phong}</span>
+                )}
+              </div>
+              <button style={s.aiClearBtn} onClick={clearAiSearch}>✕ Xoá tìm kiếm AI</button>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* ─── FILTER BAR ─── */}
-      <div style={s.filterSection}>
+      <div style={s.filterSection} className={aiResult ? 'manual-dimmed' : ''}>
+        <h3 style={s.manualTitle}>📋 TÌM PHÒNG THỦ CÔNG</h3>
         <div className="rl-filter-card" style={s.filterCard}>
           <SearchableMultiSelect
             label="Quận / Huyện"
@@ -247,7 +367,12 @@ export default function RoomList() {
       {/* ─── ROOM GRID ─── */}
       <main style={s.main}>
         <div style={s.resultBar}>
-          <span style={s.resultCount}>{filtered.length} phòng{hasFilters ? ' phù hợp' : ''}</span>
+          <span style={s.resultCount}>
+            {aiResult
+              ? `🤖 ${filtered.length} phòng tìm bởi AI`
+              : `${filtered.length} phòng${hasFilters ? ' phù hợp' : ''}`
+            }
+          </span>
         </div>
 
         {loading ? (
@@ -475,6 +600,102 @@ const s = {
     fontSize: 13, color: 'rgba(255,255,255,0.85)', fontWeight: 500,
     fontFamily: F, margin: 0,
     textShadow: '0 1px 4px rgba(0,0,0,0.3)',
+  },
+
+  /* ── AI Smart Search ── */
+  aiSection: { padding: '16px 24px 0', background: C.bg },
+  aiCard: {
+    maxWidth: 1320, margin: '0 auto',
+    background: '#FFFFFF',
+    borderRadius: 14,
+    border: '2px solid rgba(239,68,68,0.2)',
+    boxShadow: '0 4px 16px rgba(239,68,68,0.08), 0 2px 4px rgba(0,0,0,0.04)',
+    padding: '20px 24px',
+  },
+  aiTitle: {
+    fontSize: 22, fontWeight: 900, color: '#EF4444',
+    margin: '0 0 4px', fontFamily: F, textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  aiDesc: {
+    fontSize: 13, color: C.textMuted, fontWeight: 500,
+    margin: '0 0 14px', fontFamily: F, textAlign: 'center',
+  },
+  aiInputRow: {
+    display: 'flex', gap: 10, alignItems: 'stretch',
+  },
+  aiInput: {
+    flex: 1, padding: '12px 16px',
+    border: '1.5px solid #E2E8F0', borderRadius: 10,
+    fontSize: 15, color: C.text, outline: 'none',
+    fontFamily: F, fontWeight: 500,
+    background: '#F8FAFB',
+    boxSizing: 'border-box',
+    transition: 'border-color 0.2s, box-shadow 0.2s',
+  },
+  aiBtn: {
+    padding: '12px 28px',
+    background: '#EF4444', color: '#fff',
+    border: 'none', borderRadius: 10,
+    fontSize: 15, fontWeight: 700,
+    cursor: 'pointer', fontFamily: F,
+    flexShrink: 0, whiteSpace: 'nowrap',
+  },
+  aiLoading: {
+    marginTop: 12, textAlign: 'center',
+    fontSize: 14, color: '#EF4444', fontWeight: 600, fontFamily: F,
+  },
+  aiErrorMsg: {
+    marginTop: 10, textAlign: 'center',
+    fontSize: 13, color: '#EF4444', fontWeight: 600, fontFamily: F,
+    padding: '8px 16px', background: '#FEF2F2', borderRadius: 8,
+  },
+  aiResultBar: {
+    marginTop: 14, padding: '14px 16px',
+    background: '#FEF2F2', borderRadius: 10,
+    border: '1px solid rgba(239,68,68,0.15)',
+  },
+  aiResultLabel: {
+    fontSize: 14, fontWeight: 700, color: '#EF4444',
+    marginBottom: 6, fontFamily: F,
+  },
+  aiSummary: {
+    fontSize: 13, color: C.textMuted, fontWeight: 500,
+    fontFamily: F, marginBottom: 10, fontStyle: 'italic',
+  },
+  aiTagRow: {
+    display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10,
+  },
+  aiTagQuan: {
+    background: '#FEE2E2', color: '#DC2626',
+    padding: '4px 12px', borderRadius: 16,
+    fontSize: 12, fontWeight: 700, fontFamily: F,
+  },
+  aiTagKhuVuc: {
+    background: C.primaryBg, color: C.primaryDark,
+    padding: '4px 12px', borderRadius: 16,
+    fontSize: 12, fontWeight: 700, fontFamily: F,
+  },
+  aiTagPrice: {
+    background: '#FEF3C7', color: '#D97706',
+    padding: '4px 12px', borderRadius: 16,
+    fontSize: 12, fontWeight: 700, fontFamily: F,
+  },
+  aiTagType: {
+    background: '#EDE9FE', color: '#7C3AED',
+    padding: '4px 12px', borderRadius: 16,
+    fontSize: 12, fontWeight: 700, fontFamily: F,
+  },
+  aiClearBtn: {
+    padding: '7px 18px', borderRadius: 8,
+    border: '1px solid rgba(239,68,68,0.3)', background: '#fff',
+    color: '#EF4444', fontSize: 13, fontWeight: 700,
+    cursor: 'pointer', fontFamily: F,
+  },
+  manualTitle: {
+    fontSize: 18, fontWeight: 900, color: '#EF4444',
+    margin: '0 auto 10px', fontFamily: F, textAlign: 'center',
+    maxWidth: 1320,
   },
 
   /* ── Filter Section ── */
