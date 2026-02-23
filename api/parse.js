@@ -1,22 +1,3 @@
-// Track which keys are dead (persistent across warm requests in same instance)
-const deadKeys = new Map(); // key last4 → timestamp when marked dead
-const DEAD_KEY_TTL = 5 * 60 * 1000; // 5 minutes
-
-function isKeyDead(apiKey) {
-  const id = apiKey.slice(-6);
-  const deadAt = deadKeys.get(id);
-  if (!deadAt) return false;
-  if (Date.now() - deadAt > DEAD_KEY_TTL) {
-    deadKeys.delete(id); // expired, try again
-    return false;
-  }
-  return true;
-}
-
-function markKeyDead(apiKey) {
-  deadKeys.set(apiKey.slice(-6), Date.now());
-}
-
 export default async function handler(req, res) {
   try {
     if (req.method !== 'POST') {
@@ -44,25 +25,10 @@ export default async function handler(req, res) {
       }
     }
 
-    // Filter out dead keys
-    const aliveKeys = [];
-    const aliveNames = [];
-    for (let i = 0; i < keys.length; i++) {
-      if (!isKeyDead(keys[i])) {
-        aliveKeys.push(keys[i]);
-        aliveNames.push(keyNames[i]);
-      } else {
-        console.log(`[Parse] ${keyNames[i]} is marked dead, skipping`);
-      }
-    }
+    console.log(`[Parse] ${keys.length} keys available`);
 
-    console.log(`[Parse] Total keys: ${keys.length}, Alive: ${aliveKeys.length} (${aliveNames.join(', ')})`);
-
-    if (aliveKeys.length === 0) {
-      // All keys dead — try them all anyway (maybe TTL should expire)
-      console.log(`[Parse] All keys dead, trying all anyway...`);
-      aliveKeys.push(...keys);
-      aliveNames.push(...keyNames);
+    if (keys.length === 0) {
+      return res.status(500).json({ error: 'No Gemini API keys configured' });
     }
 
     const cleanText = text
@@ -99,46 +65,29 @@ Message: ${cleanText}`;
 
     const MODEL = 'gemini-2.5-flash';
 
-    // Try alive keys in random order
-    const startIdx = Math.floor(Math.random() * aliveKeys.length);
+    // Simple: try all keys from random start, no dead key tracking, no long waits
+    const startIdx = Math.floor(Math.random() * keys.length);
 
-    for (let i = 0; i < aliveKeys.length; i++) {
-      const idx = (startIdx + i) % aliveKeys.length;
-      console.log(`[Parse] Trying ${aliveNames[idx]}...`);
-      const result = await callGemini(aliveKeys[idx], MODEL, requestBody);
+    for (let i = 0; i < keys.length; i++) {
+      const idx = (startIdx + i) % keys.length;
+      console.log(`[Parse] Trying ${keyNames[idx]}...`);
+      const result = await callGemini(keys[idx], MODEL, requestBody);
 
-      if (result.rateLimited) {
-        console.log(`[Parse] ${aliveNames[idx]} → 429, marking dead for 5min`);
-        markKeyDead(aliveKeys[idx]);
-        continue;
-      }
-      if (result.error) {
-        console.log(`[Parse] ${aliveNames[idx]} → error: ${result.errorDetail}`);
-        continue;
-      }
       if (result.data) {
-        console.log(`[Parse] ${aliveNames[idx]} → SUCCESS`);
+        console.log(`[Parse] ${keyNames[idx]} → SUCCESS`);
         return res.status(200).json(result.data);
       }
+      if (result.rateLimited) {
+        console.log(`[Parse] ${keyNames[idx]} → 429`);
+      }
+      if (result.error) {
+        console.log(`[Parse] ${keyNames[idx]} → error: ${result.errorDetail}`);
+      }
     }
 
-    // All alive keys failed — wait 12s and retry with KEY_1 (most reliable)
-    console.log(`[Parse] All keys failed. Waiting 12s then retry KEY_1...`);
-    await new Promise((r) => setTimeout(r, 12000));
-
-    // Always retry with KEY_1 (the original, most reliable key)
-    const retryKey = keys[0];
-    const retry = await callGemini(retryKey, MODEL, requestBody);
-
-    if (retry.data) {
-      console.log(`[Parse] Retry KEY_1 → SUCCESS`);
-      return res.status(200).json(retry.data);
-    }
-
-    // Final: tell user to wait
-    const aliveCount = keys.filter((k) => !isKeyDead(k)).length;
+    // All failed — return immediately, let frontend handle retry
     return res.status(429).json({
-      error: `Gemini rate limit. ${aliveCount}/${keys.length} key khả dụng. Đợi 15-20 giây rồi thử lại.`,
+      error: `Gemini rate limit. Đợi 15 giây rồi thử lại.`,
     });
   } catch (err) {
     console.error(`[Parse] Exception: ${err.message}`);
@@ -148,33 +97,29 @@ Message: ${cleanText}`;
 
 async function callGemini(apiKey, model, requestBody) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  const timeout = setTimeout(() => controller.abort(), 10000);
 
   try {
-    const keyLast4 = apiKey.slice(-4);
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: requestBody,
+        signal: controller.signal,
+      }
+    );
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: requestBody,
-      signal: controller.signal,
-    });
-
-    if (response.status === 429) {
-      return { rateLimited: true, errorDetail: `429 (key ...${keyLast4})` };
-    }
+    if (response.status === 429) return { rateLimited: true };
     if (!response.ok) {
       const errText = await response.text().catch(() => '');
-      return { error: true, errorDetail: `HTTP ${response.status}: ${errText.slice(0, 200)}` };
+      return { error: true, errorDetail: `HTTP ${response.status}` };
     }
 
     const data = await response.json();
     const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-    if (!content) {
-      return { error: true, errorDetail: 'Empty response from Gemini' };
-    }
+    if (!content) return { error: true, errorDetail: 'Empty response' };
 
     let jsonStr = '';
     const codeBlock = content.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -185,9 +130,7 @@ async function callGemini(apiKey, model, requestBody) {
       if (jsonMatch) jsonStr = jsonMatch[0];
     }
 
-    if (!jsonStr) {
-      return { error: true, errorDetail: `No JSON found: ${content.slice(0, 100)}` };
-    }
+    if (!jsonStr) return { error: true, errorDetail: 'No JSON in response' };
 
     try {
       return { data: JSON.parse(jsonStr) };
@@ -199,11 +142,11 @@ async function callGemini(apiKey, model, requestBody) {
       try {
         return { data: JSON.parse(fixed) };
       } catch {
-        return { error: true, errorDetail: `JSON parse failed: ${jsonStr.slice(0, 100)}` };
+        return { error: true, errorDetail: 'JSON parse failed' };
       }
     }
   } catch (e) {
-    return { error: true, errorDetail: `Fetch error: ${e.message}` };
+    return { error: true, errorDetail: e.message };
   } finally {
     clearTimeout(timeout);
   }

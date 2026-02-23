@@ -2,9 +2,8 @@ const CLOUDINARY_CLOUD = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const CLOUDINARY_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
 export async function parseTextWithClaude(rawText) {
-  const MAX_RETRIES = 3;
-
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+  // Try once, if 429 wait 5s and retry once more
+  for (let attempt = 1; attempt <= 2; attempt++) {
     const res = await fetch('/api/parse', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -15,11 +14,8 @@ export async function parseTextWithClaude(rawText) {
 
     const errData = await res.json().catch(() => ({}));
 
-    // If rate limited and not last attempt, wait and retry
-    if (res.status === 429 && attempt < MAX_RETRIES) {
-      const waitSec = 10 + attempt * 5; // 15s, 20s
-      console.log(`[Parse] Rate limited, retry ${attempt}/${MAX_RETRIES} in ${waitSec}s...`);
-      await new Promise((r) => setTimeout(r, waitSec * 1000));
+    if (res.status === 429 && attempt === 1) {
+      await new Promise((r) => setTimeout(r, 5000));
       continue;
     }
 
