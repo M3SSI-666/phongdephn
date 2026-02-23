@@ -1,3 +1,6 @@
+// Round-robin counter persists across requests within same serverless instance
+let callCounter = 0;
+
 export default async function handler(req, res) {
   try {
     if (req.method !== 'POST') {
@@ -9,18 +12,28 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing text' });
     }
 
-    const keys = [
-      process.env.GEMINI_API_KEY,
-      process.env.GEMINI_API_KEY_2,
-      process.env.GEMINI_API_KEY_3,
-    ].filter(Boolean);
-
-    if (keys.length === 0) {
-      return res.status(500).json({ error: 'Gemini API key not configured' });
+    // Collect all API keys (supports up to 10)
+    const keys = [];
+    for (let i = 0; i <= 10; i++) {
+      const envName = i === 0 ? 'GEMINI_API_KEY' : `GEMINI_API_KEY_${i}`;
+      const val = process.env[envName];
+      if (val) keys.push(val);
     }
 
-    // Rate limit is per-model per-project, so rotating models multiplies quota
+    if (keys.length === 0) {
+      return res.status(500).json({ error: 'No Gemini API keys configured' });
+    }
+
     const MODELS = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'];
+
+    // Build all key+model slots for round-robin
+    // e.g. 3 keys × 2 models = 6 slots
+    const slots = [];
+    for (const key of keys) {
+      for (const model of MODELS) {
+        slots.push({ key, model });
+      }
+    }
 
     const cleanText = text
       .replace(/[\u{1F000}-\u{1F9FF}]/gu, '')
@@ -50,72 +63,80 @@ Message: ${cleanText}`;
 
     const requestBody = JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.1,
-        maxOutputTokens: 1024,
-      },
+      generationConfig: { temperature: 0.1, maxOutputTokens: 1024 },
     });
 
-    // Try every combination: key1+model1, key1+model2, key2+model1, key2+model2...
-    // With 2 keys × 2 models = 4 slots → ~2500 RPD + 50 RPM
-    for (const apiKey of keys) {
-      for (const model of MODELS) {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000);
+    // Round-robin: start from a different slot each request
+    const startIdx = callCounter++ % slots.length;
 
-        let response;
-        try {
-          response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: requestBody,
-              signal: controller.signal,
-            }
-          );
-        } catch {
-          clearTimeout(timeout);
-          continue;
-        } finally {
-          clearTimeout(timeout);
-        }
-
-        if (response.status === 429) continue;
-
-        if (!response.ok) continue;
-
-        const data = await response.json();
-        const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-        let jsonStr = '';
-        const codeBlock = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-        if (codeBlock) {
-          jsonStr = codeBlock[1].trim();
-        } else {
-          const jsonMatch = content.match(/\{[\s\S]*\}/);
-          if (jsonMatch) jsonStr = jsonMatch[0];
-        }
-
-        if (!jsonStr) continue;
-
-        try {
-          return res.status(200).json(JSON.parse(jsonStr));
-        } catch {
-          const fixed = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']').replace(/'/g, '"');
-          try {
-            return res.status(200).json(JSON.parse(fixed));
-          } catch {
-            continue;
-          }
-        }
-      }
+    // Try all slots starting from round-robin position
+    for (let i = 0; i < slots.length; i++) {
+      const slot = slots[(startIdx + i) % slots.length];
+      const result = await trySlot(slot.key, slot.model, requestBody);
+      if (result.rateLimited) continue;
+      if (result.error) continue;
+      if (result.data) return res.status(200).json(result.data);
     }
 
+    // All slots rate limited — auto-wait 5s and retry once with round-robin slot
+    await new Promise((r) => setTimeout(r, 5000));
+    const retrySlot = slots[callCounter++ % slots.length];
+    const retry = await trySlot(retrySlot.key, retrySlot.model, requestBody);
+    if (retry.data) return res.status(200).json(retry.data);
+
     return res.status(429).json({
-      error: `Rate limit trên tất cả ${keys.length} key × ${MODELS.length} model. Thử lại sau 1 phút.`,
+      error: `Rate limit (${keys.length} key × ${MODELS.length} model). Thử lại sau 30 giây.`,
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
+  }
+}
+
+async function trySlot(apiKey, model, requestBody) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 7000);
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: requestBody,
+        signal: controller.signal,
+      }
+    );
+
+    if (response.status === 429) return { rateLimited: true };
+    if (!response.ok) return { error: true };
+
+    const data = await response.json();
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    let jsonStr = '';
+    const codeBlock = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlock) {
+      jsonStr = codeBlock[1].trim();
+    } else {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) jsonStr = jsonMatch[0];
+    }
+
+    if (!jsonStr) return { error: true };
+
+    try {
+      return { data: JSON.parse(jsonStr) };
+    } catch {
+      const fixed = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']').replace(/'/g, '"');
+      try {
+        return { data: JSON.parse(fixed) };
+      } catch {
+        return { error: true };
+      }
+    }
+  } catch {
+    return { error: true };
+  } finally {
+    clearTimeout(timeout);
   }
 }
