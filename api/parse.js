@@ -9,13 +9,24 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing text' });
     }
 
-    // Collect all API keys (GEMINI_API_KEY, _2, _3, ... up to _10)
+    // Collect all API keys
+    // Support: GEMINI_API_KEY, GEMINI_API_KEY_2, GEMINI_API_KEY_3, ... up to _10
     const keys = [];
-    for (let i = 0; i <= 10; i++) {
-      const envName = i === 0 ? 'GEMINI_API_KEY' : `GEMINI_API_KEY_${i}`;
-      const val = process.env[envName];
-      if (val) keys.push(val);
+    const keyNames = [];
+    const mainKey = process.env.GEMINI_API_KEY;
+    if (mainKey) {
+      keys.push(mainKey);
+      keyNames.push('KEY_1');
     }
+    for (let i = 2; i <= 10; i++) {
+      const val = process.env[`GEMINI_API_KEY_${i}`];
+      if (val) {
+        keys.push(val);
+        keyNames.push(`KEY_${i}`);
+      }
+    }
+
+    console.log(`[Parse] Found ${keys.length} API keys: ${keyNames.join(', ')}`);
 
     if (keys.length === 0) {
       return res.status(500).json({ error: 'No Gemini API keys configured' });
@@ -24,6 +35,7 @@ export default async function handler(req, res) {
     const cleanText = text
       .replace(/[\u{1F000}-\u{1F9FF}]/gu, '')
       .replace(/[\u{2600}-\u{27BF}]/gu, '')
+      .replace(/[\u{200B}-\u{200D}\u{FEFF}]/gu, '')
       .replace(/\s+/g, ' ')
       .trim();
 
@@ -52,55 +64,92 @@ Message: ${cleanText}`;
       generationConfig: { temperature: 0.1, maxOutputTokens: 1024 },
     });
 
-    // Only gemini-2.5-flash works on free tier (Flash-Lite, 2.0 models all return 429)
     const MODEL = 'gemini-2.5-flash';
 
-    // Random start index so each request hits a different key
+    // Random start index to distribute load across keys
     const startIdx = Math.floor(Math.random() * keys.length);
+    console.log(`[Parse] Starting from key index ${startIdx} (${keyNames[startIdx]})`);
 
     // Try all keys starting from random position
+    const results = [];
     for (let i = 0; i < keys.length; i++) {
-      const apiKey = keys[(startIdx + i) % keys.length];
+      const idx = (startIdx + i) % keys.length;
+      const apiKey = keys[idx];
+      console.log(`[Parse] Trying ${keyNames[idx]}...`);
       const result = await callGemini(apiKey, MODEL, requestBody);
-      if (result.rateLimited) continue;
-      if (result.error) continue;
-      if (result.data) return res.status(200).json(result.data);
+      results.push({ key: keyNames[idx], ...result });
+
+      if (result.rateLimited) {
+        console.log(`[Parse] ${keyNames[idx]} → 429 rate limited`);
+        continue;
+      }
+      if (result.error) {
+        console.log(`[Parse] ${keyNames[idx]} → error: ${result.errorDetail || 'unknown'}`);
+        continue;
+      }
+      if (result.data) {
+        console.log(`[Parse] ${keyNames[idx]} → SUCCESS`);
+        return res.status(200).json(result.data);
+      }
     }
 
-    // All keys rate limited — wait 7s and retry with random key
+    // All keys failed on first try — wait and retry
+    console.log(`[Parse] All ${keys.length} keys failed. Waiting 7s before retry...`);
+    console.log(`[Parse] Results: ${JSON.stringify(results.map(r => ({ key: r.key, rateLimited: r.rateLimited, error: r.error })))}`);
+
     await new Promise((r) => setTimeout(r, 7000));
-    const retryKey = keys[Math.floor(Math.random() * keys.length)];
-    const retry = await callGemini(retryKey, MODEL, requestBody);
-    if (retry.data) return res.status(200).json(retry.data);
+
+    const retryIdx = Math.floor(Math.random() * keys.length);
+    console.log(`[Parse] Retrying with ${keyNames[retryIdx]}...`);
+    const retry = await callGemini(keys[retryIdx], MODEL, requestBody);
+
+    if (retry.data) {
+      console.log(`[Parse] Retry ${keyNames[retryIdx]} → SUCCESS`);
+      return res.status(200).json(retry.data);
+    }
+
+    console.log(`[Parse] Retry failed. All keys exhausted.`);
+    const rateLimitedKeys = results.filter(r => r.rateLimited).map(r => r.key).join(', ');
+    const errorKeys = results.filter(r => r.error && !r.rateLimited).map(r => r.key).join(', ');
 
     return res.status(429).json({
-      error: `Rate limit (${keys.length} API key). Vui lòng đợi 30 giây rồi thử lại.`,
+      error: `Rate limit (${keys.length} key). ${rateLimitedKeys ? `429: ${rateLimitedKeys}` : ''}${errorKeys ? ` Error: ${errorKeys}` : ''}. Đợi 30s rồi thử lại.`,
     });
   } catch (err) {
+    console.error(`[Parse] Exception: ${err.message}`);
     return res.status(500).json({ error: err.message });
   }
 }
 
 async function callGemini(apiKey, model, requestBody) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
+  const timeout = setTimeout(() => controller.abort(), 12000);
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: requestBody,
-        signal: controller.signal,
-      }
-    );
+    const keyLast4 = apiKey.slice(-4);
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-    if (response.status === 429) return { rateLimited: true };
-    if (!response.ok) return { error: true };
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: requestBody,
+      signal: controller.signal,
+    });
+
+    if (response.status === 429) {
+      return { rateLimited: true, errorDetail: `429 (key ...${keyLast4})` };
+    }
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      return { error: true, errorDetail: `HTTP ${response.status}: ${errText.slice(0, 200)}` };
+    }
 
     const data = await response.json();
     const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    if (!content) {
+      return { error: true, errorDetail: 'Empty response from Gemini' };
+    }
 
     let jsonStr = '';
     const codeBlock = content.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -111,20 +160,25 @@ async function callGemini(apiKey, model, requestBody) {
       if (jsonMatch) jsonStr = jsonMatch[0];
     }
 
-    if (!jsonStr) return { error: true };
+    if (!jsonStr) {
+      return { error: true, errorDetail: `No JSON found in response: ${content.slice(0, 100)}` };
+    }
 
     try {
       return { data: JSON.parse(jsonStr) };
     } catch {
-      const fixed = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']').replace(/'/g, '"');
+      const fixed = jsonStr
+        .replace(/,\s*}/g, '}')
+        .replace(/,\s*]/g, ']')
+        .replace(/'/g, '"');
       try {
         return { data: JSON.parse(fixed) };
       } catch {
-        return { error: true };
+        return { error: true, errorDetail: `JSON parse failed: ${jsonStr.slice(0, 100)}` };
       }
     }
-  } catch {
-    return { error: true };
+  } catch (e) {
+    return { error: true, errorDetail: `Fetch error: ${e.message}` };
   } finally {
     clearTimeout(timeout);
   }
