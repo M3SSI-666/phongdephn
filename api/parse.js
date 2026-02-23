@@ -1,6 +1,3 @@
-// Round-robin counter persists across requests within same serverless instance
-let callCounter = 0;
-
 export default async function handler(req, res) {
   try {
     if (req.method !== 'POST') {
@@ -12,7 +9,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing text' });
     }
 
-    // Collect all API keys (supports up to 10)
+    // Collect all API keys (GEMINI_API_KEY, _2, _3, ... up to _10)
     const keys = [];
     for (let i = 0; i <= 10; i++) {
       const envName = i === 0 ? 'GEMINI_API_KEY' : `GEMINI_API_KEY_${i}`;
@@ -22,17 +19,6 @@ export default async function handler(req, res) {
 
     if (keys.length === 0) {
       return res.status(500).json({ error: 'No Gemini API keys configured' });
-    }
-
-    const MODELS = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'];
-
-    // Build all key+model slots for round-robin
-    // e.g. 3 keys × 2 models = 6 slots
-    const slots = [];
-    for (const key of keys) {
-      for (const model of MODELS) {
-        slots.push({ key, model });
-      }
     }
 
     const cleanText = text
@@ -66,35 +52,38 @@ Message: ${cleanText}`;
       generationConfig: { temperature: 0.1, maxOutputTokens: 1024 },
     });
 
-    // Round-robin: start from a different slot each request
-    const startIdx = callCounter++ % slots.length;
+    // Only gemini-2.5-flash works on free tier (Flash-Lite, 2.0 models all return 429)
+    const MODEL = 'gemini-2.5-flash';
 
-    // Try all slots starting from round-robin position
-    for (let i = 0; i < slots.length; i++) {
-      const slot = slots[(startIdx + i) % slots.length];
-      const result = await trySlot(slot.key, slot.model, requestBody);
+    // Random start index so each request hits a different key
+    const startIdx = Math.floor(Math.random() * keys.length);
+
+    // Try all keys starting from random position
+    for (let i = 0; i < keys.length; i++) {
+      const apiKey = keys[(startIdx + i) % keys.length];
+      const result = await callGemini(apiKey, MODEL, requestBody);
       if (result.rateLimited) continue;
       if (result.error) continue;
       if (result.data) return res.status(200).json(result.data);
     }
 
-    // All slots rate limited — auto-wait 5s and retry once with round-robin slot
-    await new Promise((r) => setTimeout(r, 5000));
-    const retrySlot = slots[callCounter++ % slots.length];
-    const retry = await trySlot(retrySlot.key, retrySlot.model, requestBody);
+    // All keys rate limited — wait 7s and retry with random key
+    await new Promise((r) => setTimeout(r, 7000));
+    const retryKey = keys[Math.floor(Math.random() * keys.length)];
+    const retry = await callGemini(retryKey, MODEL, requestBody);
     if (retry.data) return res.status(200).json(retry.data);
 
     return res.status(429).json({
-      error: `Rate limit (${keys.length} key × ${MODELS.length} model). Thử lại sau 30 giây.`,
+      error: `Rate limit (${keys.length} API key). Vui lòng đợi 30 giây rồi thử lại.`,
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
 }
 
-async function trySlot(apiKey, model, requestBody) {
+async function callGemini(apiKey, model, requestBody) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 7000);
+  const timeout = setTimeout(() => controller.abort(), 8000);
 
   try {
     const response = await fetch(
