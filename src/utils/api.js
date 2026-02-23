@@ -2,16 +2,29 @@ const CLOUDINARY_CLOUD = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const CLOUDINARY_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
 export async function parseTextWithClaude(rawText) {
-  const res = await fetch('/api/parse', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text: rawText }),
-  });
-  if (!res.ok) {
+  const MAX_RETRIES = 3;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    const res = await fetch('/api/parse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: rawText }),
+    });
+
+    if (res.ok) return res.json();
+
     const errData = await res.json().catch(() => ({}));
+
+    // If rate limited and not last attempt, wait and retry
+    if (res.status === 429 && attempt < MAX_RETRIES) {
+      const waitSec = 10 + attempt * 5; // 15s, 20s
+      console.log(`[Parse] Rate limited, retry ${attempt}/${MAX_RETRIES} in ${waitSec}s...`);
+      await new Promise((r) => setTimeout(r, waitSec * 1000));
+      continue;
+    }
+
     throw new Error(errData.error || `Parse failed (${res.status})`);
   }
-  return res.json();
 }
 
 export async function uploadToCloudinary(file, resourceType = 'image', onProgress) {

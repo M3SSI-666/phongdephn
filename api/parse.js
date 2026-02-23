@@ -1,3 +1,22 @@
+// Track which keys are dead (persistent across warm requests in same instance)
+const deadKeys = new Map(); // key last4 → timestamp when marked dead
+const DEAD_KEY_TTL = 5 * 60 * 1000; // 5 minutes
+
+function isKeyDead(apiKey) {
+  const id = apiKey.slice(-6);
+  const deadAt = deadKeys.get(id);
+  if (!deadAt) return false;
+  if (Date.now() - deadAt > DEAD_KEY_TTL) {
+    deadKeys.delete(id); // expired, try again
+    return false;
+  }
+  return true;
+}
+
+function markKeyDead(apiKey) {
+  deadKeys.set(apiKey.slice(-6), Date.now());
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method !== 'POST') {
@@ -10,7 +29,6 @@ export default async function handler(req, res) {
     }
 
     // Collect all API keys
-    // Support: GEMINI_API_KEY, GEMINI_API_KEY_2, GEMINI_API_KEY_3, ... up to _10
     const keys = [];
     const keyNames = [];
     const mainKey = process.env.GEMINI_API_KEY;
@@ -26,10 +44,25 @@ export default async function handler(req, res) {
       }
     }
 
-    console.log(`[Parse] Found ${keys.length} API keys: ${keyNames.join(', ')}`);
+    // Filter out dead keys
+    const aliveKeys = [];
+    const aliveNames = [];
+    for (let i = 0; i < keys.length; i++) {
+      if (!isKeyDead(keys[i])) {
+        aliveKeys.push(keys[i]);
+        aliveNames.push(keyNames[i]);
+      } else {
+        console.log(`[Parse] ${keyNames[i]} is marked dead, skipping`);
+      }
+    }
 
-    if (keys.length === 0) {
-      return res.status(500).json({ error: 'No Gemini API keys configured' });
+    console.log(`[Parse] Total keys: ${keys.length}, Alive: ${aliveKeys.length} (${aliveNames.join(', ')})`);
+
+    if (aliveKeys.length === 0) {
+      // All keys dead — try them all anyway (maybe TTL should expire)
+      console.log(`[Parse] All keys dead, trying all anyway...`);
+      aliveKeys.push(...keys);
+      aliveNames.push(...keyNames);
     }
 
     const cleanText = text
@@ -66,54 +99,46 @@ Message: ${cleanText}`;
 
     const MODEL = 'gemini-2.5-flash';
 
-    // Random start index to distribute load across keys
-    const startIdx = Math.floor(Math.random() * keys.length);
-    console.log(`[Parse] Starting from key index ${startIdx} (${keyNames[startIdx]})`);
+    // Try alive keys in random order
+    const startIdx = Math.floor(Math.random() * aliveKeys.length);
 
-    // Try all keys starting from random position
-    const results = [];
-    for (let i = 0; i < keys.length; i++) {
-      const idx = (startIdx + i) % keys.length;
-      const apiKey = keys[idx];
-      console.log(`[Parse] Trying ${keyNames[idx]}...`);
-      const result = await callGemini(apiKey, MODEL, requestBody);
-      results.push({ key: keyNames[idx], ...result });
+    for (let i = 0; i < aliveKeys.length; i++) {
+      const idx = (startIdx + i) % aliveKeys.length;
+      console.log(`[Parse] Trying ${aliveNames[idx]}...`);
+      const result = await callGemini(aliveKeys[idx], MODEL, requestBody);
 
       if (result.rateLimited) {
-        console.log(`[Parse] ${keyNames[idx]} → 429 rate limited`);
+        console.log(`[Parse] ${aliveNames[idx]} → 429, marking dead for 5min`);
+        markKeyDead(aliveKeys[idx]);
         continue;
       }
       if (result.error) {
-        console.log(`[Parse] ${keyNames[idx]} → error: ${result.errorDetail || 'unknown'}`);
+        console.log(`[Parse] ${aliveNames[idx]} → error: ${result.errorDetail}`);
         continue;
       }
       if (result.data) {
-        console.log(`[Parse] ${keyNames[idx]} → SUCCESS`);
+        console.log(`[Parse] ${aliveNames[idx]} → SUCCESS`);
         return res.status(200).json(result.data);
       }
     }
 
-    // All keys failed on first try — wait and retry
-    console.log(`[Parse] All ${keys.length} keys failed. Waiting 7s before retry...`);
-    console.log(`[Parse] Results: ${JSON.stringify(results.map(r => ({ key: r.key, rateLimited: r.rateLimited, error: r.error })))}`);
+    // All alive keys failed — wait 12s and retry with KEY_1 (most reliable)
+    console.log(`[Parse] All keys failed. Waiting 12s then retry KEY_1...`);
+    await new Promise((r) => setTimeout(r, 12000));
 
-    await new Promise((r) => setTimeout(r, 7000));
-
-    const retryIdx = Math.floor(Math.random() * keys.length);
-    console.log(`[Parse] Retrying with ${keyNames[retryIdx]}...`);
-    const retry = await callGemini(keys[retryIdx], MODEL, requestBody);
+    // Always retry with KEY_1 (the original, most reliable key)
+    const retryKey = keys[0];
+    const retry = await callGemini(retryKey, MODEL, requestBody);
 
     if (retry.data) {
-      console.log(`[Parse] Retry ${keyNames[retryIdx]} → SUCCESS`);
+      console.log(`[Parse] Retry KEY_1 → SUCCESS`);
       return res.status(200).json(retry.data);
     }
 
-    console.log(`[Parse] Retry failed. All keys exhausted.`);
-    const rateLimitedKeys = results.filter(r => r.rateLimited).map(r => r.key).join(', ');
-    const errorKeys = results.filter(r => r.error && !r.rateLimited).map(r => r.key).join(', ');
-
+    // Final: tell user to wait
+    const aliveCount = keys.filter((k) => !isKeyDead(k)).length;
     return res.status(429).json({
-      error: `Rate limit (${keys.length} key). ${rateLimitedKeys ? `429: ${rateLimitedKeys}` : ''}${errorKeys ? ` Error: ${errorKeys}` : ''}. Đợi 30s rồi thử lại.`,
+      error: `Gemini rate limit. ${aliveCount}/${keys.length} key khả dụng. Đợi 15-20 giây rồi thử lại.`,
     });
   } catch (err) {
     console.error(`[Parse] Exception: ${err.message}`);
@@ -123,7 +148,7 @@ Message: ${cleanText}`;
 
 async function callGemini(apiKey, model, requestBody) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12000);
+  const timeout = setTimeout(() => controller.abort(), 15000);
 
   try {
     const keyLast4 = apiKey.slice(-4);
@@ -161,7 +186,7 @@ async function callGemini(apiKey, model, requestBody) {
     }
 
     if (!jsonStr) {
-      return { error: true, errorDetail: `No JSON found in response: ${content.slice(0, 100)}` };
+      return { error: true, errorDetail: `No JSON found: ${content.slice(0, 100)}` };
     }
 
     try {
