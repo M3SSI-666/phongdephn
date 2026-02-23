@@ -9,28 +9,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing text' });
     }
 
-    // Collect all API keys
-    const keys = [];
-    const keyNames = [];
-    const mainKey = process.env.GEMINI_API_KEY;
-    if (mainKey) {
-      keys.push(mainKey);
-      keyNames.push('KEY_1');
-    }
-    for (let i = 2; i <= 10; i++) {
-      const val = process.env[`GEMINI_API_KEY_${i}`];
-      if (val) {
-        keys.push(val);
-        keyNames.push(`KEY_${i}`);
-      }
-    }
-
-    console.log(`[Parse] ${keys.length} keys available`);
-
-    if (keys.length === 0) {
-      return res.status(500).json({ error: 'No Gemini API keys configured' });
-    }
-
     const cleanText = text
       .replace(/[\u{1F000}-\u{1F9FF}]/gu, '')
       .replace(/[\u{2600}-\u{27BF}]/gu, '')
@@ -38,7 +16,7 @@ export default async function handler(req, res) {
       .replace(/\s+/g, ' ')
       .trim();
 
-    const prompt = `Extract room rental info from this Vietnamese Zalo message. Return ONLY valid JSON, no markdown, no explanation.
+    const PROMPT = `Extract room rental info from this Vietnamese Zalo message. Return ONLY valid JSON, no markdown, no explanation.
 
 {"quan_huyen":"","khu_vuc":"","dia_chi":"","gia":0,"so_phong":"","gia_dien":"","gia_nuoc":"","gia_internet":"","dich_vu_chung":"","noi_that":"","ghi_chu":"","confidence":{"quan_huyen":"low","gia":"low","khu_vuc":"low"}}
 
@@ -58,36 +36,53 @@ Rules:
 
 Message: ${cleanText}`;
 
-    const requestBody = JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 1024 },
-    });
+    // Strategy: Try Groq first (fast + high quota), fallback to Gemini
+    // Groq free: 30 RPM, 1000+ RPD
+    // Gemini free: 5 RPM, 20 RPD
 
-    const MODEL = 'gemini-2.5-flash';
-
-    // Simple: try all keys from random start, no dead key tracking, no long waits
-    const startIdx = Math.floor(Math.random() * keys.length);
-
-    for (let i = 0; i < keys.length; i++) {
-      const idx = (startIdx + i) % keys.length;
-      console.log(`[Parse] Trying ${keyNames[idx]}...`);
-      const result = await callGemini(keys[idx], MODEL, requestBody);
-
-      if (result.data) {
-        console.log(`[Parse] ${keyNames[idx]} → SUCCESS`);
-        return res.status(200).json(result.data);
+    // 1. Try Groq
+    const groqKey = process.env.GROQ_API_KEY;
+    if (groqKey) {
+      console.log('[Parse] Trying Groq...');
+      const groqResult = await callGroq(groqKey, PROMPT);
+      if (groqResult.data) {
+        console.log('[Parse] Groq → SUCCESS');
+        return res.status(200).json(groqResult.data);
       }
-      if (result.rateLimited) {
-        console.log(`[Parse] ${keyNames[idx]} → 429`);
-      }
-      if (result.error) {
-        console.log(`[Parse] ${keyNames[idx]} → error: ${result.errorDetail}`);
+      console.log(`[Parse] Groq → failed: ${groqResult.errorDetail}`);
+    }
+
+    // 2. Fallback to Gemini
+    const geminiKeys = [];
+    const mainKey = process.env.GEMINI_API_KEY;
+    if (mainKey) geminiKeys.push(mainKey);
+    for (let i = 2; i <= 10; i++) {
+      const val = process.env[`GEMINI_API_KEY_${i}`];
+      if (val) geminiKeys.push(val);
+    }
+
+    if (geminiKeys.length > 0) {
+      const geminiBody = JSON.stringify({
+        contents: [{ parts: [{ text: PROMPT }] }],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 1024 },
+      });
+
+      const startIdx = Math.floor(Math.random() * geminiKeys.length);
+      for (let i = 0; i < geminiKeys.length; i++) {
+        const idx = (startIdx + i) % geminiKeys.length;
+        console.log(`[Parse] Trying Gemini key ${idx + 1}...`);
+        const result = await callGemini(geminiKeys[idx], geminiBody);
+        if (result.data) {
+          console.log(`[Parse] Gemini key ${idx + 1} → SUCCESS`);
+          return res.status(200).json(result.data);
+        }
+        console.log(`[Parse] Gemini key ${idx + 1} → ${result.rateLimited ? '429' : 'error'}`);
       }
     }
 
-    // All failed — return immediately, let frontend handle retry
+    // All providers failed
     return res.status(429).json({
-      error: `Gemini rate limit. Đợi 15 giây rồi thử lại.`,
+      error: 'Tất cả API đều rate limit. Đợi 15 giây rồi thử lại.',
     });
   } catch (err) {
     console.error(`[Parse] Exception: ${err.message}`);
@@ -95,13 +90,63 @@ Message: ${cleanText}`;
   }
 }
 
-async function callGemini(apiKey, model, requestBody) {
+// ============ GROQ ============
+async function callGroq(apiKey, prompt) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a JSON extractor. Return ONLY valid JSON, no markdown, no explanation.',
+          },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.1,
+        max_tokens: 1024,
+        response_format: { type: 'json_object' },
+      }),
+      signal: controller.signal,
+    });
+
+    if (response.status === 429) {
+      return { rateLimited: true, errorDetail: '429 rate limited' };
+    }
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      return { error: true, errorDetail: `HTTP ${response.status}: ${errText.slice(0, 200)}` };
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+
+    if (!content) return { error: true, errorDetail: 'Empty response' };
+
+    return parseJsonResponse(content);
+  } catch (e) {
+    return { error: true, errorDetail: e.message };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// ============ GEMINI ============
+async function callGemini(apiKey, requestBody) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -111,43 +156,49 @@ async function callGemini(apiKey, model, requestBody) {
     );
 
     if (response.status === 429) return { rateLimited: true };
-    if (!response.ok) {
-      const errText = await response.text().catch(() => '');
-      return { error: true, errorDetail: `HTTP ${response.status}` };
-    }
+    if (!response.ok) return { error: true, errorDetail: `HTTP ${response.status}` };
 
     const data = await response.json();
     const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
     if (!content) return { error: true, errorDetail: 'Empty response' };
 
-    let jsonStr = '';
-    const codeBlock = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (codeBlock) {
-      jsonStr = codeBlock[1].trim();
-    } else {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) jsonStr = jsonMatch[0];
-    }
-
-    if (!jsonStr) return { error: true, errorDetail: 'No JSON in response' };
-
-    try {
-      return { data: JSON.parse(jsonStr) };
-    } catch {
-      const fixed = jsonStr
-        .replace(/,\s*}/g, '}')
-        .replace(/,\s*]/g, ']')
-        .replace(/'/g, '"');
-      try {
-        return { data: JSON.parse(fixed) };
-      } catch {
-        return { error: true, errorDetail: 'JSON parse failed' };
-      }
-    }
+    return parseJsonResponse(content);
   } catch (e) {
     return { error: true, errorDetail: e.message };
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+// ============ JSON Parser ============
+function parseJsonResponse(content) {
+  let jsonStr = '';
+
+  // Try code block first
+  const codeBlock = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlock) {
+    jsonStr = codeBlock[1].trim();
+  } else {
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) jsonStr = jsonMatch[0];
+  }
+
+  if (!jsonStr) {
+    return { error: true, errorDetail: `No JSON found: ${content.slice(0, 100)}` };
+  }
+
+  try {
+    return { data: JSON.parse(jsonStr) };
+  } catch {
+    const fixed = jsonStr
+      .replace(/,\s*}/g, '}')
+      .replace(/,\s*]/g, ']')
+      .replace(/'/g, '"');
+    try {
+      return { data: JSON.parse(fixed) };
+    } catch {
+      return { error: true, errorDetail: 'JSON parse failed' };
+    }
   }
 }
