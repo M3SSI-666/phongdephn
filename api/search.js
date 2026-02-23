@@ -16,31 +16,72 @@ export default async function handler(req, res) {
       .replace(/\s+/g, ' ')
       .trim();
 
-    const SEARCH_PROMPT = `You are a Hanoi room search assistant. Parse the user's natural language query into structured search filters. Return ONLY valid JSON, no markdown, no explanation.
+    const SEARCH_PROMPT = `You are a Hanoi room search assistant. Parse the user's query into search filters. Return ONLY valid JSON.
 
-Output format:
-{"quan_huyen":[],"khu_vuc":[],"gia_max":0,"loai_phong":"","summary":""}
+Output: {"quan_huyen":[],"khu_vuc":[],"gia_max":0,"loai_phong":"","summary":""}
+
+Districts: Ba Đình,Bắc Từ Liêm,Cầu Giấy,Đống Đa,Hà Đông,Hai Bà Trưng,Hoàn Kiếm,Hoàng Mai,Long Biên,Nam Từ Liêm,Tây Hồ,Thanh Xuân
+
+=== HANOI LOCATION DATABASE (USE THIS, DO NOT GUESS) ===
+
+UNIVERSITIES & COLLEGES:
+- ĐH Bách Khoa HN → Hai Bà Trưng: Bách Khoa, Lê Đại Hành, Trương Định
+- ĐH Xây Dựng HN → Hai Bà Trưng: Bách Khoa, Thanh Nhàn, Lê Đại Hành
+- ĐH Kinh Tế Quốc Dân (NEU) → Hai Bà Trưng: Bách Khoa, Đồng Tâm, Lê Đại Hành
+- ĐH Thăng Long → Hoàng Mai: Đại Kim, Kim Giang, Tân Mai, Linh Đàm. Giáp Thanh Xuân: Hạ Đình, Khương Đình
+- ĐH Quốc Gia HN (Cầu Giấy campus) → Cầu Giấy: Dịch Vọng Hậu, Mai Dịch, Quan Hoa. Bắc Từ Liêm: Cổ Nhuế
+- ĐH Sư Phạm HN → Cầu Giấy: Dịch Vọng, Dịch Vọng Hậu, Mai Dịch
+- ĐH Giao Thông Vận Tải → Đống Đa: Láng Thượng, Ô Chợ Dừa, Trung Liệt
+- ĐH Công Nghiệp HN → Bắc Từ Liêm: Minh Khai, Phú Diễn, Cổ Nhuế
+- ĐH Ngoại Thương → Đống Đa: Láng Thượng, Chùa Bộc, Trung Liệt
+- ĐH Y Hà Nội → Đống Đa: Trung Tự, Kim Liên, Phương Mai
+- Cao đẳng Y Hà Nội → Đống Đa: Trung Tự, Kim Liên, Phương Mai. Ba Đình: Nguyên Hồng
+- Học Viện Ngân Hàng → Đống Đa: Chùa Bộc, Quang Trung, Thịnh Quang
+- Học Viện Nông Nghiệp → Gia Lâm: Trâu Quỳ, Đặng Xá. Long Biên: Thạch Bàn
+- ĐH Thương Mại → Cầu Giấy: Mai Dịch, Dịch Vọng. Bắc Từ Liêm: Cổ Nhuế
+- ĐH Hà Nội → Thanh Xuân: Nhân Chính, Thanh Xuân Bắc
+- ĐH Mỏ Địa Chất → Bắc Từ Liêm: Đức Thắng, Cổ Nhuế, Phú Diễn
+- ĐH Phenikaa → Hà Đông: Yên Nghĩa, Hà Cầu, Dương Nội
+- ĐH FPT Hòa Lạc → Thạch Thất: Thạch Hòa
+- ĐH Kiến Trúc HN → Thanh Xuân: Nhân Chính, Thanh Xuân Bắc, Kim Giang
+- ĐH Văn Hóa → Cầu Giấy: Mai Dịch, Dịch Vọng
+- ĐH Luật HN → Đống Đa: Ngã Tư Sở, Khương Thượng, Thịnh Quang
+- ĐH Mở HN → Hai Bà Trưng: Bách Khoa, Thanh Nhàn
+
+LANDMARKS & AREAS:
+- Hồ Tây → Tây Hồ: Quảng An, Nhật Tân, Xuân La, Bưởi, Thụy Khuê
+- Hồ Hoàn Kiếm → Hoàn Kiếm: Hàng Bài, Tràng Tiền, Hàng Trống
+- Mỹ Đình → Nam Từ Liêm: Mỹ Đình 1, Mỹ Đình 2, Cầu Diễn, Phú Đô
+- Times City → Hai Bà Trưng: Vĩnh Tuy, Mai Động, Minh Khai
+- Royal City → Thanh Xuân: Thanh Xuân Trung, Nhân Chính, Thượng Đình
+- Aeon Mall Long Biên → Long Biên: Cổ Linh, Long Biên, Phúc Đồng
+- Aeon Mall Hà Đông → Hà Đông: Dương Nội, La Khê, Kiến Hưng
+- Big C Thăng Long → Cầu Giấy: Dịch Vọng Hậu, Mai Dịch
+- Bệnh Viện Bạch Mai → Đống Đa: Phương Mai, Trung Tự. Hai Bà Trưng: Bạch Mai
+- Ngã Tư Sở → Đống Đa/Thanh Xuân: Khương Thượng, Thịnh Quang, Thượng Đình
+- Cầu Giấy (area) → Cầu Giấy: Dịch Vọng, Dịch Vọng Hậu, Mai Dịch, Quan Hoa, Nghĩa Đô, Nghĩa Tân
+
+STREETS → WARDS:
+- Vũ Tông Phan → Thanh Xuân: Khương Đình. Hoàng Mai: Kim Giang
+- Kim Giang → Thanh Xuân: Kim Giang, Hạ Đình. Hoàng Mai: Đại Kim
+- Giải Phóng → Đống Đa: Phương Mai, Phương Liệt. Thanh Xuân: Phương Liệt
+- Trường Chinh → Đống Đa: Khương Thượng, Phương Mai. Thanh Xuân: Phương Liệt
+- Láng Hạ → Ba Đình: Láng Hạ, Thành Công. Đống Đa: Láng Hạ
+- Nguyễn Trãi → Thanh Xuân: Thượng Đình, Nhân Chính. Hà Đông: Mỗ Lao, Văn Quán
+- Lê Văn Lương → Thanh Xuân: Nhân Chính. Nam Từ Liêm: Trung Văn
+- Nguyễn Xiển → Thanh Xuân: Hạ Đình. Hoàng Mai: Đại Kim, Tân Triều
+- Minh Khai → Hai Bà Trưng: Minh Khai, Vĩnh Tuy
+
+=== END DATABASE ===
 
 Rules:
-- quan_huyen: array of matching districts. Must be from: Ba Đình, Bắc Từ Liêm, Cầu Giấy, Đống Đa, Hà Đông, Hai Bà Trưng, Hoàn Kiếm, Hoàng Mai, Long Biên, Nam Từ Liêm, Tây Hồ, Thanh Xuân, Ba Vì, Chương Mỹ, Đan Phượng, Đông Anh, Gia Lâm, Hoài Đức, Mê Linh, Mỹ Đức, Phú Xuyên, Phúc Thọ, Quốc Oai, Sóc Sơn, Sơn Tây, Thạch Thất, Thanh Oai, Thanh Trì, Thường Tín, Ứng Hòa
-- khu_vuc: array of nearby wards/phường. Use your Hanoi geography knowledge to identify wards NEAR the mentioned location. Include 3-6 nearby wards. Examples:
-  - "gần Đại học Bách Khoa" → ["Bách Khoa", "Lê Đại Hành", "Trương Định"], quận Hai Bà Trưng
-  - "gần Hồ Tây" → ["Quảng An", "Nhật Tân", "Xuân La", "Bưởi", "Thụy Khuê"], quận Tây Hồ
-  - "gần Cao đẳng Y Hà Nội" → ["Nguyên Hồng", "Láng Hạ", "Kim Mã", "Thành Công"], quận Ba Đình/Đống Đa
-  - "khu Cầu Giấy" → ["Dịch Vọng", "Dịch Vọng Hậu", "Mai Dịch", "Quan Hoa", "Nghĩa Đô"], quận Cầu Giấy
-  - "Vũ Tông Phan, Kim Giang" → ["Khương Đình", "Kim Giang", "Thanh Xuân Trung"], quận Thanh Xuân/Hoàng Mai
-  - "gần ĐH Quốc Gia" → ["Dịch Vọng Hậu", "Mai Dịch", "Cổ Nhuế"], quận Cầu Giấy/Bắc Từ Liêm
-  - "khu Mỹ Đình" → ["Mỹ Đình 1", "Mỹ Đình 2", "Cầu Diễn", "Phú Đô"], quận Nam Từ Liêm
-- If user mentions specific khu_vuc/phường names directly, include them as-is in khu_vuc array
-- gia_max: maximum price in VND. If user says "khoảng X triệu" or "tầm X triệu" or "X triệu", set gia_max = X * 1.1 (add 10% buffer). "3 triệu" → 3300000, "5tr" → 5500000, "4tr5" → 4950000. If no price mentioned, set to 0.
-- loai_phong: one of "Phòng đơn", "Nguyên căn", "Homestay", "1 Ngủ 1 Khách", "2 Ngủ 1 Khách", "3 Ngủ 1 Khách". Empty string if not specified.
-- summary: Vietnamese sentence summarizing what AI understood. E.g. "Tìm phòng gần ĐH Bách Khoa (Hai Bà Trưng), giá tối đa 3.3 triệu"
-
-Important:
-- "trường X", "gần X", "quanh X" → find wards NEAR that location
-- If user mentions a street name, identify which phường it belongs to
-- Always return arrays for quan_huyen and khu_vuc
-- If query is too vague, return empty arrays and summary explaining
+- quan_huyen: array of districts from the database above
+- khu_vuc: array of wards/phường. MUST use the database above. Include wards from neighboring districts if location is near border.
+- gia_max: price in VND. "khoảng/tầm X triệu" → X * 1.1 (add 10%). "3tr" → 3300000, "5tr" → 5500000, "4tr5" → 4950000. 0 if no price.
+- loai_phong: "Phòng đơn"/"Nguyên căn"/"Homestay"/"1 Ngủ 1 Khách"/"2 Ngủ 1 Khách"/"3 Ngủ 1 Khách". Empty if not specified.
+- summary: Vietnamese summary of what was understood.
+- If user mentions specific phường/khu vực names, include them directly.
+- If location not in database, use your best knowledge but prefer nearby wards from database entries.
 
 User query: ${cleanQuery}`;
 
