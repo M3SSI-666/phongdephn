@@ -96,24 +96,3 @@ export async function fetchRoomsFromSheets(filters = {}) {
   if (!res.ok) throw new Error('Fetch rooms failed');
   return res.json();
 }
-
-export async function smartSearch(query) {
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    const res = await fetch('/api/search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query }),
-    });
-
-    if (res.ok) return res.json();
-
-    const errData = await res.json().catch(() => ({}));
-
-    if (res.status === 429 && attempt === 1) {
-      await new Promise((r) => setTimeout(r, 5000));
-      continue;
-    }
-
-    throw new Error(errData.error || `Search failed (${res.status})`);
-  }
-}
