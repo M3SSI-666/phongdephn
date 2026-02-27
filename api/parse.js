@@ -37,19 +37,29 @@ Rules:
 Message: ${cleanText}`;
 
     // Strategy: Try Groq first (fast + high quota), fallback to Gemini
-    // Groq free: 30 RPM, 1000+ RPD
-    // Gemini free: 5 RPM, 20 RPD
+    // Groq free: 30 RPM, 1000+ RPD per account
+    // Gemini free: 5 RPM, 20 RPD per account
 
-    // 1. Try Groq
-    const groqKey = process.env.GROQ_API_KEY;
-    if (groqKey) {
-      console.log('[Parse] Trying Groq...');
-      const groqResult = await callGroq(groqKey, PROMPT);
-      if (groqResult.data) {
-        console.log('[Parse] Groq → SUCCESS');
-        return res.status(200).json(groqResult.data);
+    // 1. Try Groq keys (rotate through all available)
+    const groqKeys = [];
+    if (process.env.GROQ_API_KEY) groqKeys.push(process.env.GROQ_API_KEY);
+    for (let i = 2; i <= 10; i++) {
+      const val = process.env[`GROQ_API_KEY_${i}`];
+      if (val) groqKeys.push(val);
+    }
+
+    if (groqKeys.length > 0) {
+      const startIdx = Math.floor(Math.random() * groqKeys.length);
+      for (let i = 0; i < groqKeys.length; i++) {
+        const idx = (startIdx + i) % groqKeys.length;
+        console.log(`[Parse] Trying Groq key ${idx + 1}/${groqKeys.length}...`);
+        const groqResult = await callGroq(groqKeys[idx], PROMPT);
+        if (groqResult.data) {
+          console.log(`[Parse] Groq key ${idx + 1} → SUCCESS`);
+          return res.status(200).json(groqResult.data);
+        }
+        console.log(`[Parse] Groq key ${idx + 1} → ${groqResult.rateLimited ? '429' : 'failed'}: ${groqResult.errorDetail}`);
       }
-      console.log(`[Parse] Groq → failed: ${groqResult.errorDetail}`);
     }
 
     // 2. Fallback to Gemini
