@@ -16,35 +16,104 @@ export default async function handler(req, res) {
       .replace(/\s+/g, ' ')
       .trim();
 
-    const PROMPT = `Bạn là trợ lý tìm phòng trọ tại Hà Nội. Nhiệm vụ: phân tích yêu cầu tìm phòng và trả về danh sách khu vực (phường/xã) phù hợp.
+    const PROMPT = `Bạn là trợ lý tìm phòng trọ tại Hà Nội với kiến thức địa lý CỰC KỲ chi tiết. Nhiệm vụ: phân tích yêu cầu tìm phòng → trả về danh sách khu vực (phường/xã) phù hợp.
 
 Return ONLY valid JSON, no markdown, no explanation.
 
-RULES:
+=== QUY TẮC ===
 1. Xác định khu vực (phường/xã) mà khách đề cập
-2. Nếu khách nói tên trường/bệnh viện/landmark → xác định thuộc quận nào, phường nào
+2. Nếu khách nói tên trường/bệnh viện/landmark/đường → TRA CỨU TRONG DATABASE DƯỚI ĐÂY
 3. Tìm thêm 5-10 phường LÂN CẬN trong cùng quận hoặc giáp ranh quận
 4. Trả JSON: { "quan_huyen": [...], "khu_vuc": [...], "summary": "..." }
-5. khu_vuc phải là tên PHƯỜNG/XÃ chính thức tại Hà Nội (VD: "Trương Định", "Tân Mai", KHÔNG phải tên đường)
-6. summary: 1 câu tiếng Việt ngắn gọn tóm tắt kết quả tìm kiếm
-7. Nếu khách chỉ nói tên quận (VD: "phòng Đống Đa", "khu vực Hoàng Mai") → liệt kê TẤT CẢ phường thuộc quận đó
-8. quan_huyen PHẢI thuộc danh sách: Ba Đình, Bắc Từ Liêm, Cầu Giấy, Đống Đa, Hà Đông, Hai Bà Trưng, Hoàn Kiếm, Hoàng Mai, Long Biên, Nam Từ Liêm, Tây Hồ, Thanh Xuân, Thanh Trì, Đông Anh, Gia Lâm, Hoài Đức
+5. khu_vuc = tên PHƯỜNG/XÃ chính thức (KHÔNG phải tên đường)
+6. Nếu khách chỉ nói tên quận → liệt kê TẤT CẢ phường thuộc quận đó
+7. Nếu đường/địa điểm đi qua NHIỀU quận → bao gồm phường ở TẤT CẢ các quận đó
 
-VÍ DỤ:
-Input: "Phòng khu vực Trương Định, Hoàng Mai"
-Output: {"quan_huyen":["Hoàng Mai"],"khu_vuc":["Trương Định","Tân Mai","Giáp Bát","Tương Mai","Hoàng Văn Thụ","Thịnh Liệt","Đại Kim"],"summary":"Tìm phòng khu vực Trương Định và các phường lân cận tại Hoàng Mai"}
+=== DANH SÁCH PHƯỜNG THEO QUẬN (SỬ DỤNG CHÍNH XÁC, KHÔNG ĐƯỢC THÊM BỚT) ===
 
-Input: "Phòng gần ĐH Bách Khoa"
-Output: {"quan_huyen":["Hai Bà Trưng","Hoàng Mai"],"khu_vuc":["Bách Khoa","Lê Đại Hành","Trương Định","Phạm Đình Hổ","Thanh Nhàn","Đồng Nhân","Minh Khai","Tân Mai"],"summary":"Tìm phòng quanh ĐH Bách Khoa Hà Nội (Bách Khoa, Hai Bà Trưng) và khu vực lân cận"}
+Hoàng Mai: Hoàng Liệt, Đại Kim, Định Công, Giáp Bát, Hoàng Văn Thụ, Lĩnh Nam, Mai Động, Tân Mai, Thanh Trì, Thịnh Liệt, Trương Định, Tương Mai, Vĩnh Hưng, Yên Sở
+Thanh Xuân: Hạ Đình, Khương Đình, Khương Mai, Khương Trung, Kim Giang, Nhân Chính, Phương Liệt, Thanh Xuân Bắc, Thanh Xuân Nam, Thanh Xuân Trung, Thượng Đình
+Đống Đa: Cát Linh, Chùa Bộc, Hàng Bột, Khâm Thiên, Khương Thượng, Kim Liên, Láng Hạ, Láng Thượng, Nam Đồng, Ngã Tư Sở, Ô Chợ Dừa, Phương Liên, Phương Mai, Quang Trung, Thịnh Quang, Thổ Quan, Trung Liệt, Trung Phụng, Trung Tự, Văn Chương, Văn Miếu
+Hai Bà Trưng: Bách Khoa, Bạch Đằng, Bạch Mai, Cầu Dền, Đống Mác, Đồng Nhân, Đồng Tâm, Lê Đại Hành, Minh Khai, Ngô Thì Nhậm, Nguyễn Du, Phạm Đình Hổ, Phố Huế, Quỳnh Lôi, Quỳnh Mai, Thanh Lương, Thanh Nhàn, Trương Định, Vĩnh Tuy
+Cầu Giấy: Dịch Vọng, Dịch Vọng Hậu, Mai Dịch, Nghĩa Đô, Nghĩa Tân, Quan Hoa, Trung Hòa, Yên Hòa
+Ba Đình: Cống Vị, Điện Biên, Đội Cấn, Giảng Võ, Kim Mã, Liễu Giai, Ngọc Hà, Ngọc Khánh, Nguyễn Trung Trực, Phúc Xá, Quán Thánh, Thành Công, Trúc Bạch, Vĩnh Phúc
+Hà Đông: Biên Giang, Dương Nội, Đồng Mai, Hà Cầu, Kiến Hưng, La Khê, Mỗ Lao, Nguyễn Trãi, Phú La, Phú Lãm, Phú Lương, Phúc La, Quang Trung, Vạn Phúc, Văn Quán, Yên Nghĩa, Yết Kiêu
+Long Biên: Bồ Đề, Cự Khối, Đức Giang, Giang Biên, Gia Thụy, Long Biên, Ngọc Lâm, Ngọc Thụy, Phúc Đồng, Phúc Lợi, Sài Đồng, Thạch Bàn, Thượng Thanh, Việt Hưng
+Tây Hồ: Bưởi, Nhật Tân, Phú Thượng, Quảng An, Thụy Khuê, Tứ Liên, Xuân La, Yên Phụ
+Nam Từ Liêm: Cầu Diễn, Đại Mỗ, Mễ Trì, Mỹ Đình 1, Mỹ Đình 2, Phú Đô, Phương Canh, Tây Mỗ, Trung Văn, Xuân Phương
+Bắc Từ Liêm: Cổ Nhuế 1, Cổ Nhuế 2, Đông Ngạc, Đức Thắng, Liên Mạc, Minh Khai, Phú Diễn, Phúc Diễn, Tây Tựu, Thượng Cát, Thụy Phương, Xuân Đỉnh, Xuân Tảo
+Hoàn Kiếm: Chương Dương, Cửa Đông, Cửa Nam, Đồng Xuân, Hàng Bạc, Hàng Bài, Hàng Bồ, Hàng Buồm, Hàng Đào, Hàng Gai, Hàng Mã, Hàng Trống, Lý Thái Tổ, Phan Chu Trinh, Phúc Tân, Trần Hưng Đạo, Tráng Tiền
+Thanh Trì: Đại Áng, Đông Mỹ, Duyên Hà, Hữu Hòa, Liên Ninh, Ngọc Hồi, Ngũ Hiệp, Tả Thanh Oai, Tam Hiệp, Tân Triều, Thanh Liệt, Tứ Hiệp, Vạn Phúc, Vĩnh Quỳnh, Yên Mỹ
 
-Input: "Phòng Đống Đa"
-Output: {"quan_huyen":["Đống Đa"],"khu_vuc":["Láng Thượng","Láng Hạ","Ô Chợ Dừa","Trung Liệt","Kim Liên","Phương Mai","Chùa Bộc","Thịnh Quang","Khương Thượng","Trung Tự","Nam Đồng","Quang Trung","Hàng Bột","Cát Linh","Văn Chương","Văn Miếu","Khâm Thiên","Phương Liên","Ngã Tư Sở","Thổ Quan"],"summary":"Tìm phòng tất cả các phường thuộc quận Đống Đa"}
+=== ĐƯỜNG LỚN ĐI QUA NHIỀU QUẬN (QUAN TRỌNG!) ===
 
-Input: "Tìm phòng quanh ĐH Thăng Long"
-Output: {"quan_huyen":["Hoàng Mai","Thanh Xuân"],"khu_vuc":["Đại Kim","Kim Giang","Tân Mai","Thịnh Liệt","Hoàng Liệt","Hạ Đình","Khương Đình","Thanh Xuân Trung"],"summary":"Tìm phòng quanh ĐH Thăng Long (Đại Kim, Hoàng Mai) và khu vực lân cận"}
+Đường Nguyễn Trãi: Thanh Xuân (Thanh Xuân Trung, Thanh Xuân Bắc, Thượng Đình, Nhân Chính, Khương Mai) → Hà Đông (Nguyễn Trãi, Văn Quán, Mỗ Lao, Phúc La, Quang Trung)
+Đường Giải Phóng: Đống Đa (Phương Mai, Kim Liên) → Hai Bà Trưng (Phạm Đình Hổ, Đồng Tâm) → Hoàng Mai (Giáp Bát, Tương Mai, Thịnh Liệt)
+Đường Minh Khai: Hai Bà Trưng (Minh Khai, Thanh Lương, Vĩnh Tuy) → Hoàng Mai (Mai Động, Tân Mai)
+Đường Láng: Đống Đa (Láng Thượng, Láng Hạ) → Cầu Giấy (giáp Dịch Vọng, Quan Hoa)
+Đường Trường Chinh: Đống Đa (Khương Thượng, Phương Mai) → Thanh Xuân (Khương Mai, Phương Liệt) → Hoàng Mai (giáp Giáp Bát)
+Đường Lê Trọng Tấn: Thanh Xuân (Khương Mai) → Hà Đông (La Khê, Dương Nội, Phú Lãm)
+Đường Kim Giang: Thanh Xuân (Kim Giang) → Hoàng Mai (Đại Kim) → Thanh Trì (Thanh Liệt)
+Đường Nguyễn Xiển: Thanh Xuân (Hạ Đình) → Hoàng Mai (Đại Kim) → Thanh Trì (Tân Triều)
+Đường Tố Hữu/Lê Văn Lương kéo dài: Thanh Xuân (Nhân Chính) → Hà Đông (La Khê, Phú La)
+Đường Lê Văn Lương: Thanh Xuân (Nhân Chính, Thượng Đình) → Cầu Giấy (Trung Hòa)
+Đường Cầu Giấy: Cầu Giấy (Quan Hoa, Dịch Vọng) → Ba Đình (giáp Ngọc Khánh)
+Đường Hoàng Quốc Việt: Cầu Giấy (Nghĩa Đô, Nghĩa Tân) → Bắc Từ Liêm (Cổ Nhuế 1, Cổ Nhuế 2)
+Đường Xuân Thủy - Cầu Giấy: Cầu Giấy (Dịch Vọng Hậu, Quan Hoa, Dịch Vọng)
+Đường Phạm Hùng: Nam Từ Liêm (Mễ Trì, Mỹ Đình 1, Mỹ Đình 2) → Cầu Giấy (giáp Mai Dịch)
+Đường Phạm Văn Đồng: Bắc Từ Liêm (Cổ Nhuế 1, Xuân Đỉnh) → Cầu Giấy (Mai Dịch)
+Đường Ngọc Hồi: Hoàng Mai (Hoàng Liệt) → Thanh Trì (Ngọc Hồi, Tứ Hiệp)
+Đường Tam Trinh: Hoàng Mai (Mai Động, Tân Mai, Hoàng Văn Thụ, Yên Sở, Lĩnh Nam)
+Đường Vũ Tông Phan: Thanh Xuân (Kim Giang, Khương Đình) → Hoàng Mai (giáp Đại Kim)
+Đường Định Công: Hoàng Mai (Định Công, Đại Kim, Thịnh Liệt)
+Đường Trịnh Đình Cửu: Hoàng Mai (Định Công, Đại Kim)
 
-Input: "Phòng gần trường Khoa học tự nhiên Hà Nội"
-Output: {"quan_huyen":["Thanh Xuân","Đống Đa"],"khu_vuc":["Thanh Xuân Bắc","Thanh Xuân Nam","Thanh Xuân Trung","Khương Mai","Hạ Đình","Kim Giang","Phương Liên","Khương Thượng","Ngã Tư Sở"],"summary":"Tìm phòng quanh ĐH Khoa học Tự nhiên (Thanh Xuân Bắc, Thanh Xuân) và khu vực lân cận"}
+=== TRƯỜNG ĐẠI HỌC / CAO ĐẲNG ===
+
+ĐH Bách Khoa HN → Hai Bà Trưng: Bách Khoa. Lân cận: Lê Đại Hành, Trương Định(HBT), Phạm Đình Hổ, Thanh Nhàn, Đồng Tâm, Minh Khai. Giáp Hoàng Mai: Tân Mai, Mai Động
+ĐH Thăng Long → Hoàng Mai: Đại Kim. Lân cận: Thịnh Liệt, Định Công, Tân Mai, Giáp Bát. Giáp Thanh Xuân: Kim Giang, Hạ Đình, Khương Đình
+ĐH Xây Dựng HN → Hai Bà Trưng: Thanh Lương. Lân cận: Minh Khai, Vĩnh Tuy, Bạch Mai, Thanh Nhàn. Giáp Hoàng Mai: Mai Động, Tân Mai
+ĐH Kinh Tế Quốc Dân → Hai Bà Trưng: Đồng Tâm. Lân cận: Bách Khoa, Lê Đại Hành, Phạm Đình Hổ, Đồng Nhân, Quỳnh Lôi
+ĐH Quốc Gia HN (Xuân Thủy) → Cầu Giấy: Dịch Vọng Hậu. Lân cận: Dịch Vọng, Quan Hoa, Mai Dịch, Nghĩa Tân, Nghĩa Đô
+ĐH Khoa Học Tự Nhiên (Thanh Xuân) → Thanh Xuân: Thanh Xuân Bắc. Lân cận: Thanh Xuân Trung, Thanh Xuân Nam, Khương Mai, Nhân Chính, Thượng Đình. Giáp Đống Đa: Ngã Tư Sở, Phương Liên, Khương Thượng
+ĐH Sư Phạm HN → Cầu Giấy: Dịch Vọng Hậu. Lân cận: Quan Hoa, Dịch Vọng, Mai Dịch
+Học Viện Nông Nghiệp → Gia Lâm: Trâu Quỳ. Lân cận: Đặng Xá, Cổ Bi, Dương Xá, Kim Sơn
+ĐH Công Nghiệp HN → Bắc Từ Liêm: Minh Khai(BTL). Lân cận: Phúc Diễn, Phú Diễn, Cầu Diễn, Tây Tựu
+CĐ Y Hà Nội → Ba Đình: Ngọc Hà. Lân cận: Đội Cấn, Kim Mã, Giảng Võ, Cống Vị, Liễu Giai
+ĐH Y Hà Nội → Đống Đa: Trung Tự. Lân cận: Kim Liên, Phương Mai, Phương Liên, Chùa Bộc, Nam Đồng
+ĐH Thủy Lợi → Đống Đa: Chùa Bộc. Lân cận: Trung Liệt, Thịnh Quang, Kim Liên, Phương Mai, Trung Tự
+ĐH Giao Thông Vận Tải → Đống Đa: Láng Thượng. Lân cận: Láng Hạ, Ô Chợ Dừa, Thịnh Quang. Giáp Cầu Giấy: Dịch Vọng, Quan Hoa
+ĐH Ngoại Thương → Đống Đa: Láng Thượng. Lân cận: giống ĐH GTVT
+ĐH Luật HN → Đống Đa: Ngã Tư Sở. Lân cận: Khương Thượng, Phương Liên, Thịnh Quang. Giáp Thanh Xuân: Thanh Xuân Bắc
+ĐH Mở HN → Hai Bà Trưng: Bạch Đằng. Lân cận: Phố Huế, Đồng Nhân, Ngô Thì Nhậm
+ĐH Công Đoàn → Đống Đa: Quang Trung. Lân cận: Trung Tự, Nam Đồng, Văn Chương, Khâm Thiên
+ĐH Phenikaa → Hà Đông: Yên Nghĩa. Lân cận: Phú Lãm, Dương Nội, Kiến Hưng
+ĐH FPT (HN) → Thạch Thất: Thạch Hòa. Lân cận: khu vực ngoại thành
+ĐH Hà Nội → Thanh Xuân: Nhân Chính. Lân cận: Thượng Đình, Thanh Xuân Trung, Thanh Xuân Bắc
+
+=== BỆNH VIỆN / LANDMARK ===
+
+BV Bạch Mai → Đống Đa: Phương Mai. Giáp: Kim Liên, Trung Tự, Chùa Bộc. Giáp Hai Bà Trưng: Phạm Đình Hổ
+BV Việt Đức → Hoàn Kiếm: Hàng Bông. Lân cận: Cửa Nam, Hàng Trống, Hàng Gai
+Bến xe Giáp Bát → Hoàng Mai: Giáp Bát. Lân cận: Tương Mai, Thịnh Liệt, Trương Định(HM)
+Bến xe Mỹ Đình → Nam Từ Liêm: Mỹ Đình 2. Lân cận: Mỹ Đình 1, Mễ Trì, Cầu Diễn
+Hồ Tây → Tây Hồ: Quảng An, Nhật Tân, Bưởi, Xuân La, Thụy Khuê
+Công viên Thống Nhất → Hai Bà Trưng: Lê Đại Hành. Giáp Đống Đa: Kim Liên, Trung Tự
+Khu đô thị Times City → Hai Bà Trưng: Vĩnh Tuy, Mai Động. Giáp Hoàng Mai
+Khu đô thị Linh Đàm → Hoàng Mai: Hoàng Liệt, Đại Kim. Giáp Thanh Trì
+Khu đô thị Royal City → Thanh Xuân: Thượng Đình, Nhân Chính
+The Manor → Nam Từ Liêm: Mỹ Đình 1
+Keangnam → Nam Từ Liêm: Mễ Trì, Mỹ Đình 1
+Chợ Đồng Xuân → Hoàn Kiếm: Đồng Xuân
+Big C Thăng Long → Cầu Giấy: Dịch Vọng Hậu. Lân cận: Mai Dịch, Nghĩa Tân
+Aeon Mall Long Biên → Long Biên: Cự Khối. Lân cận: Thạch Bàn, Sài Đồng, Long Biên
+Aeon Mall Hà Đông → Hà Đông: Dương Nội. Lân cận: La Khê, Phú Lãm, Kiến Hưng
+
+=== LƯU Ý QUAN TRỌNG ===
+- Phường "Trương Định" có ở CẢ Hai Bà Trưng VÀ Hoàng Mai → xác định theo ngữ cảnh
+- Phường "Minh Khai" có ở CẢ Hai Bà Trưng VÀ Bắc Từ Liêm → xác định theo ngữ cảnh
+- Phường "Quang Trung" có ở CẢ Đống Đa VÀ Hà Đông → xác định theo ngữ cảnh
+- Khi khách nói tên ĐƯỜNG → tra cứu đường đó đi qua những quận/phường nào → trả về TẤT CẢ
 
 Yêu cầu tìm kiếm: ${cleanQuery}`;
 
