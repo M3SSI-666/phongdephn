@@ -95,6 +95,41 @@ const LANDMARK = {
   'Công viên Thống Nhất': { quan: ['Hai Bà Trưng','Đống Đa'], phuong: ['Lê Đại Hành','Kim Liên','Trung Tự'] },
 };
 
+// Tên gọi phổ biến / thôn / xóm / khu vực → phường chính thức + quận
+// (Nhiều khu vực người dân hay gọi không phải tên phường chính thức)
+const TEN_PHO_BIEN = {
+  'Yên Xá': { quan: ['Thanh Trì','Hà Đông'], phuong: ['Tân Triều','Thanh Liệt','Hữu Hòa','Phúc La','Văn Quán'] },
+  'Triều Khúc': { quan: ['Thanh Xuân','Thanh Trì'], phuong: ['Tân Triều','Thanh Liệt','Thanh Xuân Nam','Hạ Đình'] },
+  'Bùi Xương Trạch': { quan: ['Thanh Xuân'], phuong: ['Khương Đình','Kim Giang','Hạ Đình'] },
+  'Quan Nhân': { quan: ['Thanh Xuân'], phuong: ['Nhân Chính','Thượng Đình','Thanh Xuân Trung'] },
+  'Cự Lộc': { quan: ['Thanh Xuân'], phuong: ['Thượng Đình','Thanh Xuân Trung','Nhân Chính'] },
+  'Pháo Đài Láng': { quan: ['Đống Đa'], phuong: ['Láng Thượng','Láng Hạ','Ô Chợ Dừa'] },
+  'Chùa Láng': { quan: ['Đống Đa'], phuong: ['Láng Thượng','Láng Hạ'] },
+  'Ngã Tư Vọng': { quan: ['Hai Bà Trưng','Đống Đa'], phuong: ['Phạm Đình Hổ','Đồng Tâm','Phương Mai'] },
+  'Hào Nam': { quan: ['Đống Đa'], phuong: ['Ô Chợ Dừa','Cát Linh','Hàng Bột'] },
+  'Xã Đàn': { quan: ['Đống Đa'], phuong: ['Nam Đồng','Trung Tự','Phương Liên'] },
+  'Giảng Võ': { quan: ['Ba Đình','Đống Đa'], phuong: ['Giảng Võ','Kim Mã','Cát Linh','Ô Chợ Dừa'] },
+  'Đê La Thành': { quan: ['Đống Đa','Ba Đình'], phuong: ['Ô Chợ Dừa','Hàng Bột','Cát Linh','Giảng Võ','Thành Công'] },
+  'Ngã Tư Sở': { quan: ['Đống Đa','Thanh Xuân'], phuong: ['Ngã Tư Sở','Khương Thượng','Thịnh Quang','Thanh Xuân Bắc'] },
+  'Phùng Khoang': { quan: ['Nam Từ Liêm','Hà Đông'], phuong: ['Trung Văn','Đại Mỗ','Văn Quán','Phúc La'] },
+  'Văn Quán': { quan: ['Hà Đông'], phuong: ['Văn Quán','Phúc La','Mỗ Lao','Nguyễn Trãi'] },
+  'Xa La': { quan: ['Hà Đông'], phuong: ['Phúc La','Hà Cầu','Kiến Hưng'] },
+  'Văn Phú': { quan: ['Hà Đông'], phuong: ['Phú La','Phú Lãm','Văn Quán','Hà Cầu'] },
+  'Đại Từ': { quan: ['Hoàng Mai'], phuong: ['Đại Kim','Thịnh Liệt','Hoàng Liệt'] },
+  'Kim Văn Kim Lũ': { quan: ['Hoàng Mai'], phuong: ['Đại Kim','Hoàng Liệt','Thịnh Liệt'] },
+  'Tây Hồ Tây': { quan: ['Tây Hồ','Bắc Từ Liêm'], phuong: ['Xuân La','Nhật Tân','Phú Thượng','Xuân Đỉnh','Đông Ngạc'] },
+  'Mỹ Đình': { quan: ['Nam Từ Liêm'], phuong: ['Mỹ Đình 1','Mỹ Đình 2','Mễ Trì','Cầu Diễn','Phú Đô'] },
+  'Cổ Nhuế': { quan: ['Bắc Từ Liêm'], phuong: ['Cổ Nhuế 1','Cổ Nhuế 2','Xuân Đỉnh','Đức Thắng'] },
+  'Trung Kính': { quan: ['Cầu Giấy'], phuong: ['Trung Hòa','Yên Hòa','Quan Hoa'] },
+  'Dịch Vọng': { quan: ['Cầu Giấy'], phuong: ['Dịch Vọng','Dịch Vọng Hậu','Quan Hoa'] },
+  'Trung Hòa Nhân Chính': { quan: ['Cầu Giấy','Thanh Xuân'], phuong: ['Trung Hòa','Nhân Chính','Yên Hòa','Thanh Xuân Bắc'] },
+  'Giáp Nhị': { quan: ['Hoàng Mai'], phuong: ['Thịnh Liệt','Hoàng Liệt','Đại Kim'] },
+  'Tứ Kỳ': { quan: ['Hoàng Mai'], phuong: ['Hoàng Liệt','Yên Sở','Thịnh Liệt'] },
+  'Pháp Vân': { quan: ['Hoàng Mai'], phuong: ['Hoàng Liệt','Yên Sở'] },
+  'Tựu Liệt': { quan: ['Thanh Trì'], phuong: ['Thanh Liệt','Tân Triều','Ngũ Hiệp'] },
+  'Cầu Bươu': { quan: ['Thanh Trì','Hà Đông'], phuong: ['Thanh Liệt','Tân Triều','Hữu Hòa','Phúc La'] },
+};
+
 // Phường lân cận (giáp ranh giữa các quận)
 const GIAP_RANH = {
   'Hoàng Mai': ['Kim Giang','Hạ Đình','Khương Đình','Phương Liệt','Thanh Liệt','Tân Triều','Ngọc Hồi'],
@@ -194,7 +229,18 @@ function tryLocalLookup(query) {
     }
   }
 
-  // 2. Check tên landmark (exact match)
+  // 2. Check tên phổ biến / thôn / khu vực
+  for (const [name, data] of Object.entries(TEN_PHO_BIEN)) {
+    if (q.includes(name.toLowerCase())) {
+      return {
+        quan_huyen: data.quan,
+        khu_vuc: data.phuong,
+        summary: `Tìm phòng khu vực ${name} (${data.quan.join(', ')}) và lân cận`,
+      };
+    }
+  }
+
+  // 3. Check tên landmark (exact match)
   for (const [name, data] of Object.entries(LANDMARK)) {
     if (q.includes(name.toLowerCase())) {
       return {
@@ -205,7 +251,7 @@ function tryLocalLookup(query) {
     }
   }
 
-  // 3. Check tên đường (exact match)
+  // 4. Check tên đường (exact match)
   for (const [name, data] of Object.entries(DUONG)) {
     if (q.includes(name.toLowerCase())) {
       return {
@@ -253,13 +299,23 @@ function resolveAIResult(aiData, originalQuery) {
       }
     } else if (type === 'phuong') {
       // Tìm phường trong tất cả quận
+      let found = false;
       for (const [quan, phuongs] of Object.entries(QUAN_PHUONG)) {
         for (const p of phuongs) {
           if (p.toLowerCase() === kw.toLowerCase()) {
             allQuan.add(quan);
             allPhuong.add(p);
-            // Thêm phường lân cận trong cùng quận
             addNearby(quan, p, allPhuong);
+            found = true;
+          }
+        }
+      }
+      // Nếu không tìm thấy trong phường chính thức → thử tên phổ biến
+      if (!found) {
+        for (const [name, data] of Object.entries(TEN_PHO_BIEN)) {
+          if (name.toLowerCase() === kw.toLowerCase() || kw.toLowerCase().includes(name.toLowerCase())) {
+            data.quan.forEach(q => allQuan.add(q));
+            data.phuong.forEach(p => allPhuong.add(p));
           }
         }
       }
