@@ -109,7 +109,7 @@ export default function KhachTimes() {
         (it.Ghi_Chu || '').toLowerCase().includes(q)
       );
     }
-    list.sort((a, b) => Number(b.STT || 0) - Number(a.STT || 0));
+    list.sort((a, b) => Number(a.STT || 0) - Number(b.STT || 0));
     console.log('[KhachTimes] Filtered:', list.length, '/', items.length, 'filter:', filterLoai);
     return list;
   }, [items, filterLoai, search]);
@@ -723,10 +723,7 @@ const s = {
     color: C.textMuted,
     borderBottom: `2px solid ${C.border}`,
     whiteSpace: 'nowrap',
-    background: C.bg,
-    position: 'sticky',
-    top: 56,
-    zIndex: 10,
+    background: '#fff',
   },
   tr: {
     borderBottom: `1px solid ${C.borderLight}`,
