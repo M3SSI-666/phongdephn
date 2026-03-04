@@ -212,17 +212,6 @@ export default function RoomDetail() {
                 </div>
               )}
 
-              {room.ghi_chu && (
-                <div style={s.section}>
-                  <h3 style={s.sectionTitle}>Ghi chú</h3>
-                  <ul style={s.noteList}>
-                    {room.ghi_chu.split(',').map((item, i) => {
-                      const trimmed = item.trim();
-                      return trimmed ? <li key={i} style={s.noteItem}>{trimmed}</li> : null;
-                    })}
-                  </ul>
-                </div>
-              )}
             </div>
           </div>
 

@@ -746,15 +746,6 @@ function ReviewForm({ data, onChange }) {
           onChange={(e) => update('noi_that', e.target.value)}
         />
       </div>
-      <div>
-        <label style={st.formLabel}>Ghi chú</label>
-        <textarea
-          style={{ ...st.formInput, height: 72, resize: 'vertical' }}
-          value={data.ghi_chu || ''}
-          onChange={(e) => update('ghi_chu', e.target.value)}
-          placeholder="Khép kín, diện tích, xe điện, pet, hoa hồng..."
-        />
-      </div>
 
       {/* Legend */}
       <div
@@ -990,22 +981,6 @@ function WebsitePreview({ data, images, videos }) {
             }}
           >
             Nội thất: {data.noi_that}
-          </div>
-        )}
-        {data.ghi_chu && (
-          <div
-            style={{
-              fontSize: 11,
-              color: C.textMuted,
-              lineHeight: 1.5,
-              paddingTop: 6,
-              borderTop: `1px solid ${C.border}`,
-            }}
-          >
-            {data.ghi_chu.split(',').map((item, i) => {
-              const t = item.trim();
-              return t ? <div key={i}>• {t}</div> : null;
-            })}
           </div>
         )}
       </div>

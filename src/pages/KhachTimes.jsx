@@ -1,0 +1,811 @@
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { C } from '../utils/theme';
+import { fetchKhachTimes, postKhachTimes } from '../utils/api';
+
+const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
+
+function todayStr() {
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
+
+function toInputDate(ddmmyyyy) {
+  if (!ddmmyyyy) return '';
+  const parts = ddmmyyyy.split('/');
+  if (parts.length !== 3) return '';
+  return `${parts[2]}-${parts[1]}-${parts[0]}`;
+}
+
+function fromInputDate(yyyy_mm_dd) {
+  if (!yyyy_mm_dd) return '';
+  const parts = yyyy_mm_dd.split('-');
+  if (parts.length !== 3) return '';
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+const EMPTY_FORM = {
+  Ten: '', Zalo: '', SDT: '', Ngay: todayStr(),
+  Loai: 'Thue', Tai_Chinh: '', Can_Tu_Van: '', Ghi_Chu: '',
+};
+
+export default function KhachTimes() {
+  const navigate = useNavigate();
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  // Search & filter
+  const [search, setSearch] = useState('');
+  const [filterLoai, setFilterLoai] = useState('all');
+
+  // Modal
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editItem, setEditItem] = useState(null); // null = add, object = edit
+  const [form, setForm] = useState({ ...EMPTY_FORM });
+
+  // Toast
+  const [toast, setToast] = useState(null);
+  const toastTimer = useRef(null);
+
+  // Confirm delete
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  // Inject styles
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes ktFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+      @keyframes ktSlideUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+      @keyframes ktToastIn { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
+      .kt-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .kt-table-wrap::-webkit-scrollbar { height: 6px; }
+      .kt-table-wrap::-webkit-scrollbar-thumb { background: ${C.textDim}; border-radius: 3px; }
+      .kt-row:hover { background: ${C.primaryBg} !important; }
+      .kt-btn:active { transform: scale(0.97); }
+      @media (max-width: 640px) {
+        .kt-modal-content { width: 100% !important; height: 100% !important; max-height: 100% !important; border-radius: 0 !important; }
+        .kt-stats { flex-direction: column !important; gap: 8px !important; }
+        .kt-header-row { flex-direction: column !important; gap: 10px !important; align-items: stretch !important; }
+        .kt-filter-row { flex-direction: column !important; gap: 8px !important; }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, []);
+
+  const showToast = useCallback((msg, type = 'success') => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ msg, type });
+    toastTimer.current = setTimeout(() => setToast(null), 3000);
+  }, []);
+
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const data = await fetchKhachTimes();
+      setItems(data);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // Filtered + searched list
+  const filtered = useMemo(() => {
+    let list = [...items];
+    if (filterLoai !== 'all') {
+      list = list.filter((it) => (it.Loai || '').toLowerCase() === filterLoai.toLowerCase());
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((it) =>
+        (it.Ten || '').toLowerCase().includes(q) ||
+        (it.Zalo || '').toLowerCase().includes(q) ||
+        (it.SDT || '').includes(q) ||
+        (it.Can_Tu_Van || '').toLowerCase().includes(q) ||
+        (it.Ghi_Chu || '').toLowerCase().includes(q)
+      );
+    }
+    // Sort newest first (by STT descending)
+    list.sort((a, b) => Number(b.STT || 0) - Number(a.STT || 0));
+    return list;
+  }, [items, filterLoai, search]);
+
+  // Stats
+  const stats = useMemo(() => {
+    const total = items.length;
+    const thue = items.filter((i) => (i.Loai || '').toLowerCase() === 'thue' || (i.Loai || '') === 'Thuê').length;
+    const mua = items.filter((i) => (i.Loai || '').toLowerCase() === 'mua' || (i.Loai || '') === 'Mua').length;
+    return { total, thue, mua };
+  }, [items]);
+
+  // Open modal
+  const openAdd = () => {
+    setEditItem(null);
+    setForm({ ...EMPTY_FORM, Ngay: todayStr() });
+    setModalOpen(true);
+  };
+
+  const openEdit = (item) => {
+    setEditItem(item);
+    setForm({
+      Ten: item.Ten || '',
+      Zalo: item.Zalo || '',
+      SDT: item.SDT || '',
+      Ngay: item.Ngay || '',
+      Loai: item.Loai || 'Thue',
+      Tai_Chinh: item.Tai_Chinh || '',
+      Can_Tu_Van: item.Can_Tu_Van || '',
+      Ghi_Chu: item.Ghi_Chu || '',
+    });
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditItem(null);
+  };
+
+  // Save
+  const handleSave = async () => {
+    if (!form.Ten.trim()) return showToast('Vui long nhap ten khach hang', 'error');
+    if (!form.SDT.trim()) return showToast('Vui long nhap so dien thoai', 'error');
+    if (!form.Ngay.trim()) return showToast('Vui long chon ngay', 'error');
+
+    try {
+      setSaving(true);
+      if (editItem) {
+        await postKhachTimes({
+          action: 'update',
+          _rowIndex: editItem._rowIndex,
+          STT: editItem.STT,
+          Ten: form.Ten.trim(),
+          Zalo: form.Zalo.trim(),
+          SDT: form.SDT.trim(),
+          Ngay: form.Ngay.trim(),
+          Loai: form.Loai === 'Mua' ? 'Mua' : 'Thuê',
+          Tai_Chinh: form.Tai_Chinh.trim(),
+          Can_Tu_Van: form.Can_Tu_Van.trim(),
+          Ghi_Chu: form.Ghi_Chu.trim(),
+        });
+        showToast('Cap nhat thanh cong!');
+      } else {
+        const maxSTT = items.reduce((m, i) => Math.max(m, Number(i.STT) || 0), 0);
+        await postKhachTimes({
+          action: 'add',
+          STT: maxSTT + 1,
+          Ten: form.Ten.trim(),
+          Zalo: form.Zalo.trim(),
+          SDT: form.SDT.trim(),
+          Ngay: form.Ngay.trim(),
+          Loai: form.Loai === 'Mua' ? 'Mua' : 'Thuê',
+          Tai_Chinh: form.Tai_Chinh.trim(),
+          Can_Tu_Van: form.Can_Tu_Van.trim(),
+          Ghi_Chu: form.Ghi_Chu.trim(),
+        });
+        showToast('Them khach thanh cong!');
+      }
+      closeModal();
+      await loadData();
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Delete
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      setSaving(true);
+      await postKhachTimes({
+        action: 'delete',
+        _rowIndex: deleteTarget._rowIndex,
+      });
+      showToast('Da xoa khach hang!');
+      setDeleteTarget(null);
+      await loadData();
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateForm = (key, val) => setForm((prev) => ({ ...prev, [key]: val }));
+
+  return (
+    <div style={s.root}>
+      {/* Header */}
+      <div style={s.header}>
+        <div style={s.headerInner}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button onClick={() => navigate('/')} style={s.backBtn} className="kt-btn">
+              &larr;
+            </button>
+            <div>
+              <div style={s.headerTitle}>Khach Times City</div>
+              <div style={s.headerSub}>Quan ly khach hang bat dong san</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={s.container}>
+        {/* Title row + Add button + Stats */}
+        <div className="kt-header-row" style={s.titleRow}>
+          <button onClick={openAdd} style={s.addBtn} className="kt-btn">
+            + Them Khach
+          </button>
+          <div className="kt-stats" style={s.statsRow}>
+            <StatBadge label="Tong" value={stats.total} color={C.blue} />
+            <StatBadge label="Thue" value={stats.thue} color={C.primary} />
+            <StatBadge label="Mua" value={stats.mua} color={C.accent} />
+          </div>
+        </div>
+
+        {/* Search + Filter */}
+        <div className="kt-filter-row" style={s.filterRow}>
+          <div style={s.searchWrap}>
+            <span style={s.searchIcon}>&#128269;</span>
+            <input
+              type="text"
+              placeholder="Tim theo ten, Zalo, SDT, can tu van..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={s.searchInput}
+            />
+            {search && (
+              <button onClick={() => setSearch('')} style={s.clearBtn}>&times;</button>
+            )}
+          </div>
+          <select
+            value={filterLoai}
+            onChange={(e) => setFilterLoai(e.target.value)}
+            style={s.filterSelect}
+          >
+            <option value="all">Tat ca</option>
+            <option value="Thuê">Thue</option>
+            <option value="Mua">Mua</option>
+          </select>
+          <div style={s.resultCount}>
+            {filtered.length} / {items.length} khach
+          </div>
+        </div>
+
+        {/* Error */}
+        {error && <div style={s.errorBox}>{error}</div>}
+
+        {/* Loading */}
+        {loading && <div style={s.loadingBox}>Dang tai du lieu...</div>}
+
+        {/* Table */}
+        {!loading && !error && (
+          <div className="kt-table-wrap" style={s.tableWrap}>
+            <table style={s.table}>
+              <thead>
+                <tr>
+                  {['STT', 'Ten', 'Zalo', 'SDT', 'Ngay', 'Loai', 'Tai chinh', 'Can TV', 'Ghi chu', ''].map((h) => (
+                    <th key={h} style={s.th}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} style={s.emptyTd}>
+                      {items.length === 0 ? 'Chua co khach hang nao' : 'Khong tim thay ket qua'}
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((item) => (
+                    <tr key={item._rowIndex} className="kt-row" style={s.tr}>
+                      <td style={s.td}>{item.STT}</td>
+                      <td style={{ ...s.td, ...s.tdName, fontWeight: 600 }}>{item.Ten}</td>
+                      <td style={s.td}>{item.Zalo}</td>
+                      <td style={{ ...s.td, whiteSpace: 'nowrap' }}>{item.SDT}</td>
+                      <td style={{ ...s.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay}</td>
+                      <td style={s.td}>
+                        <LoaiBadge loai={item.Loai} />
+                      </td>
+                      <td style={{ ...s.td, fontFamily: 'monospace', textAlign: 'right' }}>{item.Tai_Chinh}</td>
+                      <td style={{ ...s.td, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.Can_Tu_Van}</td>
+                      <td style={{ ...s.td, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', color: C.textMuted, fontSize: 12 }}>{item.Ghi_Chu}</td>
+                      <td style={{ ...s.td, whiteSpace: 'nowrap' }}>
+                        <button onClick={() => openEdit(item)} style={s.actionBtn} title="Sua">&#9998;</button>
+                        <button onClick={() => setDeleteTarget(item)} style={{ ...s.actionBtn, ...s.deleteBtn }} title="Xoa">&#128465;</button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Modal Add/Edit */}
+      {modalOpen && (
+        <div style={s.overlay} onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}>
+          <div className="kt-modal-content" style={s.modal}>
+            <div style={s.modalHeader}>
+              <div style={s.modalTitle}>{editItem ? 'Sua khach hang' : 'Them khach moi'}</div>
+              <button onClick={closeModal} style={s.modalClose}>&times;</button>
+            </div>
+            <div style={s.modalBody}>
+              <FormField label="Ten khach hang *" value={form.Ten} onChange={(v) => updateForm('Ten', v)} />
+              <FormField label="Ten Zalo" value={form.Zalo} onChange={(v) => updateForm('Zalo', v)} />
+              <FormField label="So dien thoai *" value={form.SDT} onChange={(v) => updateForm('SDT', v)} type="tel" />
+              <div style={s.fieldWrap}>
+                <label style={s.fieldLabel}>Ngay phat sinh *</label>
+                <input
+                  type="date"
+                  value={toInputDate(form.Ngay)}
+                  onChange={(e) => updateForm('Ngay', fromInputDate(e.target.value))}
+                  style={s.fieldInput}
+                />
+              </div>
+              <div style={s.fieldWrap}>
+                <label style={s.fieldLabel}>Loai nhu cau *</label>
+                <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+                  {[['Thue', 'Thue'], ['Mua', 'Mua']].map(([val, label]) => (
+                    <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14 }}>
+                      <input
+                        type="radio"
+                        name="loai"
+                        checked={form.Loai === val}
+                        onChange={() => updateForm('Loai', val)}
+                        style={{ accentColor: C.primary }}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <FormField label="Tai chinh" value={form.Tai_Chinh} onChange={(v) => updateForm('Tai_Chinh', v)} placeholder="VD: 11 / 11.5 / 2000" />
+              <FormField label="Can dang tu van" value={form.Can_Tu_Van} onChange={(v) => updateForm('Can_Tu_Van', v)} placeholder="VD: Park 1 - 07.12" />
+              <div style={s.fieldWrap}>
+                <label style={s.fieldLabel}>Ghi chu</label>
+                <textarea
+                  value={form.Ghi_Chu}
+                  onChange={(e) => updateForm('Ghi_Chu', e.target.value)}
+                  style={{ ...s.fieldInput, height: 72, resize: 'vertical' }}
+                />
+              </div>
+            </div>
+            <div style={s.modalFooter}>
+              <button onClick={closeModal} style={s.cancelBtn} className="kt-btn">Huy</button>
+              <button onClick={handleSave} disabled={saving} style={s.saveBtn} className="kt-btn">
+                {saving ? 'Dang luu...' : 'Luu'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirm */}
+      {deleteTarget && (
+        <div style={s.overlay} onClick={(e) => { if (e.target === e.currentTarget) setDeleteTarget(null); }}>
+          <div style={s.confirmBox}>
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12, color: C.text }}>
+              Xac nhan xoa
+            </div>
+            <div style={{ fontSize: 14, color: C.textMuted, marginBottom: 20, lineHeight: 1.5 }}>
+              Xoa khach <strong>{deleteTarget.Ten}</strong>? Hanh dong nay khong the hoan tac.
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setDeleteTarget(null)} style={s.cancelBtn} className="kt-btn">Huy</button>
+              <button onClick={confirmDelete} disabled={saving} style={{ ...s.saveBtn, background: C.error }} className="kt-btn">
+                {saving ? 'Dang xoa...' : 'Xoa'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          ...s.toast,
+          background: toast.type === 'error' ? C.error : C.primary,
+          animation: 'ktToastIn 0.3s ease',
+        }}>
+          {toast.msg}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Sub-components ──
+function StatBadge({ label, value, color }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 6,
+      background: color + '12', padding: '6px 14px',
+      borderRadius: 8, fontSize: 13, fontWeight: 600, color,
+    }}>
+      {label}: <span style={{ fontSize: 16 }}>{value}</span>
+    </div>
+  );
+}
+
+function LoaiBadge({ loai }) {
+  const isThue = (loai || '').toLowerCase().includes('thu');
+  return (
+    <span style={{
+      display: 'inline-block',
+      padding: '2px 10px',
+      borderRadius: 12,
+      fontSize: 11,
+      fontWeight: 700,
+      background: isThue ? C.primary + '18' : C.accent + '18',
+      color: isThue ? C.primaryDark : C.accent,
+    }}>
+      {isThue ? 'Thue' : 'Mua'}
+    </span>
+  );
+}
+
+function FormField({ label, value, onChange, type = 'text', placeholder = '' }) {
+  return (
+    <div style={s.fieldWrap}>
+      <label style={s.fieldLabel}>{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={s.fieldInput}
+      />
+    </div>
+  );
+}
+
+// ── Styles ──
+const s = {
+  root: {
+    fontFamily: F,
+    background: C.bg,
+    minHeight: '100vh',
+    color: C.text,
+  },
+  header: {
+    background: '#fff',
+    borderBottom: `1px solid ${C.border}`,
+    position: 'sticky',
+    top: 0,
+    zIndex: 100,
+    boxShadow: C.shadow,
+  },
+  headerInner: {
+    maxWidth: 1200,
+    margin: '0 auto',
+    padding: '12px 20px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 800,
+    color: C.primary,
+    letterSpacing: -0.3,
+  },
+  headerSub: {
+    fontSize: 11,
+    color: C.textMuted,
+    marginTop: 1,
+  },
+  backBtn: {
+    background: C.primaryBg,
+    border: 'none',
+    borderRadius: 8,
+    width: 36,
+    height: 36,
+    fontSize: 18,
+    color: C.primary,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontWeight: 700,
+  },
+  container: {
+    maxWidth: 1200,
+    margin: '0 auto',
+    padding: '20px 16px',
+  },
+  titleRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    gap: 12,
+  },
+  addBtn: {
+    background: C.gradient,
+    color: '#fff',
+    border: 'none',
+    borderRadius: 10,
+    padding: '10px 20px',
+    fontSize: 14,
+    fontWeight: 700,
+    cursor: 'pointer',
+    fontFamily: F,
+    boxShadow: C.shadowGreen,
+    transition: 'all 0.15s ease',
+    whiteSpace: 'nowrap',
+  },
+  statsRow: {
+    display: 'flex',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  filterRow: {
+    display: 'flex',
+    gap: 12,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  searchWrap: {
+    flex: 1,
+    position: 'relative',
+    minWidth: 200,
+  },
+  searchIcon: {
+    position: 'absolute',
+    left: 12,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    fontSize: 14,
+    opacity: 0.5,
+  },
+  searchInput: {
+    width: '100%',
+    padding: '10px 36px 10px 36px',
+    border: `1.5px solid ${C.border}`,
+    borderRadius: 10,
+    fontSize: 13,
+    fontFamily: F,
+    outline: 'none',
+    background: '#fff',
+    boxSizing: 'border-box',
+    transition: 'border-color 0.15s',
+  },
+  clearBtn: {
+    position: 'absolute',
+    right: 10,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    background: 'none',
+    border: 'none',
+    fontSize: 18,
+    color: C.textMuted,
+    cursor: 'pointer',
+    padding: '0 4px',
+  },
+  filterSelect: {
+    padding: '10px 14px',
+    border: `1.5px solid ${C.border}`,
+    borderRadius: 10,
+    fontSize: 13,
+    fontFamily: F,
+    background: '#fff',
+    cursor: 'pointer',
+    outline: 'none',
+    minWidth: 100,
+  },
+  resultCount: {
+    fontSize: 12,
+    color: C.textMuted,
+    whiteSpace: 'nowrap',
+  },
+  errorBox: {
+    background: '#FEF2F2',
+    color: C.error,
+    padding: '12px 16px',
+    borderRadius: 10,
+    fontSize: 13,
+    marginBottom: 16,
+  },
+  loadingBox: {
+    textAlign: 'center',
+    padding: 40,
+    color: C.textMuted,
+    fontSize: 14,
+  },
+  tableWrap: {
+    background: '#fff',
+    borderRadius: 12,
+    border: `1px solid ${C.border}`,
+    boxShadow: C.shadow,
+    animation: 'ktFadeIn 0.3s ease',
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    fontSize: 13,
+  },
+  th: {
+    textAlign: 'left',
+    padding: '10px 12px',
+    fontWeight: 700,
+    fontSize: 11,
+    textTransform: 'uppercase',
+    color: C.textMuted,
+    borderBottom: `2px solid ${C.border}`,
+    whiteSpace: 'nowrap',
+    background: C.bg,
+    position: 'sticky',
+    top: 56,
+    zIndex: 10,
+  },
+  tr: {
+    borderBottom: `1px solid ${C.borderLight}`,
+    transition: 'background 0.12s',
+  },
+  td: {
+    padding: '10px 12px',
+    verticalAlign: 'middle',
+    fontSize: 13,
+  },
+  tdName: {
+    minWidth: 120,
+    whiteSpace: 'nowrap',
+  },
+  emptyTd: {
+    textAlign: 'center',
+    padding: 40,
+    color: C.textMuted,
+    fontSize: 14,
+  },
+  actionBtn: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: 16,
+    padding: '4px 8px',
+    borderRadius: 6,
+    transition: 'background 0.12s',
+    color: C.textMuted,
+  },
+  deleteBtn: {
+    color: C.error,
+  },
+  // Modal
+  overlay: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(0,0,0,0.45)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+    padding: 16,
+  },
+  modal: {
+    background: '#fff',
+    borderRadius: 16,
+    width: 480,
+    maxWidth: '100%',
+    maxHeight: '90vh',
+    display: 'flex',
+    flexDirection: 'column',
+    boxShadow: C.shadowLg,
+    animation: 'ktSlideUp 0.25s ease',
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '16px 20px',
+    borderBottom: `1px solid ${C.border}`,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: 700,
+    color: C.text,
+  },
+  modalClose: {
+    background: 'none',
+    border: 'none',
+    fontSize: 22,
+    color: C.textMuted,
+    cursor: 'pointer',
+    padding: '0 4px',
+    lineHeight: 1,
+  },
+  modalBody: {
+    padding: '16px 20px',
+    overflowY: 'auto',
+    flex: 1,
+  },
+  modalFooter: {
+    display: 'flex',
+    gap: 10,
+    justifyContent: 'flex-end',
+    padding: '12px 20px',
+    borderTop: `1px solid ${C.border}`,
+  },
+  fieldWrap: {
+    marginBottom: 14,
+  },
+  fieldLabel: {
+    display: 'block',
+    fontSize: 12,
+    fontWeight: 600,
+    color: C.textMuted,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  fieldInput: {
+    width: '100%',
+    padding: '9px 12px',
+    border: `1.5px solid ${C.border}`,
+    borderRadius: 8,
+    fontSize: 14,
+    fontFamily: F,
+    outline: 'none',
+    boxSizing: 'border-box',
+    transition: 'border-color 0.15s',
+    background: C.bgInput,
+  },
+  cancelBtn: {
+    background: 'none',
+    border: `1.5px solid ${C.border}`,
+    borderRadius: 10,
+    padding: '9px 20px',
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontFamily: F,
+    color: C.textMuted,
+    transition: 'all 0.15s',
+  },
+  saveBtn: {
+    background: C.gradient,
+    color: '#fff',
+    border: 'none',
+    borderRadius: 10,
+    padding: '9px 24px',
+    fontSize: 14,
+    fontWeight: 700,
+    cursor: 'pointer',
+    fontFamily: F,
+    boxShadow: C.shadowGreen,
+    transition: 'all 0.15s',
+  },
+  confirmBox: {
+    background: '#fff',
+    borderRadius: 16,
+    padding: '24px',
+    width: 380,
+    maxWidth: '100%',
+    boxShadow: C.shadowLg,
+    animation: 'ktSlideUp 0.2s ease',
+  },
+  toast: {
+    position: 'fixed',
+    bottom: 24,
+    right: 24,
+    padding: '12px 20px',
+    borderRadius: 10,
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 600,
+    fontFamily: F,
+    boxShadow: C.shadowMd,
+    zIndex: 2000,
+  },
+};

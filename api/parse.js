@@ -18,7 +18,7 @@ export default async function handler(req, res) {
 
     const PROMPT = `Extract room rental info from this Vietnamese Zalo message. Return ONLY valid JSON, no markdown, no explanation.
 
-{"quan_huyen":"","khu_vuc":"","dia_chi":"","gia":0,"so_phong":"","gia_dien":"","gia_nuoc":"","gia_internet":"","dich_vu_chung":"","noi_that":"","ghi_chu":"","confidence":{"quan_huyen":"low","gia":"low","khu_vuc":"low"}}
+{"quan_huyen":"","khu_vuc":"","dia_chi":"","gia":0,"so_phong":"","gia_dien":"","gia_nuoc":"","gia_internet":"","dich_vu_chung":"","noi_that":"","confidence":{"quan_huyen":"low","gia":"low","khu_vuc":"low"}}
 
 Rules:
 - quan_huyen: one of Ba Đình,Bắc Từ Liêm,Cầu Giấy,Đống Đa,Hà Đông,Hai Bà Trưng,Hoàn Kiếm,Hoàng Mai,Long Biên,Nam Từ Liêm,Tây Hồ,Thanh Xuân,Ba Vì,Chương Mỹ,Đan Phượng,Đông Anh,Gia Lâm,Hoài Đức,Mê Linh,Mỹ Đức,Phú Xuyên,Phúc Thọ,Quốc Oai,Sóc Sơn,Sơn Tây,Thạch Thất,Thanh Oai,Thanh Trì,Thường Tín,Ứng Hòa
@@ -29,9 +29,8 @@ Rules:
 - gia_dien: full VND format. "4k"→"4.000 đ/số", "3k5"→"3.500 đ/số". Always include unit. Empty if not mentioned.
 - gia_nuoc: full VND format. "100k"→"100.000 đ/người", "35k/khối"→"35.000 đ/khối". Always include unit. Empty if not mentioned.
 - gia_internet: full VND format. "100k/phòng"→"100.000 đ/phòng". "Miễn phí" if free. Empty if not mentioned.
-- dich_vu_chung: price + services in parentheses. "150k (Vệ sinh, Thang máy)". Empty if not mentioned.
-- noi_that: list all furnishings, private items first, shared items last. Comma-separated.
-- ghi_chu: tenant-relevant info ONLY. Positives first (Thang máy, Vệ sinh khép kín, Gửi xe miễn phí, Giờ giấc tự do), then negatives. NO hoa hồng, mã toà nhà, commission. Comma-separated.
+- dich_vu_chung: price + BUILDING SERVICES in parentheses. "150k (Vệ sinh, Thang máy)". Include: Thang máy, Vệ sinh hành lang, Bảo vệ, Gửi xe, An ninh, Camera, Máy giặt chung. Empty if not mentioned.
+- noi_that: ONLY physical furniture/appliances INSIDE the room. Examples: Điều hòa, Nóng lạnh, Tủ quần áo, Giường, Tủ lạnh, Tủ bếp, Bếp từ, Hút mùi, Kệ bếp, Bàn ghế, Rèm cửa, Máy giặt riêng, Bình nóng lạnh. Do NOT include building services (Thang máy, Vệ sinh hành lang, Bảo vệ, Gửi xe) here. Comma-separated.
 - confidence: high/medium/low
 
 Message: ${cleanText}`;

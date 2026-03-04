@@ -117,3 +117,23 @@ export async function fetchRoomsFromSheets(filters = {}) {
   if (!res.ok) throw new Error('Fetch rooms failed');
   return res.json();
 }
+
+// ============ Khach Times City ============
+export async function fetchKhachTimes() {
+  const res = await fetch('/api/khachtimes');
+  if (!res.ok) throw new Error('Fetch khach times failed');
+  return res.json();
+}
+
+export async function postKhachTimes(payload) {
+  const res = await fetch('/api/khachtimes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Action failed (${res.status})`);
+  }
+  return res.json();
+}
