@@ -260,9 +260,20 @@ export default function KhachTimes() {
       <div style={s.container}>
         {/* Title row */}
         <div className="kt-header-row" style={s.titleRow}>
-          <button onClick={openAdd} style={s.addBtn} className="kt-btn">
-            + Thêm Khách
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button onClick={openAdd} style={s.addBtn} className="kt-btn">
+              + Thêm Khách
+            </button>
+            <button
+              onClick={loadData}
+              disabled={loading}
+              style={s.reloadBtn}
+              className="kt-btn"
+              title="Tải lại dữ liệu"
+            >
+              {loading ? '...' : '↻'}
+            </button>
+          </div>
           <div className="kt-stats" style={s.statsRow}>
             <StatBadge label="Tổng" value={stats.total} color={C.blue} />
             <StatBadge label="Thuê" value={stats.thue} color={C.primary} />
@@ -613,6 +624,22 @@ const s = {
     boxShadow: C.shadowGreen,
     transition: 'all 0.15s ease',
     whiteSpace: 'nowrap',
+  },
+  reloadBtn: {
+    background: '#fff',
+    border: `1.5px solid ${C.border}`,
+    borderRadius: 10,
+    width: 40,
+    height: 40,
+    fontSize: 20,
+    color: C.primary,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontWeight: 700,
+    transition: 'all 0.15s',
+    fontFamily: F,
   },
   statsRow: {
     display: 'flex',

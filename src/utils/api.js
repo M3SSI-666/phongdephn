@@ -120,7 +120,9 @@ export async function fetchRoomsFromSheets(filters = {}) {
 
 // ============ Khach Times City ============
 export async function fetchKhachTimes() {
-  const res = await fetch('/api/khachtimes');
+  const res = await fetch(`/api/khachtimes?t=${Date.now()}`, {
+    cache: 'no-store',
+  });
   if (!res.ok) throw new Error('Fetch khach times failed');
   return res.json();
 }
