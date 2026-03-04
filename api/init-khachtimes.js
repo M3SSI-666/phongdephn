@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 
-// One-time setup endpoint: creates the Khach_Times sheet with headers
+// One-time setup endpoint: creates/recreates the Khach_Times sheet with headers
 // Call once via: GET /api/init-khachtimes
-// After successful creation, this file can be deleted
+// If sheet exists, it will be deleted and recreated with new format
 
 export default async function handler(req, res) {
   try {
@@ -27,13 +27,24 @@ export default async function handler(req, res) {
       headers: { Authorization: `Bearer ${token}` },
     });
     const metaData = await metaRes.json();
-    const exists = metaData.sheets?.some((s) => s.properties.title === 'Khach_Times');
+    const existing = metaData.sheets?.find((s) => s.properties.title === 'Khach_Times');
 
-    if (exists) {
-      return res.status(200).json({ message: 'Khach_Times sheet already exists' });
+    // Step 2: If exists, delete it first
+    if (existing) {
+      const batchUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`;
+      await fetch(batchUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requests: [{ deleteSheet: { sheetId: existing.properties.sheetId } }],
+        }),
+      });
     }
 
-    // Step 2: Create the sheet
+    // Step 3: Create new sheet
     const batchUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`;
     const createRes = await fetch(batchUrl, {
       method: 'POST',
@@ -59,8 +70,8 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to create sheet', detail: errText });
     }
 
-    // Step 3: Add headers
-    const headerUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Khach_Times!A1:I1?valueInputOption=USER_ENTERED`;
+    // Step 4: Add headers - 14 columns A:N
+    const headerUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Khach_Times!A1:N1?valueInputOption=USER_ENTERED`;
     const headerRes = await fetch(headerUrl, {
       method: 'PUT',
       headers: {
@@ -68,7 +79,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        values: [['STT', 'Ten', 'Zalo', 'SDT', 'Ngay', 'Loai', 'Tai_Chinh', 'Can_Tu_Van', 'Ghi_Chu']],
+        values: [['STT', 'Ten', 'Zalo', 'SDT', 'Ngay', 'Nhu_Cau', 'Toa', 'Phong_Ngu', 'Slot_Xe', 'Dien_Tich', 'Ngay_Chuyen', 'Tai_Chinh', 'Can_Tu_Van', 'Ghi_Chu']],
       }),
     });
 
@@ -77,7 +88,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to write headers', detail: errText });
     }
 
-    return res.status(200).json({ success: true, message: 'Khach_Times sheet created with headers' });
+    return res.status(200).json({ success: true, message: 'Khach_Times sheet created with 14-column headers (A:N)' });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

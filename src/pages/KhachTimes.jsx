@@ -28,7 +28,9 @@ function fromInputDate(yyyy_mm_dd) {
 
 const EMPTY_FORM = {
   Ten: '', Zalo: '', SDT: '', Ngay: todayStr(),
-  Loai: 'Thue', Tai_Chinh: '', Can_Tu_Van: '', Ghi_Chu: '',
+  Nhu_Cau: 'Thuê', Toa: '', Phong_Ngu: '', Slot_Xe: '',
+  Dien_Tich: '', Ngay_Chuyen: '', Tai_Chinh: '',
+  Can_Tu_Van: '', Ghi_Chu: '',
 };
 
 export default function KhachTimes() {
@@ -38,23 +40,17 @@ export default function KhachTimes() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  // Search & filter
   const [search, setSearch] = useState('');
   const [filterLoai, setFilterLoai] = useState('all');
 
-  // Modal
   const [modalOpen, setModalOpen] = useState(false);
-  const [editItem, setEditItem] = useState(null); // null = add, object = edit
+  const [editItem, setEditItem] = useState(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
 
-  // Toast
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
-
-  // Confirm delete
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  // Inject styles
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
@@ -88,7 +84,7 @@ export default function KhachTimes() {
       setLoading(true);
       setError('');
       const data = await fetchKhachTimes();
-      setItems(data);
+      setItems(Array.isArray(data) ? data : []);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -98,11 +94,13 @@ export default function KhachTimes() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Filtered + searched list
   const filtered = useMemo(() => {
     let list = [...items];
     if (filterLoai !== 'all') {
-      list = list.filter((it) => (it.Loai || '').toLowerCase() === filterLoai.toLowerCase());
+      list = list.filter((it) => {
+        const nc = (it.Nhu_Cau || it.Loai || '').toLowerCase();
+        return nc.includes(filterLoai.toLowerCase());
+      });
     }
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -110,24 +108,28 @@ export default function KhachTimes() {
         (it.Ten || '').toLowerCase().includes(q) ||
         (it.Zalo || '').toLowerCase().includes(q) ||
         (it.SDT || '').includes(q) ||
+        (it.Toa || '').toLowerCase().includes(q) ||
         (it.Can_Tu_Van || '').toLowerCase().includes(q) ||
         (it.Ghi_Chu || '').toLowerCase().includes(q)
       );
     }
-    // Sort newest first (by STT descending)
     list.sort((a, b) => Number(b.STT || 0) - Number(a.STT || 0));
     return list;
   }, [items, filterLoai, search]);
 
-  // Stats
   const stats = useMemo(() => {
     const total = items.length;
-    const thue = items.filter((i) => (i.Loai || '').toLowerCase() === 'thue' || (i.Loai || '') === 'Thuê').length;
-    const mua = items.filter((i) => (i.Loai || '').toLowerCase() === 'mua' || (i.Loai || '') === 'Mua').length;
+    const thue = items.filter((i) => {
+      const nc = (i.Nhu_Cau || i.Loai || '').toLowerCase();
+      return nc.includes('thu');
+    }).length;
+    const mua = items.filter((i) => {
+      const nc = (i.Nhu_Cau || i.Loai || '').toLowerCase();
+      return nc === 'mua';
+    }).length;
     return { total, thue, mua };
   }, [items]);
 
-  // Open modal
   const openAdd = () => {
     setEditItem(null);
     setForm({ ...EMPTY_FORM, Ngay: todayStr() });
@@ -141,7 +143,12 @@ export default function KhachTimes() {
       Zalo: item.Zalo || '',
       SDT: item.SDT || '',
       Ngay: item.Ngay || '',
-      Loai: item.Loai || 'Thue',
+      Nhu_Cau: item.Nhu_Cau || item.Loai || 'Thuê',
+      Toa: item.Toa || '',
+      Phong_Ngu: item.Phong_Ngu || '',
+      Slot_Xe: item.Slot_Xe || '',
+      Dien_Tich: item.Dien_Tich || '',
+      Ngay_Chuyen: item.Ngay_Chuyen || '',
       Tai_Chinh: item.Tai_Chinh || '',
       Can_Tu_Van: item.Can_Tu_Van || '',
       Ghi_Chu: item.Ghi_Chu || '',
@@ -154,7 +161,6 @@ export default function KhachTimes() {
     setEditItem(null);
   };
 
-  // Save
   const handleSave = async () => {
     if (!form.Ten.trim()) return showToast('Vui lòng nhập tên khách hàng', 'error');
     if (!form.SDT.trim()) return showToast('Vui lòng nhập số điện thoại', 'error');
@@ -162,6 +168,8 @@ export default function KhachTimes() {
 
     try {
       setSaving(true);
+      const nhuCau = form.Nhu_Cau === 'Mua' ? 'Mua' : 'Thuê';
+
       if (editItem) {
         await postKhachTimes({
           action: 'update',
@@ -171,7 +179,12 @@ export default function KhachTimes() {
           Zalo: form.Zalo.trim(),
           SDT: form.SDT.trim(),
           Ngay: form.Ngay.trim(),
-          Loai: form.Loai === 'Mua' ? 'Mua' : 'Thuê',
+          Nhu_Cau: nhuCau,
+          Toa: form.Toa.trim(),
+          Phong_Ngu: form.Phong_Ngu,
+          Slot_Xe: form.Slot_Xe,
+          Dien_Tich: form.Dien_Tich.trim(),
+          Ngay_Chuyen: form.Ngay_Chuyen.trim(),
           Tai_Chinh: form.Tai_Chinh.trim(),
           Can_Tu_Van: form.Can_Tu_Van.trim(),
           Ghi_Chu: form.Ghi_Chu.trim(),
@@ -186,7 +199,12 @@ export default function KhachTimes() {
           Zalo: form.Zalo.trim(),
           SDT: form.SDT.trim(),
           Ngay: form.Ngay.trim(),
-          Loai: form.Loai === 'Mua' ? 'Mua' : 'Thuê',
+          Nhu_Cau: nhuCau,
+          Toa: form.Toa.trim(),
+          Phong_Ngu: form.Phong_Ngu,
+          Slot_Xe: form.Slot_Xe,
+          Dien_Tich: form.Dien_Tich.trim(),
+          Ngay_Chuyen: form.Ngay_Chuyen.trim(),
           Tai_Chinh: form.Tai_Chinh.trim(),
           Can_Tu_Van: form.Can_Tu_Van.trim(),
           Ghi_Chu: form.Ghi_Chu.trim(),
@@ -202,7 +220,6 @@ export default function KhachTimes() {
     }
   };
 
-  // Delete
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
@@ -241,7 +258,7 @@ export default function KhachTimes() {
       </div>
 
       <div style={s.container}>
-        {/* Title row + Add button + Stats */}
+        {/* Title row */}
         <div className="kt-header-row" style={s.titleRow}>
           <button onClick={openAdd} style={s.addBtn} className="kt-btn">
             + Thêm Khách
@@ -259,7 +276,7 @@ export default function KhachTimes() {
             <span style={s.searchIcon}>&#128269;</span>
             <input
               type="text"
-              placeholder="Tìm theo tên, Zalo, SĐT, căn tư vấn..."
+              placeholder="Tìm theo tên, Zalo, SĐT, toà, căn tư vấn..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={s.searchInput}
@@ -282,10 +299,7 @@ export default function KhachTimes() {
           </div>
         </div>
 
-        {/* Error */}
         {error && <div style={s.errorBox}>{error}</div>}
-
-        {/* Loading */}
         {loading && <div style={s.loadingBox}>Đang tải dữ liệu...</div>}
 
         {/* Table */}
@@ -294,15 +308,15 @@ export default function KhachTimes() {
             <table style={s.table}>
               <thead>
                 <tr>
-                  {['STT', 'Tên', 'Zalo', 'SĐT', 'Ngày', 'Loại', 'Tài chính', 'Căn TV', 'Ghi chú', ''].map((h) => (
-                    <th key={h} style={s.th}>{h}</th>
+                  {['STT', 'Tên', 'Zalo', 'SĐT', 'Ngày PT', 'Nhu cầu', 'Toà', 'PN', 'Slot xe', 'DT', 'Ngày chuyển', 'Tài chính', 'Căn TV', 'Ghi chú', ''].map((h, idx) => (
+                    <th key={h || `act_${idx}`} style={s.th}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={10} style={s.emptyTd}>
+                    <td colSpan={15} style={s.emptyTd}>
                       {items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}
                     </td>
                   </tr>
@@ -315,14 +329,19 @@ export default function KhachTimes() {
                       <td style={{ ...s.td, whiteSpace: 'nowrap' }}>{item.SDT}</td>
                       <td style={{ ...s.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay}</td>
                       <td style={s.td}>
-                        <LoaiBadge loai={item.Loai} />
+                        <NhuCauBadge nhuCau={item.Nhu_Cau || item.Loai} />
                       </td>
+                      <td style={s.td}>{item.Toa}</td>
+                      <td style={{ ...s.td, textAlign: 'center' }}>{item.Phong_Ngu}</td>
+                      <td style={{ ...s.td, textAlign: 'center' }}>{item.Slot_Xe}</td>
+                      <td style={s.td}>{item.Dien_Tich}</td>
+                      <td style={{ ...s.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_Chuyen}</td>
                       <td style={{ ...s.td, fontFamily: 'monospace', textAlign: 'right' }}>{item.Tai_Chinh}</td>
-                      <td style={{ ...s.td, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.Can_Tu_Van}</td>
+                      <td style={{ ...s.td, maxWidth: 150, whiteSpace: 'pre-line', fontSize: 12 }}>{item.Can_Tu_Van}</td>
                       <td style={{ ...s.td, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', color: C.textMuted, fontSize: 12 }}>{item.Ghi_Chu}</td>
                       <td style={{ ...s.td, whiteSpace: 'nowrap' }}>
                         <button onClick={() => openEdit(item)} style={s.actionBtn} title="Sửa">&#9998;</button>
-                        <button onClick={() => setDeleteTarget(item)} style={{ ...s.actionBtn, ...s.deleteBtn }} title="Xóa">&#128465;</button>
+                        <button onClick={() => setDeleteTarget(item)} style={{ ...s.actionBtn, ...s.deleteBtn }} title="Xoá">&#128465;</button>
                       </td>
                     </tr>
                   ))
@@ -345,6 +364,7 @@ export default function KhachTimes() {
               <FormField label="Tên khách hàng *" value={form.Ten} onChange={(v) => updateForm('Ten', v)} />
               <FormField label="Tên Zalo" value={form.Zalo} onChange={(v) => updateForm('Zalo', v)} />
               <FormField label="Số điện thoại *" value={form.SDT} onChange={(v) => updateForm('SDT', v)} type="tel" />
+
               <div style={s.fieldWrap}>
                 <label style={s.fieldLabel}>Ngày phát sinh *</label>
                 <input
@@ -354,16 +374,17 @@ export default function KhachTimes() {
                   style={s.fieldInput}
                 />
               </div>
+
               <div style={s.fieldWrap}>
-                <label style={s.fieldLabel}>Loại nhu cầu *</label>
+                <label style={s.fieldLabel}>Nhu cầu *</label>
                 <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
-                  {[['Thue', 'Thuê'], ['Mua', 'Mua']].map(([val, label]) => (
+                  {[['Thuê', 'Thuê'], ['Mua', 'Mua']].map(([val, label]) => (
                     <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14 }}>
                       <input
                         type="radio"
-                        name="loai"
-                        checked={form.Loai === val}
-                        onChange={() => updateForm('Loai', val)}
+                        name="nhu_cau"
+                        checked={form.Nhu_Cau === val}
+                        onChange={() => updateForm('Nhu_Cau', val)}
                         style={{ accentColor: C.primary }}
                       />
                       {label}
@@ -371,14 +392,61 @@ export default function KhachTimes() {
                   ))}
                 </div>
               </div>
+
+              <FormField label="Toà" value={form.Toa} onChange={(v) => updateForm('Toa', v)} placeholder="VD: T1, Park 5, R6..." />
+
+              <div style={s.fieldWrap}>
+                <label style={s.fieldLabel}>Phòng ngủ</label>
+                <select
+                  value={form.Phong_Ngu}
+                  onChange={(e) => updateForm('Phong_Ngu', e.target.value)}
+                  style={s.fieldInput}
+                >
+                  <option value="">-- Chọn --</option>
+                  {[1, 2, 3, 4, 5, 6].map((n) => (
+                    <option key={n} value={`${n} ngủ`}>{n} ngủ</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={s.fieldWrap}>
+                <label style={s.fieldLabel}>Slot xe</label>
+                <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+                  {['Có', 'Không'].map((val) => (
+                    <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14 }}>
+                      <input
+                        type="radio"
+                        name="slot_xe"
+                        checked={form.Slot_Xe === val}
+                        onChange={() => updateForm('Slot_Xe', val)}
+                        style={{ accentColor: C.primary }}
+                      />
+                      {val}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <FormField label="Diện tích" value={form.Dien_Tich} onChange={(v) => updateForm('Dien_Tich', v)} placeholder="VD: 75m2, 90m2..." />
+              <FormField label="Ngày chuyển vào" value={form.Ngay_Chuyen} onChange={(v) => updateForm('Ngay_Chuyen', v)} placeholder="VD: 15/04/2025, Tháng 5..." />
               <FormField label="Tài chính" value={form.Tai_Chinh} onChange={(v) => updateForm('Tai_Chinh', v)} placeholder="VD: 11 / 11.5 / 2000" />
-              <FormField label="Căn đang tư vấn" value={form.Can_Tu_Van} onChange={(v) => updateForm('Can_Tu_Van', v)} placeholder="VD: Park 1 - 07.12" />
+
+              <div style={s.fieldWrap}>
+                <label style={s.fieldLabel}>Căn đang tư vấn</label>
+                <textarea
+                  value={form.Can_Tu_Van}
+                  onChange={(e) => updateForm('Can_Tu_Van', e.target.value)}
+                  placeholder="VD: Park 1 - 07.12&#10;Park 5 - 03.08"
+                  style={{ ...s.fieldInput, height: 72, resize: 'vertical' }}
+                />
+              </div>
+
               <div style={s.fieldWrap}>
                 <label style={s.fieldLabel}>Ghi chú</label>
                 <textarea
                   value={form.Ghi_Chu}
                   onChange={(e) => updateForm('Ghi_Chu', e.target.value)}
-                  style={{ ...s.fieldInput, height: 72, resize: 'vertical' }}
+                  style={{ ...s.fieldInput, height: 56, resize: 'vertical' }}
                 />
               </div>
             </div>
@@ -439,8 +507,8 @@ function StatBadge({ label, value, color }) {
   );
 }
 
-function LoaiBadge({ loai }) {
-  const isThue = (loai || '').toLowerCase().includes('thu');
+function NhuCauBadge({ nhuCau }) {
+  const isThue = (nhuCau || '').toLowerCase().includes('thu');
   return (
     <span style={{
       display: 'inline-block',
@@ -521,7 +589,7 @@ const s = {
     fontWeight: 700,
   },
   container: {
-    maxWidth: 1200,
+    maxWidth: 1400,
     margin: '0 auto',
     padding: '20px 16px',
   },
@@ -638,7 +706,7 @@ const s = {
   },
   th: {
     textAlign: 'left',
-    padding: '10px 12px',
+    padding: '10px 10px',
     fontWeight: 700,
     fontSize: 11,
     textTransform: 'uppercase',
@@ -655,12 +723,12 @@ const s = {
     transition: 'background 0.12s',
   },
   td: {
-    padding: '10px 12px',
+    padding: '10px 10px',
     verticalAlign: 'middle',
     fontSize: 13,
   },
   tdName: {
-    minWidth: 120,
+    minWidth: 100,
     whiteSpace: 'nowrap',
   },
   emptyTd: {
@@ -674,7 +742,7 @@ const s = {
     border: 'none',
     cursor: 'pointer',
     fontSize: 16,
-    padding: '4px 8px',
+    padding: '4px 6px',
     borderRadius: 6,
     transition: 'background 0.12s',
     color: C.textMuted,
@@ -682,7 +750,6 @@ const s = {
   deleteBtn: {
     color: C.error,
   },
-  // Modal
   overlay: {
     position: 'fixed',
     inset: 0,
@@ -696,7 +763,7 @@ const s = {
   modal: {
     background: '#fff',
     borderRadius: 16,
-    width: 480,
+    width: 520,
     maxWidth: '100%',
     maxHeight: '90vh',
     display: 'flex',
@@ -747,7 +814,6 @@ const s = {
     fontWeight: 600,
     color: C.textMuted,
     marginBottom: 4,
-    textTransform: 'uppercase',
   },
   fieldInput: {
     width: '100%',

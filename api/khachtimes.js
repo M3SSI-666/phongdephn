@@ -1,7 +1,8 @@
 import crypto from 'crypto';
 
 const SHEET_NAME = 'Khach_Times';
-const COLUMNS = 'A:I'; // 9 columns: STT, Ten, Zalo, SDT, Ngay, Loai, Tai_Chinh, Can_Tu_Van, Ghi_Chu
+// 14 columns: STT, Ten, Zalo, SDT, Ngay, Nhu_Cau, Toa, Phong_Ngu, Slot_Xe, Dien_Tich, Ngay_Chuyen, Tai_Chinh, Can_Tu_Van, Ghi_Chu
+const COLUMNS = 'A:N';
 
 export default async function handler(req, res) {
   try {
@@ -55,14 +56,20 @@ async function handleGet(req, res, sheetId, email, key) {
     Zalo: row[2] || '',
     SDT: row[3] || '',
     Ngay: row[4] || '',
-    Loai: row[5] || '',
-    Tai_Chinh: row[6] || '',
-    Can_Tu_Van: row[7] || '',
-    Ghi_Chu: row[8] || '',
+    Nhu_Cau: row[5] || '',
+    Toa: row[6] || '',
+    Phong_Ngu: row[7] || '',
+    Slot_Xe: row[8] || '',
+    Dien_Tich: row[9] || '',
+    Ngay_Chuyen: row[10] || '',
+    Tai_Chinh: row[11] || '',
+    Can_Tu_Van: row[12] || '',
+    Ghi_Chu: row[13] || '',
     _rowIndex: i + 2, // actual row in sheet (1-indexed, skip header)
   }));
 
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
   return res.status(200).json(items);
 }
 
@@ -75,13 +82,17 @@ async function handlePost(req, res, sheetId, email, key) {
 
   const token = await getAccessToken(email, key, true);
 
-  if (payload.action === 'add') {
-    const row = [
-      payload.STT, payload.Ten, payload.Zalo, payload.SDT,
-      payload.Ngay, payload.Loai, payload.Tai_Chinh,
-      payload.Can_Tu_Van, payload.Ghi_Chu,
+  function buildRow(p) {
+    return [
+      p.STT, p.Ten, p.Zalo, p.SDT,
+      p.Ngay, p.Nhu_Cau, p.Toa, p.Phong_Ngu,
+      p.Slot_Xe, p.Dien_Tich, p.Ngay_Chuyen, p.Tai_Chinh,
+      p.Can_Tu_Van, p.Ghi_Chu,
     ];
+  }
 
+  if (payload.action === 'add') {
+    const row = buildRow(payload);
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!${COLUMNS}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
     const response = await fetch(url, {
       method: 'POST',
@@ -105,13 +116,8 @@ async function handlePost(req, res, sheetId, email, key) {
       return res.status(400).json({ error: 'Missing _rowIndex' });
     }
 
-    const row = [
-      payload.STT, payload.Ten, payload.Zalo, payload.SDT,
-      payload.Ngay, payload.Loai, payload.Tai_Chinh,
-      payload.Can_Tu_Van, payload.Ghi_Chu,
-    ];
-
-    const range = `${SHEET_NAME}!A${payload._rowIndex}:I${payload._rowIndex}`;
+    const row = buildRow(payload);
+    const range = `${SHEET_NAME}!A${payload._rowIndex}:N${payload._rowIndex}`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?valueInputOption=USER_ENTERED`;
     const response = await fetch(url, {
       method: 'PUT',
@@ -135,10 +141,7 @@ async function handlePost(req, res, sheetId, email, key) {
       return res.status(400).json({ error: 'Missing _rowIndex' });
     }
 
-    // Use batchUpdate to delete the row
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`;
-
-    // First, get the sheetId (gid) for the Khach_Times sheet
+    const batchUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`;
     const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties`;
     const metaRes = await fetch(metaUrl, {
       headers: { Authorization: `Bearer ${token}` },
@@ -158,8 +161,7 @@ async function handlePost(req, res, sheetId, email, key) {
     }
 
     const gid = targetSheet.properties.sheetId;
-
-    const response = await fetch(url, {
+    const response = await fetch(batchUrl, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -172,7 +174,7 @@ async function handlePost(req, res, sheetId, email, key) {
               range: {
                 sheetId: gid,
                 dimension: 'ROWS',
-                startIndex: payload._rowIndex - 1, // 0-indexed
+                startIndex: payload._rowIndex - 1,
                 endIndex: payload._rowIndex,
               },
             },
