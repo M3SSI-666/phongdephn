@@ -156,9 +156,9 @@ export default function KhachTimes() {
 
   // Save
   const handleSave = async () => {
-    if (!form.Ten.trim()) return showToast('Vui long nhap ten khach hang', 'error');
-    if (!form.SDT.trim()) return showToast('Vui long nhap so dien thoai', 'error');
-    if (!form.Ngay.trim()) return showToast('Vui long chon ngay', 'error');
+    if (!form.Ten.trim()) return showToast('Vui lòng nhập tên khách hàng', 'error');
+    if (!form.SDT.trim()) return showToast('Vui lòng nhập số điện thoại', 'error');
+    if (!form.Ngay.trim()) return showToast('Vui lòng chọn ngày', 'error');
 
     try {
       setSaving(true);
@@ -176,7 +176,7 @@ export default function KhachTimes() {
           Can_Tu_Van: form.Can_Tu_Van.trim(),
           Ghi_Chu: form.Ghi_Chu.trim(),
         });
-        showToast('Cap nhat thanh cong!');
+        showToast('Cập nhật thành công!');
       } else {
         const maxSTT = items.reduce((m, i) => Math.max(m, Number(i.STT) || 0), 0);
         await postKhachTimes({
@@ -191,7 +191,7 @@ export default function KhachTimes() {
           Can_Tu_Van: form.Can_Tu_Van.trim(),
           Ghi_Chu: form.Ghi_Chu.trim(),
         });
-        showToast('Them khach thanh cong!');
+        showToast('Thêm khách thành công!');
       }
       closeModal();
       await loadData();
@@ -211,7 +211,7 @@ export default function KhachTimes() {
         action: 'delete',
         _rowIndex: deleteTarget._rowIndex,
       });
-      showToast('Da xoa khach hang!');
+      showToast('Đã xoá khách hàng!');
       setDeleteTarget(null);
       await loadData();
     } catch (e) {
@@ -233,8 +233,8 @@ export default function KhachTimes() {
               &larr;
             </button>
             <div>
-              <div style={s.headerTitle}>Khach Times City</div>
-              <div style={s.headerSub}>Quan ly khach hang bat dong san</div>
+              <div style={s.headerTitle}>Khách Times City</div>
+              <div style={s.headerSub}>Quản lý khách hàng bất động sản</div>
             </div>
           </div>
         </div>
@@ -244,11 +244,11 @@ export default function KhachTimes() {
         {/* Title row + Add button + Stats */}
         <div className="kt-header-row" style={s.titleRow}>
           <button onClick={openAdd} style={s.addBtn} className="kt-btn">
-            + Them Khach
+            + Thêm Khách
           </button>
           <div className="kt-stats" style={s.statsRow}>
-            <StatBadge label="Tong" value={stats.total} color={C.blue} />
-            <StatBadge label="Thue" value={stats.thue} color={C.primary} />
+            <StatBadge label="Tổng" value={stats.total} color={C.blue} />
+            <StatBadge label="Thuê" value={stats.thue} color={C.primary} />
             <StatBadge label="Mua" value={stats.mua} color={C.accent} />
           </div>
         </div>
@@ -259,7 +259,7 @@ export default function KhachTimes() {
             <span style={s.searchIcon}>&#128269;</span>
             <input
               type="text"
-              placeholder="Tim theo ten, Zalo, SDT, can tu van..."
+              placeholder="Tìm theo tên, Zalo, SĐT, căn tư vấn..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={s.searchInput}
@@ -273,12 +273,12 @@ export default function KhachTimes() {
             onChange={(e) => setFilterLoai(e.target.value)}
             style={s.filterSelect}
           >
-            <option value="all">Tat ca</option>
-            <option value="Thuê">Thue</option>
+            <option value="all">Tất cả</option>
+            <option value="Thuê">Thuê</option>
             <option value="Mua">Mua</option>
           </select>
           <div style={s.resultCount}>
-            {filtered.length} / {items.length} khach
+            {filtered.length} / {items.length} khách
           </div>
         </div>
 
@@ -286,7 +286,7 @@ export default function KhachTimes() {
         {error && <div style={s.errorBox}>{error}</div>}
 
         {/* Loading */}
-        {loading && <div style={s.loadingBox}>Dang tai du lieu...</div>}
+        {loading && <div style={s.loadingBox}>Đang tải dữ liệu...</div>}
 
         {/* Table */}
         {!loading && !error && (
@@ -294,7 +294,7 @@ export default function KhachTimes() {
             <table style={s.table}>
               <thead>
                 <tr>
-                  {['STT', 'Ten', 'Zalo', 'SDT', 'Ngay', 'Loai', 'Tai chinh', 'Can TV', 'Ghi chu', ''].map((h) => (
+                  {['STT', 'Tên', 'Zalo', 'SĐT', 'Ngày', 'Loại', 'Tài chính', 'Căn TV', 'Ghi chú', ''].map((h) => (
                     <th key={h} style={s.th}>{h}</th>
                   ))}
                 </tr>
@@ -303,7 +303,7 @@ export default function KhachTimes() {
                 {filtered.length === 0 ? (
                   <tr>
                     <td colSpan={10} style={s.emptyTd}>
-                      {items.length === 0 ? 'Chua co khach hang nao' : 'Khong tim thay ket qua'}
+                      {items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}
                     </td>
                   </tr>
                 ) : (
@@ -321,8 +321,8 @@ export default function KhachTimes() {
                       <td style={{ ...s.td, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.Can_Tu_Van}</td>
                       <td style={{ ...s.td, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', color: C.textMuted, fontSize: 12 }}>{item.Ghi_Chu}</td>
                       <td style={{ ...s.td, whiteSpace: 'nowrap' }}>
-                        <button onClick={() => openEdit(item)} style={s.actionBtn} title="Sua">&#9998;</button>
-                        <button onClick={() => setDeleteTarget(item)} style={{ ...s.actionBtn, ...s.deleteBtn }} title="Xoa">&#128465;</button>
+                        <button onClick={() => openEdit(item)} style={s.actionBtn} title="Sửa">&#9998;</button>
+                        <button onClick={() => setDeleteTarget(item)} style={{ ...s.actionBtn, ...s.deleteBtn }} title="Xóa">&#128465;</button>
                       </td>
                     </tr>
                   ))
@@ -338,15 +338,15 @@ export default function KhachTimes() {
         <div style={s.overlay} onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}>
           <div className="kt-modal-content" style={s.modal}>
             <div style={s.modalHeader}>
-              <div style={s.modalTitle}>{editItem ? 'Sua khach hang' : 'Them khach moi'}</div>
+              <div style={s.modalTitle}>{editItem ? 'Sửa khách hàng' : 'Thêm khách mới'}</div>
               <button onClick={closeModal} style={s.modalClose}>&times;</button>
             </div>
             <div style={s.modalBody}>
-              <FormField label="Ten khach hang *" value={form.Ten} onChange={(v) => updateForm('Ten', v)} />
-              <FormField label="Ten Zalo" value={form.Zalo} onChange={(v) => updateForm('Zalo', v)} />
-              <FormField label="So dien thoai *" value={form.SDT} onChange={(v) => updateForm('SDT', v)} type="tel" />
+              <FormField label="Tên khách hàng *" value={form.Ten} onChange={(v) => updateForm('Ten', v)} />
+              <FormField label="Tên Zalo" value={form.Zalo} onChange={(v) => updateForm('Zalo', v)} />
+              <FormField label="Số điện thoại *" value={form.SDT} onChange={(v) => updateForm('SDT', v)} type="tel" />
               <div style={s.fieldWrap}>
-                <label style={s.fieldLabel}>Ngay phat sinh *</label>
+                <label style={s.fieldLabel}>Ngày phát sinh *</label>
                 <input
                   type="date"
                   value={toInputDate(form.Ngay)}
@@ -355,9 +355,9 @@ export default function KhachTimes() {
                 />
               </div>
               <div style={s.fieldWrap}>
-                <label style={s.fieldLabel}>Loai nhu cau *</label>
+                <label style={s.fieldLabel}>Loại nhu cầu *</label>
                 <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
-                  {[['Thue', 'Thue'], ['Mua', 'Mua']].map(([val, label]) => (
+                  {[['Thue', 'Thuê'], ['Mua', 'Mua']].map(([val, label]) => (
                     <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14 }}>
                       <input
                         type="radio"
@@ -371,10 +371,10 @@ export default function KhachTimes() {
                   ))}
                 </div>
               </div>
-              <FormField label="Tai chinh" value={form.Tai_Chinh} onChange={(v) => updateForm('Tai_Chinh', v)} placeholder="VD: 11 / 11.5 / 2000" />
-              <FormField label="Can dang tu van" value={form.Can_Tu_Van} onChange={(v) => updateForm('Can_Tu_Van', v)} placeholder="VD: Park 1 - 07.12" />
+              <FormField label="Tài chính" value={form.Tai_Chinh} onChange={(v) => updateForm('Tai_Chinh', v)} placeholder="VD: 11 / 11.5 / 2000" />
+              <FormField label="Căn đang tư vấn" value={form.Can_Tu_Van} onChange={(v) => updateForm('Can_Tu_Van', v)} placeholder="VD: Park 1 - 07.12" />
               <div style={s.fieldWrap}>
-                <label style={s.fieldLabel}>Ghi chu</label>
+                <label style={s.fieldLabel}>Ghi chú</label>
                 <textarea
                   value={form.Ghi_Chu}
                   onChange={(e) => updateForm('Ghi_Chu', e.target.value)}
@@ -383,9 +383,9 @@ export default function KhachTimes() {
               </div>
             </div>
             <div style={s.modalFooter}>
-              <button onClick={closeModal} style={s.cancelBtn} className="kt-btn">Huy</button>
+              <button onClick={closeModal} style={s.cancelBtn} className="kt-btn">Huỷ</button>
               <button onClick={handleSave} disabled={saving} style={s.saveBtn} className="kt-btn">
-                {saving ? 'Dang luu...' : 'Luu'}
+                {saving ? 'Đang lưu...' : 'Lưu'}
               </button>
             </div>
           </div>
@@ -397,15 +397,15 @@ export default function KhachTimes() {
         <div style={s.overlay} onClick={(e) => { if (e.target === e.currentTarget) setDeleteTarget(null); }}>
           <div style={s.confirmBox}>
             <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12, color: C.text }}>
-              Xac nhan xoa
+              Xác nhận xoá
             </div>
             <div style={{ fontSize: 14, color: C.textMuted, marginBottom: 20, lineHeight: 1.5 }}>
-              Xoa khach <strong>{deleteTarget.Ten}</strong>? Hanh dong nay khong the hoan tac.
+              Xoá khách <strong>{deleteTarget.Ten}</strong>? Hành động này không thể hoàn tác.
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setDeleteTarget(null)} style={s.cancelBtn} className="kt-btn">Huy</button>
+              <button onClick={() => setDeleteTarget(null)} style={s.cancelBtn} className="kt-btn">Huỷ</button>
               <button onClick={confirmDelete} disabled={saving} style={{ ...s.saveBtn, background: C.error }} className="kt-btn">
-                {saving ? 'Dang xoa...' : 'Xoa'}
+                {saving ? 'Đang xoá...' : 'Xoá'}
               </button>
             </div>
           </div>
@@ -451,7 +451,7 @@ function LoaiBadge({ loai }) {
       background: isThue ? C.primary + '18' : C.accent + '18',
       color: isThue ? C.primaryDark : C.accent,
     }}>
-      {isThue ? 'Thue' : 'Mua'}
+      {isThue ? 'Thuê' : 'Mua'}
     </span>
   );
 }
