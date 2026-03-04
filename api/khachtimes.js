@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 
 const SHEET_NAME = 'Khach_Times';
-// 14 columns: STT, Ten, Zalo, SDT, Ngay, Nhu_Cau, Toa, Phong_Ngu, Slot_Xe, Dien_Tich, Ngay_Chuyen, Tai_Chinh, Can_Tu_Van, Ghi_Chu
-const COLUMNS = 'A:N';
+// 15 columns: STT, Ten, Zalo, SDT, Nhu_Cau, Phong_Ngu, Noi_That, Slot_Xe, Thoi_Han_Thue, Ngay_Vao, Dien_Tich, Tai_Chinh, Toa, Can_Tu_Van, Ghi_Chu
+const COLUMNS = 'A:O';
 
 export default async function handler(req, res) {
   try {
@@ -55,16 +55,17 @@ async function handleGet(req, res, sheetId, email, key) {
     Ten: row[1] || '',
     Zalo: row[2] || '',
     SDT: row[3] || '',
-    Ngay: row[4] || '',
-    Nhu_Cau: row[5] || '',
-    Toa: row[6] || '',
-    Phong_Ngu: row[7] || '',
-    Slot_Xe: row[8] || '',
-    Dien_Tich: row[9] || '',
-    Ngay_Chuyen: row[10] || '',
+    Nhu_Cau: row[4] || '',
+    Phong_Ngu: row[5] || '',
+    Noi_That: row[6] || '',
+    Slot_Xe: row[7] || '',
+    Thoi_Han_Thue: row[8] || '',
+    Ngay_Vao: row[9] || '',
+    Dien_Tich: row[10] || '',
     Tai_Chinh: row[11] || '',
-    Can_Tu_Van: row[12] || '',
-    Ghi_Chu: row[13] || '',
+    Toa: row[12] || '',
+    Can_Tu_Van: row[13] || '',
+    Ghi_Chu: row[14] || '',
     _rowIndex: i + 2, // actual row in sheet (1-indexed, skip header)
   }));
 
@@ -85,9 +86,9 @@ async function handlePost(req, res, sheetId, email, key) {
   function buildRow(p) {
     return [
       p.STT, p.Ten, p.Zalo, p.SDT,
-      p.Ngay, p.Nhu_Cau, p.Toa, p.Phong_Ngu,
-      p.Slot_Xe, p.Dien_Tich, p.Ngay_Chuyen, p.Tai_Chinh,
-      p.Can_Tu_Van, p.Ghi_Chu,
+      p.Nhu_Cau, p.Phong_Ngu, p.Noi_That, p.Slot_Xe,
+      p.Thoi_Han_Thue, p.Ngay_Vao, p.Dien_Tich, p.Tai_Chinh,
+      p.Toa, p.Can_Tu_Van, p.Ghi_Chu,
     ];
   }
 
@@ -117,7 +118,7 @@ async function handlePost(req, res, sheetId, email, key) {
     }
 
     const row = buildRow(payload);
-    const range = `${SHEET_NAME}!A${payload._rowIndex}:N${payload._rowIndex}`;
+    const range = `${SHEET_NAME}!A${payload._rowIndex}:O${payload._rowIndex}`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?valueInputOption=USER_ENTERED`;
     const response = await fetch(url, {
       method: 'PUT',

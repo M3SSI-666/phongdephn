@@ -70,8 +70,8 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to create sheet', detail: errText });
     }
 
-    // Step 4: Add headers - 14 columns A:N
-    const headerUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Khach_Times!A1:N1?valueInputOption=USER_ENTERED`;
+    // Step 4: Add headers - 15 columns A:O
+    const headerUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Khach_Times!A1:O1?valueInputOption=USER_ENTERED`;
     const headerRes = await fetch(headerUrl, {
       method: 'PUT',
       headers: {
@@ -79,7 +79,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        values: [['STT', 'Ten', 'Zalo', 'SDT', 'Ngay', 'Nhu_Cau', 'Toa', 'Phong_Ngu', 'Slot_Xe', 'Dien_Tich', 'Ngay_Chuyen', 'Tai_Chinh', 'Can_Tu_Van', 'Ghi_Chu']],
+        values: [['STT', 'Ten', 'Zalo', 'SDT', 'Nhu_Cau', 'Phong_Ngu', 'Noi_That', 'Slot_Xe', 'Thoi_Han_Thue', 'Ngay_Vao', 'Dien_Tich', 'Tai_Chinh', 'Toa', 'Can_Tu_Van', 'Ghi_Chu']],
       }),
     });
 
@@ -88,7 +88,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to write headers', detail: errText });
     }
 
-    return res.status(200).json({ success: true, message: 'Khach_Times sheet created with 14-column headers (A:N)' });
+    return res.status(200).json({ success: true, message: 'Khach_Times sheet created with 15-column headers (A:O)' });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

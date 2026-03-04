@@ -5,32 +5,11 @@ import { fetchKhachTimes, postKhachTimes } from '../utils/api';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
-function todayStr() {
-  const d = new Date();
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  return `${dd}/${mm}/${d.getFullYear()}`;
-}
-
-function toInputDate(ddmmyyyy) {
-  if (!ddmmyyyy) return '';
-  const parts = ddmmyyyy.split('/');
-  if (parts.length !== 3) return '';
-  return `${parts[2]}-${parts[1]}-${parts[0]}`;
-}
-
-function fromInputDate(yyyy_mm_dd) {
-  if (!yyyy_mm_dd) return '';
-  const parts = yyyy_mm_dd.split('-');
-  if (parts.length !== 3) return '';
-  return `${parts[2]}/${parts[1]}/${parts[0]}`;
-}
-
 const EMPTY_FORM = {
-  Ten: '', Zalo: '', SDT: '', Ngay: todayStr(),
-  Nhu_Cau: 'Thuê', Toa: '', Phong_Ngu: '', Slot_Xe: '',
-  Dien_Tich: '', Ngay_Chuyen: '', Tai_Chinh: '',
-  Can_Tu_Van: '', Ghi_Chu: '',
+  Ten: '', Zalo: '', SDT: '',
+  Nhu_Cau: 'Thuê', Phong_Ngu: '', Noi_That: '', Slot_Xe: '',
+  Thoi_Han_Thue: '', Ngay_Vao: '', Dien_Tich: '', Tai_Chinh: '',
+  Toa: '', Can_Tu_Van: '', Ghi_Chu: '',
 };
 
 export default function KhachTimes() {
@@ -113,7 +92,7 @@ export default function KhachTimes() {
     if (filterLoai !== 'all') {
       const fv = filterLoai.toLowerCase().replace(/[êếềểễệ]/g, 'e');
       list = list.filter((it) => {
-        const nc = (it.Nhu_Cau || it.Loai || '').toLowerCase().replace(/[êếềểễệ]/g, 'e');
+        const nc = (it.Nhu_Cau || '').toLowerCase().replace(/[êếềểễệ]/g, 'e');
         return nc.includes(fv) || (fv.includes('thu') && nc.includes('thu')) || (fv === 'mua' && nc === 'mua');
       });
     }
@@ -124,6 +103,8 @@ export default function KhachTimes() {
         (it.Zalo || '').toLowerCase().includes(q) ||
         (it.SDT || '').includes(q) ||
         (it.Toa || '').toLowerCase().includes(q) ||
+        (it.Noi_That || '').toLowerCase().includes(q) ||
+        (it.Thoi_Han_Thue || '').toLowerCase().includes(q) ||
         (it.Can_Tu_Van || '').toLowerCase().includes(q) ||
         (it.Ghi_Chu || '').toLowerCase().includes(q)
       );
@@ -136,11 +117,11 @@ export default function KhachTimes() {
   const stats = useMemo(() => {
     const total = items.length;
     const thue = items.filter((i) => {
-      const nc = (i.Nhu_Cau || i.Loai || '').toLowerCase().replace(/[êếềểễệ]/g, 'e');
+      const nc = (i.Nhu_Cau || '').toLowerCase().replace(/[êếềểễệ]/g, 'e');
       return nc.includes('thu');
     }).length;
     const mua = items.filter((i) => {
-      const nc = (i.Nhu_Cau || i.Loai || '').toLowerCase();
+      const nc = (i.Nhu_Cau || '').toLowerCase();
       return nc === 'mua';
     }).length;
     return { total, thue, mua };
@@ -148,7 +129,7 @@ export default function KhachTimes() {
 
   const openAdd = () => {
     setEditItem(null);
-    setForm({ ...EMPTY_FORM, Ngay: todayStr() });
+    setForm({ ...EMPTY_FORM });
     setModalOpen(true);
   };
 
@@ -158,14 +139,15 @@ export default function KhachTimes() {
       Ten: item.Ten || '',
       Zalo: item.Zalo || '',
       SDT: item.SDT || '',
-      Ngay: item.Ngay || '',
-      Nhu_Cau: item.Nhu_Cau || item.Loai || 'Thuê',
-      Toa: item.Toa || '',
+      Nhu_Cau: item.Nhu_Cau || 'Thuê',
       Phong_Ngu: item.Phong_Ngu || '',
+      Noi_That: item.Noi_That || '',
       Slot_Xe: item.Slot_Xe || '',
+      Thoi_Han_Thue: item.Thoi_Han_Thue || '',
+      Ngay_Vao: item.Ngay_Vao || '',
       Dien_Tich: item.Dien_Tich || '',
-      Ngay_Chuyen: item.Ngay_Chuyen || '',
       Tai_Chinh: item.Tai_Chinh || '',
+      Toa: item.Toa || '',
       Can_Tu_Van: item.Can_Tu_Van || '',
       Ghi_Chu: item.Ghi_Chu || '',
     });
@@ -180,30 +162,34 @@ export default function KhachTimes() {
   const handleSave = async () => {
     if (!form.Ten.trim()) return showToast('Vui lòng nhập tên khách hàng', 'error');
     if (!form.SDT.trim()) return showToast('Vui lòng nhập số điện thoại', 'error');
-    if (!form.Ngay.trim()) return showToast('Vui lòng chọn ngày', 'error');
 
     try {
       setSaving(true);
       const nhuCau = form.Nhu_Cau === 'Mua' ? 'Mua' : 'Thuê';
+
+      const payload = {
+        Ten: form.Ten.trim(),
+        Zalo: form.Zalo.trim(),
+        SDT: form.SDT.trim(),
+        Nhu_Cau: nhuCau,
+        Phong_Ngu: form.Phong_Ngu,
+        Noi_That: form.Noi_That.trim(),
+        Slot_Xe: form.Slot_Xe,
+        Thoi_Han_Thue: form.Thoi_Han_Thue.trim(),
+        Ngay_Vao: form.Ngay_Vao.trim(),
+        Dien_Tich: form.Dien_Tich.trim(),
+        Tai_Chinh: form.Tai_Chinh.trim(),
+        Toa: form.Toa.trim(),
+        Can_Tu_Van: form.Can_Tu_Van.trim(),
+        Ghi_Chu: form.Ghi_Chu.trim(),
+      };
 
       if (editItem) {
         await postKhachTimes({
           action: 'update',
           _rowIndex: editItem._rowIndex,
           STT: editItem.STT,
-          Ten: form.Ten.trim(),
-          Zalo: form.Zalo.trim(),
-          SDT: form.SDT.trim(),
-          Ngay: form.Ngay.trim(),
-          Nhu_Cau: nhuCau,
-          Toa: form.Toa.trim(),
-          Phong_Ngu: form.Phong_Ngu,
-          Slot_Xe: form.Slot_Xe,
-          Dien_Tich: form.Dien_Tich.trim(),
-          Ngay_Chuyen: form.Ngay_Chuyen.trim(),
-          Tai_Chinh: form.Tai_Chinh.trim(),
-          Can_Tu_Van: form.Can_Tu_Van.trim(),
-          Ghi_Chu: form.Ghi_Chu.trim(),
+          ...payload,
         });
         showToast('Cập nhật thành công!');
       } else {
@@ -211,19 +197,7 @@ export default function KhachTimes() {
         await postKhachTimes({
           action: 'add',
           STT: maxSTT + 1,
-          Ten: form.Ten.trim(),
-          Zalo: form.Zalo.trim(),
-          SDT: form.SDT.trim(),
-          Ngay: form.Ngay.trim(),
-          Nhu_Cau: nhuCau,
-          Toa: form.Toa.trim(),
-          Phong_Ngu: form.Phong_Ngu,
-          Slot_Xe: form.Slot_Xe,
-          Dien_Tich: form.Dien_Tich.trim(),
-          Ngay_Chuyen: form.Ngay_Chuyen.trim(),
-          Tai_Chinh: form.Tai_Chinh.trim(),
-          Can_Tu_Van: form.Can_Tu_Van.trim(),
-          Ghi_Chu: form.Ghi_Chu.trim(),
+          ...payload,
         });
         showToast('Thêm khách thành công!');
       }
@@ -335,7 +309,7 @@ export default function KhachTimes() {
             <table style={s.table}>
               <thead>
                 <tr>
-                  {['STT', 'Tên', 'Zalo', 'SĐT', 'Ngày PT', 'Nhu cầu', 'Toà', 'PN', 'Slot xe', 'DT', 'Ngày chuyển', 'Tài chính', 'Căn TV', 'Ghi chú', ''].map((h, idx) => (
+                  {['STT', 'Tên', 'Zalo', 'SĐT', 'Nhu cầu', 'Phòng ngủ', 'Nội thất', 'Slot xe', 'Thời hạn thuê', 'Ngày vào', 'Diện tích', 'Tài chính', 'Tòa', 'Căn tư vấn', 'Ghi chú', ''].map((h, idx) => (
                     <th key={h || `act_${idx}`} style={s.th}>{h}</th>
                   ))}
                 </tr>
@@ -343,7 +317,7 @@ export default function KhachTimes() {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={15} style={s.emptyTd}>
+                    <td colSpan={16} style={s.emptyTd}>
                       {items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}
                     </td>
                   </tr>
@@ -354,16 +328,17 @@ export default function KhachTimes() {
                       <td style={{ ...s.td, ...s.tdName, fontWeight: 600 }}>{item.Ten}</td>
                       <td style={s.td}>{item.Zalo}</td>
                       <td style={{ ...s.td, whiteSpace: 'nowrap' }}>{item.SDT}</td>
-                      <td style={{ ...s.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay}</td>
                       <td style={s.td}>
-                        <NhuCauBadge nhuCau={item.Nhu_Cau || item.Loai} />
+                        <NhuCauBadge nhuCau={item.Nhu_Cau} />
                       </td>
-                      <td style={s.td}>{item.Toa}</td>
                       <td style={{ ...s.td, textAlign: 'center' }}>{item.Phong_Ngu}</td>
+                      <td style={s.td}>{item.Noi_That}</td>
                       <td style={{ ...s.td, textAlign: 'center' }}>{item.Slot_Xe}</td>
+                      <td style={s.td}>{item.Thoi_Han_Thue}</td>
+                      <td style={{ ...s.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_Vao}</td>
                       <td style={s.td}>{item.Dien_Tich}</td>
-                      <td style={{ ...s.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_Chuyen}</td>
                       <td style={{ ...s.td, fontFamily: 'monospace', textAlign: 'right' }}>{item.Tai_Chinh}</td>
+                      <td style={s.td}>{item.Toa}</td>
                       <td style={{ ...s.td, maxWidth: 150, whiteSpace: 'pre-line', fontSize: 12 }}>{item.Can_Tu_Van}</td>
                       <td style={{ ...s.td, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', color: C.textMuted, fontSize: 12 }}>{item.Ghi_Chu}</td>
                       <td style={{ ...s.td, whiteSpace: 'nowrap' }}>
@@ -393,16 +368,6 @@ export default function KhachTimes() {
               <FormField label="Số điện thoại *" value={form.SDT} onChange={(v) => updateForm('SDT', v)} type="tel" />
 
               <div style={s.fieldWrap}>
-                <label style={s.fieldLabel}>Ngày phát sinh *</label>
-                <input
-                  type="date"
-                  value={toInputDate(form.Ngay)}
-                  onChange={(e) => updateForm('Ngay', fromInputDate(e.target.value))}
-                  style={s.fieldInput}
-                />
-              </div>
-
-              <div style={s.fieldWrap}>
                 <label style={s.fieldLabel}>Nhu cầu *</label>
                 <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
                   {[['Thuê', 'Thuê'], ['Mua', 'Mua']].map(([val, label]) => (
@@ -420,8 +385,6 @@ export default function KhachTimes() {
                 </div>
               </div>
 
-              <FormField label="Toà" value={form.Toa} onChange={(v) => updateForm('Toa', v)} placeholder="VD: T1, Park 5, R6..." />
-
               <div style={s.fieldWrap}>
                 <label style={s.fieldLabel}>Phòng ngủ</label>
                 <select
@@ -431,10 +394,12 @@ export default function KhachTimes() {
                 >
                   <option value="">-- Chọn --</option>
                   {[1, 2, 3, 4, 5, 6].map((n) => (
-                    <option key={n} value={`${n} ngủ`}>{n} ngủ</option>
+                    <option key={n} value={`${n}`}>{n}</option>
                   ))}
                 </select>
               </div>
+
+              <FormField label="Nội thất" value={form.Noi_That} onChange={(v) => updateForm('Noi_That', v)} placeholder="VD: Full nội thất, cơ bản, nguyên bản..." />
 
               <div style={s.fieldWrap}>
                 <label style={s.fieldLabel}>Slot xe</label>
@@ -454,12 +419,14 @@ export default function KhachTimes() {
                 </div>
               </div>
 
+              <FormField label="Thời hạn thuê" value={form.Thoi_Han_Thue} onChange={(v) => updateForm('Thoi_Han_Thue', v)} placeholder="VD: 1 năm, 2 năm, dài hạn..." />
+              <FormField label="Ngày vào" value={form.Ngay_Vao} onChange={(v) => updateForm('Ngay_Vao', v)} placeholder="VD: 15/04/2025, Tháng 5..." />
               <FormField label="Diện tích" value={form.Dien_Tich} onChange={(v) => updateForm('Dien_Tich', v)} placeholder="VD: 75m2, 90m2..." />
-              <FormField label="Ngày chuyển vào" value={form.Ngay_Chuyen} onChange={(v) => updateForm('Ngay_Chuyen', v)} placeholder="VD: 15/04/2025, Tháng 5..." />
               <FormField label="Tài chính" value={form.Tai_Chinh} onChange={(v) => updateForm('Tai_Chinh', v)} placeholder="VD: 11 / 11.5 / 2000" />
+              <FormField label="Tòa" value={form.Toa} onChange={(v) => updateForm('Toa', v)} placeholder="VD: T1, Park 5, R6..." />
 
               <div style={s.fieldWrap}>
-                <label style={s.fieldLabel}>Căn đang tư vấn</label>
+                <label style={s.fieldLabel}>Căn tư vấn</label>
                 <textarea
                   value={form.Can_Tu_Van}
                   onChange={(e) => updateForm('Can_Tu_Van', e.target.value)}
