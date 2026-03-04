@@ -84,8 +84,11 @@ export default function KhachTimes() {
       setLoading(true);
       setError('');
       const data = await fetchKhachTimes();
-      setItems(Array.isArray(data) ? data : []);
+      const arr = Array.isArray(data) ? data : [];
+      console.log('[KhachTimes] Loaded:', arr.length, 'items', arr);
+      setItems(arr);
     } catch (e) {
+      console.error('[KhachTimes] Load error:', e);
       setError(e.message);
     } finally {
       setLoading(false);
@@ -94,12 +97,24 @@ export default function KhachTimes() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Auto-refresh mỗi 30 giây để luôn đồng bộ với Google Sheets
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchKhachTimes().then((data) => {
+        const arr = Array.isArray(data) ? data : [];
+        setItems(arr);
+      }).catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const filtered = useMemo(() => {
     let list = [...items];
     if (filterLoai !== 'all') {
+      const fv = filterLoai.toLowerCase().replace(/[êếềểễệ]/g, 'e');
       list = list.filter((it) => {
-        const nc = (it.Nhu_Cau || it.Loai || '').toLowerCase();
-        return nc.includes(filterLoai.toLowerCase());
+        const nc = (it.Nhu_Cau || it.Loai || '').toLowerCase().replace(/[êếềểễệ]/g, 'e');
+        return nc.includes(fv) || (fv.includes('thu') && nc.includes('thu')) || (fv === 'mua' && nc === 'mua');
       });
     }
     if (search.trim()) {
@@ -114,13 +129,14 @@ export default function KhachTimes() {
       );
     }
     list.sort((a, b) => Number(b.STT || 0) - Number(a.STT || 0));
+    console.log('[KhachTimes] Filtered:', list.length, '/', items.length, 'filter:', filterLoai);
     return list;
   }, [items, filterLoai, search]);
 
   const stats = useMemo(() => {
     const total = items.length;
     const thue = items.filter((i) => {
-      const nc = (i.Nhu_Cau || i.Loai || '').toLowerCase();
+      const nc = (i.Nhu_Cau || i.Loai || '').toLowerCase().replace(/[êếềểễệ]/g, 'e');
       return nc.includes('thu');
     }).length;
     const mua = items.filter((i) => {
