@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 
 // Sheet ID riêng cho Nguồn Hàng (bản copy của bạn)
-const NGUON_HANG_SHEET_ID = '1ltXF8eBdKWUAIdtq996TnYHzZNpS59HxYlDDhk8OL1o';
+const NGUON_HANG_SHEET_ID = '18FlknXv4JzRt3taP6Hs56HOwACFxBCkgQPHdsVVCjPE';
 
 export default async function handler(req, res) {
   try {
