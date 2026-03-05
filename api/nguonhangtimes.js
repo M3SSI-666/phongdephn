@@ -45,9 +45,10 @@ export default async function handler(req, res) {
       return res.status(200).json({ tabs });
     }
 
-    // Đọc dữ liệu từ tab cụ thể
+    // Đọc dữ liệu + màu nền từ tab cụ thể
+    // Dùng spreadsheets.get để lấy cả format (backgroundColor)
     const encodedTab = encodeURIComponent(sheetTab);
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${NGUON_HANG_SHEET_ID}/values/${encodedTab}!A:Z`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${NGUON_HANG_SHEET_ID}?ranges=${encodedTab}&fields=sheets.data.rowData.values(formattedValue,effectiveFormat.backgroundColor)`;
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -58,17 +59,57 @@ export default async function handler(req, res) {
     }
 
     const data = await response.json();
-    const rows = data.values || [];
+    const sheetData = data.sheets?.[0]?.data?.[0];
+    const rowData = sheetData?.rowData || [];
+
+    if (rowData.length === 0) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      return res.status(200).json({ headers: [], items: [] });
+    }
 
     // Dòng đầu tiên là header
-    const headers = rows[0] || [];
-    const items = rows.slice(1).map((row, i) => {
-      const obj = { _rowIndex: i + 2 };
+    const headerRow = rowData[0]?.values || [];
+    const headers = headerRow.map((cell) => cell.formattedValue || '');
+
+    // Các dòng dữ liệu
+    const items = [];
+    for (let i = 1; i < rowData.length; i++) {
+      const cells = rowData[i]?.values || [];
+      // Bỏ qua dòng trống hoàn toàn
+      const hasData = cells.some((c) => c.formattedValue);
+      if (!hasData) continue;
+
+      const obj = { _rowIndex: i + 1 };
+      const colors = {};
+
       headers.forEach((h, idx) => {
-        obj[h] = row[idx] || '';
+        const cell = cells[idx];
+        obj[h] = cell?.formattedValue || '';
+
+        // Lấy màu nền
+        const bg = cell?.effectiveFormat?.backgroundColor;
+        if (bg && !(bg.red === 1 && bg.green === 1 && bg.blue === 1) && !(bg.red === undefined && bg.green === undefined && bg.blue === undefined)) {
+          const r = Math.round((bg.red || 0) * 255);
+          const g = Math.round((bg.green || 0) * 255);
+          const b = Math.round((bg.blue || 0) * 255);
+          colors[h] = `rgb(${r},${g},${b})`;
+        }
       });
-      return obj;
-    });
+
+      // Cũng lấy màu nền của cả dòng (lấy từ ô đầu tiên có màu, hoặc ô nhiều nhất)
+      // Kiểm tra nếu toàn bộ dòng cùng 1 màu
+      const colorValues = Object.values(colors);
+      if (colorValues.length > 0) {
+        obj._colors = colors;
+        // Nếu tất cả ô cùng màu → đánh dấu _rowColor
+        const allSame = colorValues.every((c) => c === colorValues[0]);
+        if (allSame && colorValues.length >= headers.length / 2) {
+          obj._rowColor = colorValues[0];
+        }
+      }
+
+      items.push(obj);
+    }
 
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');

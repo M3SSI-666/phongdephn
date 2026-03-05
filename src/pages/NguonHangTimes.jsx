@@ -189,16 +189,23 @@ export default function NguonHangTimes() {
                         </td>
                       </tr>
                     ) : (
-                      filtered.map((item, idx) => (
-                        <tr key={item._rowIndex || idx} className="nh-row" style={s.tr}>
-                          <td style={{ ...s.td, color: C.textDim, fontSize: 11, textAlign: 'center' }}>{idx + 1}</td>
-                          {headers.map((h) => (
-                            <td key={h} style={getCellStyle(h, item[h])}>
-                              {renderCell(h, item[h])}
-                            </td>
-                          ))}
-                        </tr>
-                      ))
+                      filtered.map((item, idx) => {
+                        const rowBg = item._rowColor || undefined;
+                        const cellColors = item._colors || {};
+                        return (
+                          <tr key={item._rowIndex || idx} className="nh-row" style={{ ...s.tr, ...(rowBg ? { background: rowBg } : {}) }}>
+                            <td style={{ ...s.td, color: C.textDim, fontSize: 11, textAlign: 'center', ...(rowBg ? { background: rowBg } : {}) }}>{idx + 1}</td>
+                            {headers.map((h) => {
+                              const cellBg = cellColors[h] || rowBg || undefined;
+                              return (
+                                <td key={h} style={{ ...getCellStyle(h, item[h]), ...(cellBg ? { background: cellBg } : {}) }}>
+                                  {renderCell(h, item[h])}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
