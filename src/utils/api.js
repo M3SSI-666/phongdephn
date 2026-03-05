@@ -118,6 +118,23 @@ export async function fetchRoomsFromSheets(filters = {}) {
   return res.json();
 }
 
+// ============ Nguồn Hàng Times City ============
+export async function fetchNguonHangTabs() {
+  const res = await fetch(`/api/nguonhangtimes?t=${Date.now()}`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error('Fetch nguon hang tabs failed');
+  return res.json();
+}
+
+export async function fetchNguonHangData(tabName) {
+  const res = await fetch(`/api/nguonhangtimes?tab=${encodeURIComponent(tabName)}&t=${Date.now()}`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error('Fetch nguon hang data failed');
+  return res.json();
+}
+
 // ============ Khach Times City ============
 export async function fetchKhachTimes() {
   const res = await fetch(`/api/khachtimes?t=${Date.now()}`, {
