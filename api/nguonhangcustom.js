@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 
 const SHEET_NAME = 'Nguon_Hang_Custom';
-// 11 columns: STT, Loai, Phong_Ngu, Dien_Tich, Huong_BC, Slot_Xe, Do, Chu_Nha, SDT, Ghi_Chu, Gia
-const COLUMNS = 'A:K';
+// 13 columns: STT, Loai, Phong_Ngu, Dien_Tich, Huong_BC, Slot_Xe, Do, Chu_Nha, SDT, Ghi_Chu, Gia, Hinh_Anh, Video
+const COLUMNS = 'A:M';
 
 export default async function handler(req, res) {
   try {
@@ -60,6 +60,8 @@ async function handleGet(req, res, sheetId, email, key) {
     SDT: row[8] || '',
     Ghi_Chu: row[9] || '',
     Gia: row[10] || '',
+    Hinh_Anh: row[11] || '',
+    Video: row[12] || '',
     _rowIndex: i + 2,
   }));
 
@@ -80,7 +82,7 @@ async function handlePost(req, res, sheetId, email, key) {
     return [
       p.STT, p.Loai, p.Phong_Ngu, p.Dien_Tich,
       p.Huong_BC, p.Slot_Xe, p.Do, p.Chu_Nha,
-      p.SDT, p.Ghi_Chu, p.Gia,
+      p.SDT, p.Ghi_Chu, p.Gia, p.Hinh_Anh || '', p.Video || '',
     ];
   }
 
@@ -110,7 +112,7 @@ async function handlePost(req, res, sheetId, email, key) {
     }
 
     const row = buildRow(payload);
-    const range = `${SHEET_NAME}!A${payload._rowIndex}:K${payload._rowIndex}`;
+    const range = `${SHEET_NAME}!A${payload._rowIndex}:M${payload._rowIndex}`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?valueInputOption=USER_ENTERED`;
     const response = await fetch(url, {
       method: 'PUT',

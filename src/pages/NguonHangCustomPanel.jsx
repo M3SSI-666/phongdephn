@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { C } from '../utils/theme';
-import { fetchNguonHangCustom, postNguonHangCustom } from '../utils/api';
+import { fetchNguonHangCustom, postNguonHangCustom, uploadImagesToCloudinary, uploadVideosToCloudinary } from '../utils/api';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -22,6 +22,18 @@ export default function NguonHangCustomPanel() {
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+
+  // Media states
+  const [images, setImages] = useState([]);
+  const [videos, setVideos] = useState([]);
+  const [existingImages, setExistingImages] = useState([]);
+  const [existingVideos, setExistingVideos] = useState([]);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const imgInputRef = useRef(null);
+  const vidInputRef = useRef(null);
+
+  // Media viewer
+  const [mediaViewer, setMediaViewer] = useState(null);
 
   useEffect(() => {
     const style = document.createElement('style');
@@ -77,9 +89,55 @@ export default function NguonHangCustomPanel() {
     return list;
   }, [items, search]);
 
+  // Media handlers
+  const handleImageDrop = useCallback((e) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer?.files || e.target?.files || []).filter(f =>
+      f.type.startsWith('image/')
+    );
+    if (!files.length) return;
+    setImages(prev => [
+      ...prev,
+      ...files.map(f => ({
+        file: f,
+        preview: URL.createObjectURL(f),
+        id: Math.random().toString(36).slice(2),
+      })),
+    ]);
+    if (e.target?.value) e.target.value = '';
+  }, []);
+
+  const handleVideoDrop = useCallback((e) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer?.files || e.target?.files || []).filter(f =>
+      f.type.startsWith('video/')
+    );
+    if (!files.length) return;
+    setVideos(prev => [
+      ...prev,
+      ...files.map(f => ({
+        file: f,
+        preview: URL.createObjectURL(f),
+        id: Math.random().toString(36).slice(2),
+      })),
+    ]);
+    if (e.target?.value) e.target.value = '';
+  }, []);
+
+  const removeImage = (id) => setImages(prev => prev.filter(img => img.id !== id));
+  const removeVideo = (id) => setVideos(prev => prev.filter(vid => vid.id !== id));
+  const removeExistingImage = (url) => setExistingImages(prev => prev.filter(u => u !== url));
+  const removeExistingVideo = (url) => setExistingVideos(prev => prev.filter(u => u !== url));
+
+  const parseUrls = (str) => (str || '').split(',').map(s => s.trim()).filter(Boolean);
+
   const openAdd = () => {
     setEditItem(null);
     setForm({ ...EMPTY_FORM });
+    setImages([]);
+    setVideos([]);
+    setExistingImages([]);
+    setExistingVideos([]);
     setModalOpen(true);
   };
 
@@ -97,12 +155,21 @@ export default function NguonHangCustomPanel() {
       Ghi_Chu: item.Ghi_Chu || '',
       Gia: item.Gia || '',
     });
+    setImages([]);
+    setVideos([]);
+    setExistingImages(parseUrls(item.Hinh_Anh));
+    setExistingVideos(parseUrls(item.Video));
     setModalOpen(true);
   };
 
   const closeModal = () => {
     setModalOpen(false);
     setEditItem(null);
+    setImages([]);
+    setVideos([]);
+    setExistingImages([]);
+    setExistingVideos([]);
+    setUploadProgress(0);
   };
 
   const handleSave = async () => {
@@ -110,6 +177,22 @@ export default function NguonHangCustomPanel() {
 
     try {
       setSaving(true);
+      setUploadProgress(0);
+
+      // Upload new images/videos to Cloudinary
+      let newImgUrls = [];
+      let newVidUrls = [];
+
+      if (images.length > 0) {
+        newImgUrls = await uploadImagesToCloudinary(images, (p) => setUploadProgress(Math.round(p * 0.5)));
+      }
+      if (videos.length > 0) {
+        newVidUrls = await uploadVideosToCloudinary(videos, (p) => setUploadProgress(50 + Math.round(p * 0.5)));
+      }
+
+      const allImageUrls = [...existingImages, ...newImgUrls].join(',');
+      const allVideoUrls = [...existingVideos, ...newVidUrls].join(',');
+
       const payload = {
         Loai: form.Loai,
         Phong_Ngu: form.Phong_Ngu,
@@ -121,6 +204,8 @@ export default function NguonHangCustomPanel() {
         SDT: form.SDT.trim(),
         Ghi_Chu: form.Ghi_Chu.trim(),
         Gia: form.Gia.trim(),
+        Hinh_Anh: allImageUrls,
+        Video: allVideoUrls,
       };
 
       if (editItem) {
@@ -146,6 +231,7 @@ export default function NguonHangCustomPanel() {
       showToast(e.message, 'error');
     } finally {
       setSaving(false);
+      setUploadProgress(0);
     }
   };
 
@@ -169,7 +255,21 @@ export default function NguonHangCustomPanel() {
 
   const updateForm = (key, val) => setForm((prev) => ({ ...prev, [key]: val }));
 
-  const TABLE_HEADERS = ['STT', 'Loại', 'PN', 'Diện tích', 'Hướng BC', 'Slot xe', 'Đồ', 'Chủ nhà', 'SĐT', 'Ghi chú', 'Giá', ''];
+  const getMediaCount = (item) => {
+    const imgs = parseUrls(item.Hinh_Anh);
+    const vids = parseUrls(item.Video);
+    return imgs.length + vids.length;
+  };
+
+  const openMediaViewer = (item) => {
+    const imgs = parseUrls(item.Hinh_Anh).map(url => ({ type: 'image', url }));
+    const vids = parseUrls(item.Video).map(url => ({ type: 'video', url }));
+    const allMedia = [...vids, ...imgs];
+    if (allMedia.length === 0) return;
+    setMediaViewer({ media: allMedia, index: 0, item });
+  };
+
+  const TABLE_HEADERS = ['STT', 'Loại', 'PN', 'Diện tích', 'Hướng BC', 'Slot xe', 'Đồ', 'Chủ nhà', 'SĐT', 'Ghi chú', 'Giá', 'Media', ''];
 
   return (
     <div style={{ fontFamily: F, color: C.text }}>
@@ -218,38 +318,60 @@ export default function NguonHangCustomPanel() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={12} style={{ textAlign: 'center', padding: 40, color: C.textMuted, fontSize: 14 }}>
+                  <td colSpan={13} style={{ textAlign: 'center', padding: 40, color: C.textMuted, fontSize: 14 }}>
                     {items.length === 0 ? 'Chưa có phòng nào. Bấm "+ Thêm phòng" để bắt đầu.' : 'Không tìm thấy kết quả'}
                   </td>
                 </tr>
               ) : (
-                filtered.map((item) => (
-                  <tr key={item._rowIndex} className="nhc-row" style={s.tr}>
-                    <td style={s.td}>{item.STT}</td>
-                    <td style={s.td}>
-                      <span style={{
-                        display: 'inline-block', padding: '2px 10px', borderRadius: 12, fontSize: 11, fontWeight: 700,
-                        background: (item.Loai || '').toLowerCase().includes('thu') ? C.primary + '18' : C.accent + '18',
-                        color: (item.Loai || '').toLowerCase().includes('thu') ? C.primaryDark : C.accent,
-                      }}>
-                        {item.Loai}
-                      </span>
-                    </td>
-                    <td style={{ ...s.td, textAlign: 'center' }}>{item.Phong_Ngu}</td>
-                    <td style={s.td}>{item.Dien_Tich}</td>
-                    <td style={s.td}>{item.Huong_BC}</td>
-                    <td style={{ ...s.td, textAlign: 'center' }}>{item.Slot_Xe}</td>
-                    <td style={s.td}>{item.Do}</td>
-                    <td style={{ ...s.td, fontWeight: 600 }}>{item.Chu_Nha}</td>
-                    <td style={{ ...s.td, whiteSpace: 'nowrap' }}>{item.SDT}</td>
-                    <td style={{ ...s.td, maxWidth: 160, whiteSpace: 'pre-line', fontSize: 12, color: C.textMuted }}>{item.Ghi_Chu}</td>
-                    <td style={{ ...s.td, fontFamily: 'monospace', textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>{item.Gia}</td>
-                    <td style={{ ...s.td, whiteSpace: 'nowrap' }}>
-                      <button onClick={() => openEdit(item)} style={s.actionBtn} title="Sửa">&#9998;</button>
-                      <button onClick={() => setDeleteTarget(item)} style={{ ...s.actionBtn, color: C.error }} title="Xoá">&#128465;</button>
-                    </td>
-                  </tr>
-                ))
+                filtered.map((item) => {
+                  const mediaCount = getMediaCount(item);
+                  const firstImg = parseUrls(item.Hinh_Anh)[0];
+                  return (
+                    <tr key={item._rowIndex} className="nhc-row" style={s.tr}>
+                      <td style={s.td}>{item.STT}</td>
+                      <td style={s.td}>
+                        <span style={{
+                          display: 'inline-block', padding: '2px 10px', borderRadius: 12, fontSize: 11, fontWeight: 700,
+                          background: (item.Loai || '').toLowerCase().includes('thu') ? C.primary + '18' : C.accent + '18',
+                          color: (item.Loai || '').toLowerCase().includes('thu') ? C.primaryDark : C.accent,
+                        }}>
+                          {item.Loai}
+                        </span>
+                      </td>
+                      <td style={{ ...s.td, textAlign: 'center' }}>{item.Phong_Ngu}</td>
+                      <td style={s.td}>{item.Dien_Tich}</td>
+                      <td style={s.td}>{item.Huong_BC}</td>
+                      <td style={{ ...s.td, textAlign: 'center' }}>{item.Slot_Xe}</td>
+                      <td style={s.td}>{item.Do}</td>
+                      <td style={{ ...s.td, fontWeight: 600 }}>{item.Chu_Nha}</td>
+                      <td style={{ ...s.td, whiteSpace: 'nowrap' }}>{item.SDT}</td>
+                      <td style={{ ...s.td, maxWidth: 160, whiteSpace: 'pre-line', fontSize: 12, color: C.textMuted }}>{item.Ghi_Chu}</td>
+                      <td style={{ ...s.td, fontFamily: 'monospace', textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>{item.Gia}</td>
+                      <td style={{ ...s.td, textAlign: 'center' }}>
+                        {mediaCount > 0 ? (
+                          <button
+                            onClick={() => openMediaViewer(item)}
+                            style={s.mediaBadge}
+                            title="Xem ảnh/video"
+                          >
+                            {firstImg ? (
+                              <img src={firstImg} alt="" style={{ width: 28, height: 28, borderRadius: 4, objectFit: 'cover' }} />
+                            ) : (
+                              <span style={{ fontSize: 14 }}>&#9658;</span>
+                            )}
+                            <span style={{ fontSize: 10, fontWeight: 700, color: C.primary }}>{mediaCount}</span>
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: 11, color: C.textDim }}>--</span>
+                        )}
+                      </td>
+                      <td style={{ ...s.td, whiteSpace: 'nowrap' }}>
+                        <button onClick={() => openEdit(item)} style={s.actionBtn} title="Sửa">&#9998;</button>
+                        <button onClick={() => setDeleteTarget(item)} style={{ ...s.actionBtn, color: C.error }} title="Xoá">&#128465;</button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -312,11 +434,117 @@ export default function NguonHangCustomPanel() {
               </div>
 
               <FormField label="Giá *" value={form.Gia} onChange={(v) => updateForm('Gia', v)} placeholder="VD: 11tr, 2.5 tỷ..." />
+
+              {/* Image Upload */}
+              <div style={s.fieldWrap}>
+                <label style={s.fieldLabel}>Hình ảnh</label>
+                <div
+                  style={s.dropZone}
+                  onDrop={handleImageDrop}
+                  onDragOver={(e) => e.preventDefault()}
+                  onClick={() => imgInputRef.current?.click()}
+                >
+                  <input
+                    ref={imgInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    style={{ display: 'none' }}
+                    onChange={handleImageDrop}
+                  />
+                  <div style={{ fontSize: 24, marginBottom: 4 }}>&#128247;</div>
+                  <div style={{ fontSize: 12, color: C.textMuted }}>Kéo thả hoặc bấm để chọn ảnh</div>
+                </div>
+                {/* Existing images */}
+                {(existingImages.length > 0 || images.length > 0) && (
+                  <div style={s.thumbGrid}>
+                    {existingImages.map((url) => (
+                      <div key={url} style={s.thumbItem}>
+                        <img src={url} alt="" style={s.thumbImg} />
+                        <button
+                          style={s.thumbRemove}
+                          onClick={(e) => { e.stopPropagation(); removeExistingImage(url); }}
+                        >&times;</button>
+                      </div>
+                    ))}
+                    {images.map((img) => (
+                      <div key={img.id} style={s.thumbItem}>
+                        <img src={img.preview} alt="" style={s.thumbImg} />
+                        <button
+                          style={s.thumbRemove}
+                          onClick={(e) => { e.stopPropagation(); removeImage(img.id); }}
+                        >&times;</button>
+                        <div style={s.newBadge}>Mới</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Video Upload */}
+              <div style={s.fieldWrap}>
+                <label style={s.fieldLabel}>Video</label>
+                <div
+                  style={s.dropZone}
+                  onDrop={handleVideoDrop}
+                  onDragOver={(e) => e.preventDefault()}
+                  onClick={() => vidInputRef.current?.click()}
+                >
+                  <input
+                    ref={vidInputRef}
+                    type="file"
+                    accept="video/*"
+                    multiple
+                    style={{ display: 'none' }}
+                    onChange={handleVideoDrop}
+                  />
+                  <div style={{ fontSize: 24, marginBottom: 4 }}>&#127909;</div>
+                  <div style={{ fontSize: 12, color: C.textMuted }}>Kéo thả hoặc bấm để chọn video</div>
+                </div>
+                {(existingVideos.length > 0 || videos.length > 0) && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                    {existingVideos.map((url) => (
+                      <div key={url} style={s.videoItem}>
+                        <video src={url} style={s.videoThumb} muted />
+                        <div style={{ flex: 1, fontSize: 12, color: C.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {url.split('/').pop()}
+                        </div>
+                        <button
+                          style={s.thumbRemove}
+                          onClick={(e) => { e.stopPropagation(); removeExistingVideo(url); }}
+                        >&times;</button>
+                      </div>
+                    ))}
+                    {videos.map((vid) => (
+                      <div key={vid.id} style={s.videoItem}>
+                        <video src={vid.preview} style={s.videoThumb} muted />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 12, fontWeight: 600 }}>{vid.file.name}</div>
+                          <div style={{ fontSize: 11, color: C.textMuted }}>{(vid.file.size / 1024 / 1024).toFixed(1)} MB</div>
+                        </div>
+                        <div style={s.newBadge}>Mới</div>
+                        <button
+                          style={s.thumbRemove}
+                          onClick={(e) => { e.stopPropagation(); removeVideo(vid.id); }}
+                        >&times;</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div style={s.modalFooter}>
+              {saving && uploadProgress > 0 && (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ flex: 1, height: 6, background: C.border, borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ width: `${uploadProgress}%`, height: '100%', background: C.gradient, borderRadius: 3, transition: 'width 0.3s' }} />
+                  </div>
+                  <span style={{ fontSize: 11, color: C.textMuted, whiteSpace: 'nowrap' }}>{uploadProgress}%</span>
+                </div>
+              )}
               <button onClick={closeModal} style={s.cancelBtn} className="nhc-btn">Huỷ</button>
               <button onClick={handleSave} disabled={saving} style={s.saveBtn} className="nhc-btn">
-                {saving ? 'Đang lưu...' : 'Lưu'}
+                {saving ? (uploadProgress > 0 ? 'Đang tải...' : 'Đang lưu...') : 'Lưu'}
               </button>
             </div>
           </div>
@@ -337,6 +565,78 @@ export default function NguonHangCustomPanel() {
                 {saving ? 'Đang xoá...' : 'Xoá'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Media Viewer Modal */}
+      {mediaViewer && (
+        <div style={s.overlay} onClick={(e) => { if (e.target === e.currentTarget) setMediaViewer(null); }}>
+          <div style={s.viewerBox}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ fontSize: 15, fontWeight: 700 }}>
+                Phòng #{mediaViewer.item.STT} — {mediaViewer.item.Loai}
+              </div>
+              <button onClick={() => setMediaViewer(null)} style={{ background: 'none', border: 'none', fontSize: 22, color: C.textMuted, cursor: 'pointer' }}>&times;</button>
+            </div>
+            {/* Main media */}
+            <div style={{ position: 'relative', background: '#000', aspectRatio: '16/10', maxHeight: '60vh' }}>
+              {mediaViewer.media[mediaViewer.index]?.type === 'video' ? (
+                <video
+                  src={mediaViewer.media[mediaViewer.index].url}
+                  controls
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                />
+              ) : (
+                <img
+                  src={mediaViewer.media[mediaViewer.index]?.url}
+                  alt=""
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                />
+              )}
+              {mediaViewer.media.length > 1 && (
+                <>
+                  <button
+                    style={{ ...s.galleryNav, left: 8 }}
+                    onClick={() => setMediaViewer(prev => ({ ...prev, index: (prev.index - 1 + prev.media.length) % prev.media.length }))}
+                  >&lsaquo;</button>
+                  <button
+                    style={{ ...s.galleryNav, right: 8 }}
+                    onClick={() => setMediaViewer(prev => ({ ...prev, index: (prev.index + 1) % prev.media.length }))}
+                  >&rsaquo;</button>
+                </>
+              )}
+              <div style={{
+                position: 'absolute', bottom: 8, right: 8,
+                background: 'rgba(0,0,0,0.7)', color: '#fff', padding: '2px 8px',
+                borderRadius: 4, fontSize: 11, fontWeight: 600,
+              }}>
+                {mediaViewer.index + 1}/{mediaViewer.media.length}
+              </div>
+            </div>
+            {/* Thumbnail strip */}
+            {mediaViewer.media.length > 1 && (
+              <div style={{ display: 'flex', gap: 4, padding: 6, overflowX: 'auto' }}>
+                {mediaViewer.media.map((m, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      width: 56, height: 40, borderRadius: 4, overflow: 'hidden',
+                      cursor: 'pointer', flexShrink: 0,
+                      border: i === mediaViewer.index ? `2px solid ${C.primary}` : '2px solid transparent',
+                      opacity: i === mediaViewer.index ? 1 : 0.6,
+                    }}
+                    onClick={() => setMediaViewer(prev => ({ ...prev, index: i }))}
+                  >
+                    {m.type === 'video' ? (
+                      <video src={m.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
+                    ) : (
+                      <img src={m.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -411,7 +711,7 @@ const s = {
   },
   modalBody: { padding: '16px 20px', overflowY: 'auto', flex: 1 },
   modalFooter: {
-    display: 'flex', gap: 10, justifyContent: 'flex-end',
+    display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center',
     padding: '12px 20px', borderTop: `1px solid ${C.border}`,
   },
   fieldWrap: { marginBottom: 14 },
@@ -431,5 +731,58 @@ const s = {
   confirmBox: {
     background: '#fff', borderRadius: 16, padding: '24px', width: 380, maxWidth: '100%',
     boxShadow: C.shadowLg, animation: 'nhcSlideUp 0.2s ease',
+  },
+  // Drop zone
+  dropZone: {
+    border: `2px dashed ${C.border}`, borderRadius: 10, padding: '16px 12px',
+    textAlign: 'center', cursor: 'pointer', transition: 'border-color 0.2s',
+    background: C.bgInput,
+  },
+  // Thumbnails
+  thumbGrid: {
+    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(72px, 1fr))',
+    gap: 6, marginTop: 8,
+  },
+  thumbItem: {
+    position: 'relative', borderRadius: 6, overflow: 'hidden',
+    aspectRatio: '1', background: C.bgCard || '#f5f5f5',
+  },
+  thumbImg: { width: '100%', height: '100%', objectFit: 'cover' },
+  thumbRemove: {
+    position: 'absolute', top: 2, right: 2, width: 18, height: 18,
+    borderRadius: '50%', background: 'rgba(0,0,0,0.7)', color: '#fff',
+    border: 'none', cursor: 'pointer', fontSize: 12,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
+  },
+  newBadge: {
+    position: 'absolute', bottom: 2, left: 2, background: C.primary,
+    color: '#fff', fontSize: 8, fontWeight: 700, padding: '1px 4px',
+    borderRadius: 3, textTransform: 'uppercase',
+  },
+  videoItem: {
+    display: 'flex', alignItems: 'center', gap: 8, background: C.bgCard || '#f5f5f5',
+    borderRadius: 8, padding: 6, position: 'relative',
+  },
+  videoThumb: {
+    width: 56, height: 38, borderRadius: 4, objectFit: 'cover', background: '#000',
+  },
+  // Media badge in table
+  mediaBadge: {
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+    background: 'none', border: `1px solid ${C.border}`, borderRadius: 6,
+    padding: 3, cursor: 'pointer',
+  },
+  // Media viewer
+  viewerBox: {
+    background: '#fff', borderRadius: 16, width: 680, maxWidth: '95vw',
+    maxHeight: '90vh', overflow: 'hidden', boxShadow: C.shadowLg,
+    animation: 'nhcSlideUp 0.25s ease',
+  },
+  galleryNav: {
+    position: 'absolute', top: '50%', transform: 'translateY(-50%)',
+    width: 32, height: 32, borderRadius: '50%',
+    background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none',
+    cursor: 'pointer', fontSize: 20, display: 'flex',
+    alignItems: 'center', justifyContent: 'center',
   },
 };

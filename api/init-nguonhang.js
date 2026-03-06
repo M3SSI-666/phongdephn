@@ -61,8 +61,8 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to create sheet', detail: errText });
     }
 
-    // Add headers — 11 columns A:K
-    const headerUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Nguon_Hang_Custom!A1:K1?valueInputOption=USER_ENTERED`;
+    // Add headers — 13 columns A:M
+    const headerUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Nguon_Hang_Custom!A1:M1?valueInputOption=USER_ENTERED`;
     const headerRes = await fetch(headerUrl, {
       method: 'PUT',
       headers: {
@@ -70,7 +70,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        values: [['STT', 'Loai', 'Phong_Ngu', 'Dien_Tich', 'Huong_BC', 'Slot_Xe', 'Do', 'Chu_Nha', 'SDT', 'Ghi_Chu', 'Gia']],
+        values: [['STT', 'Loai', 'Phong_Ngu', 'Dien_Tich', 'Huong_BC', 'Slot_Xe', 'Do', 'Chu_Nha', 'SDT', 'Ghi_Chu', 'Gia', 'Hinh_Anh', 'Video']],
       }),
     });
 
@@ -79,7 +79,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to write headers', detail: errText });
     }
 
-    return res.status(200).json({ success: true, message: 'Nguon_Hang_Custom tab created with 11-column headers (A:K)' });
+    return res.status(200).json({ success: true, message: 'Nguon_Hang_Custom tab created with 13-column headers (A:M)' });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
