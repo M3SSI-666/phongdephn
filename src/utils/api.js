@@ -135,6 +135,28 @@ export async function fetchNguonHangData(tabName) {
   return res.json();
 }
 
+// ============ Nguồn Hàng Custom (cá nhân) ============
+export async function fetchNguonHangCustom() {
+  const res = await fetch(`/api/nguonhangcustom?t=${Date.now()}`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error('Fetch nguon hang custom failed');
+  return res.json();
+}
+
+export async function postNguonHangCustom(payload) {
+  const res = await fetch('/api/nguonhangcustom', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Action failed (${res.status})`);
+  }
+  return res.json();
+}
+
 // ============ Khach Times City ============
 export async function fetchKhachTimes() {
   const res = await fetch(`/api/khachtimes?t=${Date.now()}`, {

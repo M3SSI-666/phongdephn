@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { C } from '../utils/theme';
 import { fetchNguonHangTabs, fetchNguonHangData } from '../utils/api';
+import NguonHangCustomPanel from './NguonHangCustomPanel';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -15,6 +16,7 @@ export default function NguonHangTimes() {
 
 function NguonHangInner({ showHeader }) {
   const navigate = useNavigate();
+  const [viewMode, setViewMode] = useState('company'); // 'company' | 'custom'
   const [tabs, setTabs] = useState([]);
   const [activeTab, setActiveTab] = useState('');
   const [headers, setHeaders] = useState([]);
@@ -133,9 +135,35 @@ function NguonHangInner({ showHeader }) {
       )}
 
       <div style={showHeader ? s.container : { padding: '0' }}>
-        {loading && <div style={s.loadingBox}>Đang tải danh sách tab...</div>}
+        {/* Toggle: Quỹ căn công ty / Phòng của tôi */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <button
+            onClick={() => setViewMode('company')}
+            className="nh-tab"
+            style={{
+              ...s.viewToggle,
+              ...(viewMode === 'company' ? s.viewToggleActive : {}),
+            }}
+          >
+            Quỹ căn công ty
+          </button>
+          <button
+            onClick={() => setViewMode('custom')}
+            className="nh-tab"
+            style={{
+              ...s.viewToggle,
+              ...(viewMode === 'custom' ? s.viewToggleActive : {}),
+            }}
+          >
+            Phòng của tôi
+          </button>
+        </div>
 
-        {!loading && tabs.length > 0 && (
+        {viewMode === 'custom' && <NguonHangCustomPanel />}
+
+        {viewMode === 'company' && loading && <div style={s.loadingBox}>Đang tải danh sách tab...</div>}
+
+        {viewMode === 'company' && !loading && tabs.length > 0 && (
           <>
             {/* Tabs */}
             <div className="nh-tabs-wrap" style={s.tabsWrap}>
@@ -224,7 +252,7 @@ function NguonHangInner({ showHeader }) {
           </>
         )}
 
-        {!loading && tabs.length === 0 && !error && (
+        {viewMode === 'company' && !loading && tabs.length === 0 && !error && (
           <div style={s.emptyTd}>Không tìm thấy tab nào trong sheet</div>
         )}
       </div>
@@ -285,6 +313,22 @@ const s = {
     background: C.bg,
     minHeight: '100vh',
     color: C.text,
+  },
+  viewToggle: {
+    padding: '10px 20px',
+    borderRadius: 10,
+    fontSize: 14,
+    fontWeight: 700,
+    background: '#fff',
+    color: C.textMuted,
+    border: `1.5px solid ${C.border}`,
+    cursor: 'pointer',
+  },
+  viewToggleActive: {
+    background: C.primary,
+    color: '#fff',
+    border: '1.5px solid transparent',
+    boxShadow: C.shadowGreen,
   },
   header: {
     background: '#fff',
