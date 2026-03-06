@@ -12,7 +12,15 @@ const EMPTY_FORM = {
   Toa: '', Can_Tu_Van: '', Ghi_Chu: '',
 };
 
+export function KhachTimesContent() {
+  return <KhachTimesInner showHeader={false} />;
+}
+
 export default function KhachTimes() {
+  return <KhachTimesInner showHeader={true} />;
+}
+
+function KhachTimesInner({ showHeader }) {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -231,23 +239,25 @@ export default function KhachTimes() {
   const updateForm = (key, val) => setForm((prev) => ({ ...prev, [key]: val }));
 
   return (
-    <div style={s.root}>
+    <div style={showHeader ? s.root : { fontFamily: F, color: C.text }}>
       {/* Header */}
-      <div style={s.header}>
-        <div style={s.headerInner}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button onClick={() => navigate('/')} style={s.backBtn} className="kt-btn">
-              &larr;
-            </button>
-            <div>
-              <div style={s.headerTitle}>Khách Times City</div>
-              <div style={s.headerSub}>Quản lý khách hàng bất động sản</div>
+      {showHeader && (
+        <div style={s.header}>
+          <div style={s.headerInner}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button onClick={() => navigate('/')} style={s.backBtn} className="kt-btn">
+                &larr;
+              </button>
+              <div>
+                <div style={s.headerTitle}>Khách Times City</div>
+                <div style={s.headerSub}>Quản lý khách hàng bất động sản</div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      <div style={s.container}>
+      <div style={showHeader ? s.container : { padding: '0' }}>
         {/* Title row */}
         <div className="kt-header-row" style={s.titleRow}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

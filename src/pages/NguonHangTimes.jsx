@@ -5,7 +5,15 @@ import { fetchNguonHangTabs, fetchNguonHangData } from '../utils/api';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
+export function NguonHangContent() {
+  return <NguonHangInner showHeader={false} />;
+}
+
 export default function NguonHangTimes() {
+  return <NguonHangInner showHeader={true} />;
+}
+
+function NguonHangInner({ showHeader }) {
   const navigate = useNavigate();
   const [tabs, setTabs] = useState([]);
   const [activeTab, setActiveTab] = useState('');
@@ -95,34 +103,36 @@ export default function NguonHangTimes() {
   };
 
   return (
-    <div style={s.root}>
+    <div style={showHeader ? s.root : { fontFamily: F, color: C.text }}>
       {/* Header */}
-      <div style={s.header}>
-        <div style={s.headerInner}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button onClick={() => navigate('/')} style={s.backBtn} className="nh-tab">
-              &larr;
-            </button>
-            <div>
-              <div style={s.headerTitle}>Nguồn Hàng Times City</div>
-              <div style={s.headerSub}>Quỹ căn bất động sản — Chỉ xem</div>
+      {showHeader && (
+        <div style={s.header}>
+          <div style={s.headerInner}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button onClick={() => navigate('/')} style={s.backBtn} className="nh-tab">
+                &larr;
+              </button>
+              <div>
+                <div style={s.headerTitle}>Nguồn Hàng Times City</div>
+                <div style={s.headerSub}>Quỹ căn bất động sản — Chỉ xem</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button
+                onClick={() => loadTabData(activeTab)}
+                disabled={loadingData}
+                style={s.reloadBtn}
+                className="nh-tab"
+                title="Tải lại dữ liệu"
+              >
+                {loadingData ? '...' : '↻'}
+              </button>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button
-              onClick={() => loadTabData(activeTab)}
-              disabled={loadingData}
-              style={s.reloadBtn}
-              className="nh-tab"
-              title="Tải lại dữ liệu"
-            >
-              {loadingData ? '...' : '↻'}
-            </button>
-          </div>
         </div>
-      </div>
+      )}
 
-      <div style={s.container}>
+      <div style={showHeader ? s.container : { padding: '0' }}>
         {loading && <div style={s.loadingBox}>Đang tải danh sách tab...</div>}
 
         {!loading && tabs.length > 0 && (
