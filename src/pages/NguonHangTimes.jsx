@@ -105,30 +105,34 @@ function NguonHangInner({ showHeader }) {
         const range = XLSX.utils.decode_range(ref);
         const merges = ws['!merges'] || [];
 
-        // Extract all cell colors
-        const cellColors = {};
-        for (let r = 0; r <= range.e.r; r++) {
-          for (let c = 0; c <= range.e.c; c++) {
-            const addr = XLSX.utils.encode_cell({ r, c });
-            const cell = ws[addr];
-            if (cell?.s?.patternType === 'solid' && cell.s.fgColor?.rgb) {
-              const rgb = cell.s.fgColor.rgb;
-              // Skip white and near-white
-              if (rgb !== 'FFFFFF' && rgb !== 'ffffff') {
-                cellColors[`${r}_${c}`] = `#${rgb}`;
+        if (isRawSheet) {
+          // Giữ nguyên format gốc cho Homestay, SĐT
+          // Chỉ lấy rows có data, giới hạn columns
+          const maxRawCols = Math.min(range.e.c + 1, 18);
+          const rawColors = {};
+          const trimmedRaw = [];
+          for (let r = 0; r < Math.min(rawData.length, 200); r++) {
+            const row = rawData[r].slice(0, maxRawCols);
+            if (!row.some(v => v !== '' && v !== undefined && v !== null)) continue;
+            trimmedRaw.push(row);
+            // Colors cho raw sheet
+            for (let c = 0; c < maxRawCols; c++) {
+              const addr = XLSX.utils.encode_cell({ r, c });
+              const cell = ws[addr];
+              if (cell?.s?.patternType === 'solid' && cell.s.fgColor?.rgb) {
+                const rgb = cell.s.fgColor.rgb;
+                if (rgb !== 'FFFFFF' && rgb !== 'ffffff') {
+                  rawColors[`${trimmedRaw.length - 1}_${c}`] = `#${rgb}`;
+                }
               }
             }
           }
-        }
-
-        if (isRawSheet) {
-          // Giữ nguyên format gốc cho Homestay, SĐT
           parsedSheets.push({
             name: sheetName,
             type: 'raw',
-            data: rawData.slice(0, 500), // Limit rows
-            colors: cellColors,
-            merges: merges.slice(0, 200),
+            data: trimmedRaw,
+            colors: rawColors,
+            merges: merges.slice(0, 50),
           });
         } else {
           // Xử lý sheet dữ liệu (Quỹ căn, Hàng đầu tư, etc.)
@@ -145,54 +149,52 @@ function NguonHangInner({ showHeader }) {
               lastMeaningfulCol = c;
             }
           }
-          // Thêm ít nhất cột tiếp theo nếu có data
           const maxCol = Math.min(lastMeaningfulCol + 2, headers.length);
           const trimmedHeaders = headers.slice(0, maxCol);
 
-          // Process data rows
+          // Process data rows - chỉ extract colors cho columns hữu ích
           const items = [];
           for (let r = 1; r < rawData.length; r++) {
             const row = rawData[r];
             const rowValues = row.slice(0, maxCol);
 
-            // Bỏ dòng chú thích (row 2, 3: "CĂN HỘ GIÁ TỐT", "DỪNG BÁN")
+            // Bỏ dòng chú thích
             const rowText = rowValues.map(v => (v || '').toString().trim().toUpperCase()).join(' ');
             if (LEGEND_TEXTS.some(lt => rowText.includes(lt))) continue;
 
-            // Bỏ dòng trống hoàn toàn
+            // Bỏ dòng trống
             if (!rowValues.some(v => v !== '' && v !== undefined && v !== null)) continue;
 
-            // Build item
             const item = { _row: r };
             const itemColors = {};
             let isGroupHeader = false;
 
             trimmedHeaders.forEach((h, c) => {
               let val = rowValues[c];
-
-              // Convert Excel serial date to readable date
               if (c <= 1 && typeof val === 'number' && val > 40000 && val < 50000) {
-                const date = excelDateToString(val);
-                val = date;
+                val = excelDateToString(val);
               }
-
               item[h] = val !== undefined && val !== null ? String(val) : '';
 
-              // Get cell color
-              const colorKey = `${r}_${c}`;
-              if (cellColors[colorKey]) {
-                itemColors[h] = cellColors[colorKey];
+              // Get cell color - chỉ cho cột hiện tại
+              const addr = XLSX.utils.encode_cell({ r, c });
+              const cell = ws[addr];
+              if (cell?.s?.patternType === 'solid' && cell.s.fgColor?.rgb) {
+                const rgb = cell.s.fgColor.rgb;
+                if (rgb !== 'FFFFFF' && rgb !== 'ffffff') {
+                  itemColors[h] = `#${rgb}`;
+                }
               }
             });
 
-            // Check nếu là dòng group header (VD: "T01", "P09", "Times City")
-            // Group header: chỉ cell đầu tiên có giá trị, các cell khác trống, và có bg cam (FF9900)
-            const filledCells = Object.values(item).filter((v, i) => i > 0 && v && v !== '0' && i < 5).length;
-            const firstCellColor = cellColors[`${r}_0`];
-            if (filledCells <= 1 && firstCellColor === '#FF9900') {
+            // Check group header
+            const filledCells = trimmedHeaders.filter((h, i) => i > 0 && item[h] && item[h] !== '0').length;
+            const firstAddr = XLSX.utils.encode_cell({ r, c: 0 });
+            const firstCell = ws[firstAddr];
+            const firstBg = firstCell?.s?.fgColor?.rgb;
+            if (filledCells <= 1 && firstBg === 'FF9900') {
               isGroupHeader = true;
             }
-            // Also check merged rows
             const isMerged = merges.some(m => m.s.r === r && (m.e.c - m.s.c) >= 3);
             if (isMerged) isGroupHeader = true;
 
@@ -210,7 +212,7 @@ function NguonHangInner({ showHeader }) {
             name: sheetName,
             type: 'data',
             headers: trimmedHeaders,
-            items: items.slice(0, 2000), // Limit
+            items: items.slice(0, 1500),
             totalRows: items.length,
           });
         }
@@ -218,8 +220,13 @@ function NguonHangInner({ showHeader }) {
 
       setImportProgress(`Đang lưu ${parsedSheets.length} sheets...`);
 
-      // Save to API
-      await postXlsxImport(parsedSheets);
+      // Save to API — gửi từng sheet 1 để tránh body quá lớn
+      // Lần đầu gửi với mode 'init' (clear + tạo header)
+      // Các lần sau gửi với mode 'append'
+      for (let i = 0; i < parsedSheets.length; i++) {
+        setImportProgress(`Đang lưu sheet ${i + 1}/${parsedSheets.length}: ${parsedSheets[i].name}...`);
+        await postXlsxImport([parsedSheets[i]], i === 0 ? 'init' : 'append');
+      }
 
       setSheetsData(parsedSheets);
       setImportDate(new Date().toLocaleString('vi-VN'));

@@ -164,11 +164,11 @@ export async function fetchXlsxImport() {
   return res.json();
 }
 
-export async function postXlsxImport(sheets) {
+export async function postXlsxImport(sheets, mode = 'init') {
   const res = await fetch('/api/xlsx-import', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sheets }),
+    body: JSON.stringify({ sheets, mode }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
