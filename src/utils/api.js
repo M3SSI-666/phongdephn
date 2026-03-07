@@ -157,6 +157,26 @@ export async function postNguonHangCustom(payload) {
   return res.json();
 }
 
+// ============ XLSX Import ============
+export async function fetchXlsxImport() {
+  const res = await fetch(`/api/xlsx-import?t=${Date.now()}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Fetch XLSX import failed');
+  return res.json();
+}
+
+export async function postXlsxImport(sheets) {
+  const res = await fetch('/api/xlsx-import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sheets }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Import failed (${res.status})`);
+  }
+  return res.json();
+}
+
 // ============ Khach Times City ============
 export async function fetchKhachTimes() {
   const res = await fetch(`/api/khachtimes?t=${Date.now()}`, {
