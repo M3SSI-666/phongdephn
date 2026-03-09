@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 
 const SHEET_NAME = 'Khach_Times';
-// 15 columns: STT, Ten, Zalo, SDT, Nhu_Cau, Phong_Ngu, Noi_That, Slot_Xe, Thoi_Han_Thue, Ngay_Vao, Dien_Tich, Tai_Chinh, Toa, Can_Tu_Van, Ghi_Chu
-const COLUMNS = 'A:O';
+// 17 columns: STT, Ten, Zalo, SDT, Nhu_Cau, Phong_Ngu, Noi_That, Slot_Xe, Thoi_Han_Thue, Ngay_Vao, Dien_Tich, Tai_Chinh, Toa, Can_Tu_Van, Ghi_Chu, Ngay_PS, Trang_Thai
+const COLUMNS = 'A:Q';
 
 export default async function handler(req, res) {
   try {
@@ -66,6 +66,8 @@ async function handleGet(req, res, sheetId, email, key) {
     Toa: row[12] || '',
     Can_Tu_Van: row[13] || '',
     Ghi_Chu: row[14] || '',
+    Ngay_PS: row[15] || '',
+    Trang_Thai: row[16] || '',
     _rowIndex: i + 2, // actual row in sheet (1-indexed, skip header)
   }));
 
@@ -88,7 +90,7 @@ async function handlePost(req, res, sheetId, email, key) {
       p.STT, p.Ten, p.Zalo, p.SDT,
       p.Nhu_Cau, p.Phong_Ngu, p.Noi_That, p.Slot_Xe,
       p.Thoi_Han_Thue, p.Ngay_Vao, p.Dien_Tich, p.Tai_Chinh,
-      p.Toa, p.Can_Tu_Van, p.Ghi_Chu,
+      p.Toa, p.Can_Tu_Van, p.Ghi_Chu, p.Ngay_PS, p.Trang_Thai,
     ];
   }
 
@@ -118,7 +120,7 @@ async function handlePost(req, res, sheetId, email, key) {
     }
 
     const row = buildRow(payload);
-    const range = `${SHEET_NAME}!A${payload._rowIndex}:O${payload._rowIndex}`;
+    const range = `${SHEET_NAME}!A${payload._rowIndex}:Q${payload._rowIndex}`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?valueInputOption=USER_ENTERED`;
     const response = await fetch(url, {
       method: 'PUT',
