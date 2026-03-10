@@ -10,6 +10,8 @@ const TRANG_THAI_OPTIONS = [
   { value: 'Ít tiềm năng', label: 'Ít tiềm năng', bg: '#FFF3CD', text: '#856404' },
   { value: 'Tiềm năng', label: 'Tiềm năng', bg: '#D4EDDA', text: '#4B7A2E' },
   { value: 'Làm việc sâu', label: 'Làm việc sâu', bg: '#32CD32', text: '#fff' },
+  { value: 'Miss', label: 'Miss', bg: '#F8D7DA', text: '#721C24' },
+  { value: 'Done', label: 'Done', bg: '#CCE5FF', text: '#004085' },
 ];
 
 const NHU_CAU_OPTIONS = ['Thuê', 'Mua', 'Homestay'];
