@@ -20,7 +20,7 @@ function getTodayStr() {
 }
 
 const EMPTY_FORM = {
-  Ngay_PS: '', Ten: '', Zalo: '', SDT: '',
+  Ngay_PS: '', Ten_Zalo: '', SDT: '',
   Nhu_Cau: 'Thuê', Phong_Ngu: '', Noi_That: '', Slot_Xe: '',
   Thoi_Han_Thue: '', Ngay_Vao: '', Dien_Tich: '', Tai_Chinh: '',
   Toa: '', Can_Tu_Van: '', Trang_Thai: '', Ghi_Chu: '',
@@ -125,8 +125,7 @@ function KhachTimesInner({ showHeader }) {
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter((it) =>
-        (it.Ten || '').toLowerCase().includes(q) ||
-        (it.Zalo || '').toLowerCase().includes(q) ||
+        (it.Ten_Zalo || '').toLowerCase().includes(q) ||
         (it.SDT || '').includes(q) ||
         (it.Toa || '').toLowerCase().includes(q) ||
         (it.Noi_That || '').toLowerCase().includes(q) ||
@@ -162,8 +161,7 @@ function KhachTimesInner({ showHeader }) {
     setEditItem(item);
     setForm({
       Ngay_PS: item.Ngay_PS || '',
-      Ten: item.Ten || '',
-      Zalo: item.Zalo || '',
+      Ten_Zalo: item.Ten_Zalo || '',
       SDT: item.SDT || '',
       Nhu_Cau: item.Nhu_Cau || 'Thuê',
       Phong_Ngu: item.Phong_Ngu || '',
@@ -187,7 +185,7 @@ function KhachTimesInner({ showHeader }) {
   };
 
   const handleSave = async () => {
-    if (!form.Ten.trim()) return showToast('Vui lòng nhập tên khách hàng', 'error');
+    if (!form.Ten_Zalo.trim()) return showToast('Vui lòng nhập tên khách hàng', 'error');
     if (!form.SDT.trim()) return showToast('Vui lòng nhập số điện thoại', 'error');
 
     try {
@@ -196,8 +194,7 @@ function KhachTimesInner({ showHeader }) {
 
       const payload = {
         Ngay_PS: form.Ngay_PS.trim(),
-        Ten: form.Ten.trim(),
-        Zalo: form.Zalo.trim(),
+        Ten_Zalo: form.Ten_Zalo.trim(),
         SDT: form.SDT.trim(),
         Nhu_Cau: nhuCau,
         Phong_Ngu: form.Phong_Ngu,
@@ -308,7 +305,7 @@ function KhachTimesInner({ showHeader }) {
             <span style={s.searchIcon}>&#128269;</span>
             <input
               type="text"
-              placeholder="Tìm theo tên, Zalo, SĐT, toà, căn tư vấn..."
+              placeholder="Tìm theo tên, SĐT, toà, căn tư vấn..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={s.searchInput}
@@ -350,7 +347,7 @@ function KhachTimesInner({ showHeader }) {
             <table style={s.table}>
               <thead>
                 <tr>
-                  {['STT', 'Ngày PS', 'Tên', 'Zalo', 'SĐT', 'Nhu cầu', 'Phòng ngủ', 'Nội thất', 'Slot xe', 'Thời hạn thuê', 'Ngày vào', 'Diện tích', 'Tài chính', 'Tòa', 'Căn tư vấn', 'Trạng thái', 'Ghi chú', ''].map((h, idx) => (
+                  {['STT', 'Ngày PS', 'Tên (Zalo)', 'SĐT', 'Nhu cầu', 'Phòng ngủ', 'Nội thất', 'Slot xe', 'Thời hạn thuê', 'Ngày vào', 'Diện tích', 'Tài chính', 'Tòa', 'Căn tư vấn', 'Trạng thái', 'Ghi chú', ''].map((h, idx) => (
                     <th key={h || `act_${idx}`} style={s.th}>{h}</th>
                   ))}
                 </tr>
@@ -358,7 +355,7 @@ function KhachTimesInner({ showHeader }) {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={18} style={s.emptyTd}>
+                    <td colSpan={17} style={s.emptyTd}>
                       {items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}
                     </td>
                   </tr>
@@ -367,8 +364,7 @@ function KhachTimesInner({ showHeader }) {
                     <tr key={item._rowIndex} className="kt-row" style={s.tr}>
                       <td style={s.td}>{item.STT}</td>
                       <td style={{ ...s.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_PS}</td>
-                      <td style={{ ...s.td, ...s.tdName, fontWeight: 600 }}>{item.Ten}</td>
-                      <td style={s.td}>{item.Zalo}</td>
+                      <td style={{ ...s.td, ...s.tdName, fontWeight: 600 }}>{item.Ten_Zalo}</td>
                       <td style={{ ...s.td, whiteSpace: 'nowrap' }}>{item.SDT}</td>
                       <td style={s.td}>
                         <NhuCauBadge nhuCau={item.Nhu_Cau} />
@@ -408,9 +404,8 @@ function KhachTimesInner({ showHeader }) {
               <button onClick={closeModal} style={s.modalClose}>&times;</button>
             </div>
             <div style={s.modalBody}>
-              <FormField label="Ngày phát sinh" value={form.Ngay_PS} onChange={(v) => updateForm('Ngay_PS', v)} placeholder="VD: 09/03/2026" />
-              <FormField label="Tên khách hàng *" value={form.Ten} onChange={(v) => updateForm('Ten', v)} />
-              <FormField label="Tên Zalo" value={form.Zalo} onChange={(v) => updateForm('Zalo', v)} />
+              <FormField label="Ngày phát sinh" value={form.Ngay_PS} onChange={(v) => updateForm('Ngay_PS', v)} placeholder="VD: 10/03/2026" />
+              <FormField label="Tên khách (Zalo) *" value={form.Ten_Zalo} onChange={(v) => updateForm('Ten_Zalo', v)} placeholder="VD: Anh Minh (zalo: Minh BĐS)" />
               <FormField label="Số điện thoại *" value={form.SDT} onChange={(v) => updateForm('SDT', v)} type="tel" />
 
               <div style={s.fieldWrap}>
@@ -521,7 +516,7 @@ function KhachTimesInner({ showHeader }) {
               Xác nhận xoá
             </div>
             <div style={{ fontSize: 14, color: C.textMuted, marginBottom: 20, lineHeight: 1.5 }}>
-              Xoá khách <strong>{deleteTarget.Ten}</strong>? Hành động này không thể hoàn tác.
+              Xoá khách <strong>{deleteTarget.Ten_Zalo}</strong>? Hành động này không thể hoàn tác.
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setDeleteTarget(null)} style={s.cancelBtn} className="kt-btn">Huỷ</button>
