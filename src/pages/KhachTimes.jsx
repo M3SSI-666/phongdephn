@@ -374,32 +374,12 @@ function KhachTimesInner({ showHeader }) {
                       <td style={{ ...s.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_PS}</td>
                       <td style={{ ...s.td, ...s.tdName, fontWeight: 600 }}>{item.Ten_Zalo}</td>
                       <td style={{ ...s.td, whiteSpace: 'nowrap' }}>{item.SDT}</td>
-                      {/* Nhu cầu — inline dropdown */}
-                      <td style={{ ...s.td, padding: '4px 4px' }}>
-                        <select
-                          className="kt-inline-select"
-                          value={item.Nhu_Cau || ''}
-                          onChange={(e) => inlineUpdate(item, 'Nhu_Cau', e.target.value)}
-                          style={getNhuCauStyle(item.Nhu_Cau)}
-                        >
-                          <option value="">--</option>
-                          {NHU_CAU_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
+                      <td style={s.td}>
+                        <span style={getNhuCauBadgeStyle(item.Nhu_Cau)}>{item.Nhu_Cau || '-'}</span>
                       </td>
                       <td style={{ ...s.td, textAlign: 'center' }}>{item.Phong_Ngu}</td>
                       <td style={s.td}>{item.Noi_That}</td>
-                      {/* Slot xe — inline dropdown */}
-                      <td style={{ ...s.td, padding: '4px 4px' }}>
-                        <select
-                          className="kt-inline-select"
-                          value={item.Slot_Xe || ''}
-                          onChange={(e) => inlineUpdate(item, 'Slot_Xe', e.target.value)}
-                          style={{ textAlign: 'center' }}
-                        >
-                          <option value="">--</option>
-                          {SLOT_XE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
-                      </td>
+                      <td style={{ ...s.td, textAlign: 'center' }}>{item.Slot_Xe || '-'}</td>
                       <td style={s.td}>{item.Thoi_Han_Thue}</td>
                       <td style={{ ...s.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_Vao}</td>
                       <td style={s.td}>{item.Dien_Tich}</td>
@@ -535,12 +515,13 @@ function KhachTimesInner({ showHeader }) {
 }
 
 // ── Helpers ──
-function getNhuCauStyle(val) {
+function getNhuCauBadgeStyle(val) {
   const v = (val || '').toLowerCase();
-  if (v.includes('thu')) return { color: C.primaryDark, fontWeight: 700 };
-  if (v === 'mua') return { color: C.accent, fontWeight: 700 };
-  if (v === 'homestay') return { color: '#E67E22', fontWeight: 700 };
-  return {};
+  const base = { display: 'inline-block', padding: '2px 10px', borderRadius: 12, fontSize: 11, fontWeight: 700 };
+  if (v.includes('thu')) return { ...base, background: C.primary + '18', color: C.primaryDark };
+  if (v === 'mua') return { ...base, background: C.accent + '18', color: C.accent };
+  if (v === 'homestay') return { ...base, background: '#E67E2218', color: '#E67E22' };
+  return { fontSize: 12, color: C.textDim };
 }
 
 function getTrangThaiSelectStyle(val) {
