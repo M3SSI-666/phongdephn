@@ -34,7 +34,7 @@ export default async function handler(req, res) {
 }
 
 async function handleGet(req, res, sheetId, email, key) {
-  const token = await getAccessToken(email, key);
+  const token = await getAccessToken(email, key, true);
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!${COLUMNS}`;
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
@@ -42,6 +42,11 @@ async function handleGet(req, res, sheetId, email, key) {
 
   if (!response.ok) {
     const errText = await response.text();
+    // Nếu tab chưa tồn tại → tự tạo tab + header
+    if (errText.includes('Unable to parse range')) {
+      await createSheetWithHeaders(sheetId, token);
+      return res.status(200).json([]);
+    }
     return res.status(500).json({ error: 'sheets_read', detail: errText });
   }
 
@@ -192,6 +197,30 @@ async function handlePost(req, res, sheetId, email, key) {
   }
 
   return res.status(400).json({ error: `Unknown action: ${payload.action}` });
+}
+
+async function createSheetWithHeaders(sheetId, token) {
+  const HEADERS = [
+    'STT', 'Ngay_PS', 'Ngay_Cap_Nhat', 'Nguon', 'Ma_Can', 'PN',
+    'Dien_Tich', 'BC', 'Gia', 'Phi_MG', 'TT', 'Slot_Xe',
+    'Thang', 'Nam', 'Ten_Chu', 'SDT_Chu', 'Pass', 'Ghi_Chu',
+  ];
+
+  // 1. Tạo tab mới
+  const batchUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`;
+  await fetch(batchUrl, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requests: [{ addSheet: { properties: { title: SHEET_NAME } } }] }),
+  });
+
+  // 2. Thêm header row
+  const putUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!A1:R1?valueInputOption=USER_ENTERED`;
+  await fetch(putUrl, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: [HEADERS] }),
+  });
 }
 
 function getAccessToken(email, privateKey, writable = false) {
