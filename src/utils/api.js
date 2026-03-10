@@ -160,6 +160,28 @@ export async function postXlsxImport(sheets, mode = 'init') {
   return res.json();
 }
 
+// ============ Quỹ Căn Thuê ============
+export async function fetchQuyCanThue() {
+  const res = await fetch(`/api/quycanthue?t=${Date.now()}`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error('Fetch quy can thue failed');
+  return res.json();
+}
+
+export async function postQuyCanThue(payload) {
+  const res = await fetch('/api/quycanthue', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Action failed (${res.status})`);
+  }
+  return res.json();
+}
+
 // ============ Khach Times City ============
 export async function fetchKhachTimes() {
   const res = await fetch(`/api/khachtimes?t=${Date.now()}`, {

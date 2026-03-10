@@ -1,17 +1,23 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { C } from '../utils/theme';
-import { fetchXlsxImport, postXlsxImport } from '../utils/api';
+import { fetchQuyCanThue, postQuyCanThue } from '../utils/api';
 import NguonHangCustomPanel from './NguonHangCustomPanel';
-import * as XLSX from 'xlsx';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
-// Sheets giữ nguyên format gốc (không xử lý bỏ row chú thích)
-const RAW_SHEETS = ['Homestay', 'SĐT của đầu tư & Thợ'];
+function getTodayStr() {
+  const d = new Date();
+  const dd = d.getDate().toString().padStart(2, '0');
+  const mm = (d.getMonth() + 1).toString().padStart(2, '0');
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
 
-// Rows chú thích cần bỏ (chứa text này ở bất kỳ cell nào)
-const LEGEND_TEXTS = ['CĂN HỘ GIÁ TỐT', 'DỪNG BÁN', 'DỪNG CHO THUÊ', 'ĐÃ BÁN'];
+const EMPTY_FORM = {
+  Ngay_PS: '', Ngay_Cap_Nhat: '', Nguon: '', Ma_Can: '', PN: '',
+  Dien_Tich: '', BC: '', Gia: '', Phi_MG: '', TT: '', Slot_Xe: '',
+  Thang: '', Nam: '', Ten_Chu: '', SDT_Chu: '', Pass: '', Ghi_Chu: '',
+};
 
 export function NguonHangContent() {
   return <NguonHangInner showHeader={false} />;
@@ -23,31 +29,38 @@ export default function NguonHangTimes() {
 
 function NguonHangInner({ showHeader }) {
   const navigate = useNavigate();
-  const [viewMode, setViewMode] = useState('company');
-  const [sheetsData, setSheetsData] = useState([]);
-  const [importDate, setImportDate] = useState(null);
-  const [activeTab, setActiveTab] = useState('');
+  const [viewMode, setViewMode] = useState('quycanthue');
+
+  // Quỹ Căn Thuê states
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [importing, setImporting] = useState(false);
-  const [importProgress, setImportProgress] = useState('');
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const fileInputRef = useRef(null);
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editItem, setEditItem] = useState(null);
+  const [form, setForm] = useState({ ...EMPTY_FORM });
+
+  const [toast, setToast] = useState(null);
+  const toastTimer = useRef(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
       @keyframes nhFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+      @keyframes nhSlideUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+      @keyframes nhToastIn { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
       .nh-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
       .nh-table-wrap::-webkit-scrollbar { height: 6px; }
       .nh-table-wrap::-webkit-scrollbar-thumb { background: ${C.textDim}; border-radius: 3px; }
-      .nh-row:hover { filter: brightness(0.96); }
+      .nh-row:hover { background: ${C.primaryBg} !important; }
       .nh-tab { cursor: pointer; transition: all 0.15s; border: none; font-family: ${F}; }
       .nh-tab:hover { background: ${C.primaryBg} !important; }
+      .nh-btn:active { transform: scale(0.97); }
       @media (max-width: 640px) {
-        .nh-tabs-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        .nh-tabs-wrap::-webkit-scrollbar { height: 4px; }
-        .nh-tabs-wrap::-webkit-scrollbar-thumb { background: ${C.textDim}; border-radius: 2px; }
+        .nh-modal-content { width: 100% !important; height: 100% !important; max-height: 100% !important; border-radius: 0 !important; }
         .nh-header-row { flex-direction: column !important; gap: 10px !important; align-items: stretch !important; }
       }
     `;
@@ -55,18 +68,18 @@ function NguonHangInner({ showHeader }) {
     return () => document.head.removeChild(style);
   }, []);
 
-  // Load saved XLSX data
+  const showToast = useCallback((msg, type = 'success') => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ msg, type });
+    toastTimer.current = setTimeout(() => setToast(null), 3000);
+  }, []);
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
-      const data = await fetchXlsxImport();
-      const sheets = data.sheets || [];
-      setSheetsData(sheets);
-      setImportDate(data.importDate || null);
-      if (sheets.length > 0 && !activeTab) {
-        setActiveTab(sheets[0].name);
-      }
+      const data = await fetchQuyCanThue();
+      setItems(Array.isArray(data) ? data : []);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -76,195 +89,136 @@ function NguonHangInner({ showHeader }) {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Parse XLSX file
-  const handleFileImport = useCallback(async (e) => {
-    const file = e.target?.files?.[0];
-    if (!file) return;
-
-    try {
-      setImporting(true);
-      setImportProgress('Đang đọc file...');
-      setError('');
-
-      const arrayBuffer = await file.arrayBuffer();
-      const wb = XLSX.read(arrayBuffer, { cellStyles: true });
-
-      setImportProgress(`Đang parse ${wb.SheetNames.length} sheets...`);
-
-      const parsedSheets = [];
-
-      for (const sheetName of wb.SheetNames) {
-        const ws = wb.Sheets[sheetName];
-        const ref = ws['!ref'];
-        if (!ref) continue;
-
-        const rawData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-        if (rawData.length === 0) continue;
-
-        const isRawSheet = RAW_SHEETS.some(rs => sheetName.includes(rs) || rs.includes(sheetName));
-        const range = XLSX.utils.decode_range(ref);
-        const merges = ws['!merges'] || [];
-
-        if (isRawSheet) {
-          // Giữ nguyên format gốc cho Homestay, SĐT
-          // Chỉ lấy rows có data, giới hạn columns
-          const maxRawCols = Math.min(range.e.c + 1, 18);
-          const rawColors = {};
-          const trimmedRaw = [];
-          for (let r = 0; r < Math.min(rawData.length, 200); r++) {
-            const row = rawData[r].slice(0, maxRawCols);
-            if (!row.some(v => v !== '' && v !== undefined && v !== null)) continue;
-            trimmedRaw.push(row);
-            // Colors cho raw sheet
-            for (let c = 0; c < maxRawCols; c++) {
-              const addr = XLSX.utils.encode_cell({ r, c });
-              const cell = ws[addr];
-              if (cell?.s?.patternType === 'solid' && cell.s.fgColor?.rgb) {
-                const rgb = cell.s.fgColor.rgb;
-                if (rgb !== 'FFFFFF' && rgb !== 'ffffff') {
-                  rawColors[`${trimmedRaw.length - 1}_${c}`] = `#${rgb}`;
-                }
-              }
-            }
-          }
-          parsedSheets.push({
-            name: sheetName,
-            type: 'raw',
-            data: trimmedRaw,
-            colors: rawColors,
-            merges: merges.slice(0, 50),
-          });
-        } else {
-          // Xử lý sheet dữ liệu (Quỹ căn, Hàng đầu tư, etc.)
-          const headers = rawData[0].map((h, idx) => {
-            const trimmed = (h || '').toString().replace(/\n/g, ' ').trim();
-            if (idx === 0 && !trimmed) return 'Ngày Phát Sinh';
-            return trimmed || `Col_${idx}`;
-          });
-
-          // Filter meaningful columns (bỏ cột trống ở cuối)
-          let lastMeaningfulCol = 0;
-          for (let c = 0; c < headers.length; c++) {
-            if (headers[c] && !headers[c].startsWith('Col_')) {
-              lastMeaningfulCol = c;
-            }
-          }
-          const maxCol = Math.min(lastMeaningfulCol + 2, headers.length);
-          const trimmedHeaders = headers.slice(0, maxCol);
-
-          // Process data rows - chỉ extract colors cho columns hữu ích
-          const items = [];
-          for (let r = 1; r < rawData.length; r++) {
-            const row = rawData[r];
-            const rowValues = row.slice(0, maxCol);
-
-            // Bỏ dòng chú thích
-            const rowText = rowValues.map(v => (v || '').toString().trim().toUpperCase()).join(' ');
-            if (LEGEND_TEXTS.some(lt => rowText.includes(lt))) continue;
-
-            // Bỏ dòng trống
-            if (!rowValues.some(v => v !== '' && v !== undefined && v !== null)) continue;
-
-            const item = { _row: r };
-            const itemColors = {};
-            let isGroupHeader = false;
-
-            trimmedHeaders.forEach((h, c) => {
-              let val = rowValues[c];
-              if (c <= 1 && typeof val === 'number' && val > 40000 && val < 50000) {
-                val = excelDateToString(val);
-              }
-              item[h] = val !== undefined && val !== null ? String(val) : '';
-
-              // Get cell color - chỉ cho cột hiện tại
-              const addr = XLSX.utils.encode_cell({ r, c });
-              const cell = ws[addr];
-              if (cell?.s?.patternType === 'solid' && cell.s.fgColor?.rgb) {
-                const rgb = cell.s.fgColor.rgb;
-                if (rgb !== 'FFFFFF' && rgb !== 'ffffff') {
-                  itemColors[h] = `#${rgb}`;
-                }
-              }
-            });
-
-            // Check group header
-            const filledCells = trimmedHeaders.filter((h, i) => i > 0 && item[h] && item[h] !== '0').length;
-            const firstAddr = XLSX.utils.encode_cell({ r, c: 0 });
-            const firstCell = ws[firstAddr];
-            const firstBg = firstCell?.s?.fgColor?.rgb;
-            if (filledCells <= 1 && firstBg === 'FF9900') {
-              isGroupHeader = true;
-            }
-            const isMerged = merges.some(m => m.s.r === r && (m.e.c - m.s.c) >= 3);
-            if (isMerged) isGroupHeader = true;
-
-            if (Object.keys(itemColors).length > 0) {
-              item._colors = itemColors;
-            }
-            if (isGroupHeader) {
-              item._isGroup = true;
-            }
-
-            items.push(item);
-          }
-
-          parsedSheets.push({
-            name: sheetName,
-            type: 'data',
-            headers: trimmedHeaders,
-            items: items.slice(0, 1500),
-            totalRows: items.length,
-          });
-        }
-      }
-
-      setImportProgress(`Đang lưu ${parsedSheets.length} sheets...`);
-
-      // Save to API — gửi từng sheet 1 để tránh body quá lớn
-      // Lần đầu gửi với mode 'init' (clear + tạo header)
-      // Các lần sau gửi với mode 'append'
-      for (let i = 0; i < parsedSheets.length; i++) {
-        setImportProgress(`Đang lưu sheet ${i + 1}/${parsedSheets.length}: ${parsedSheets[i].name}...`);
-        await postXlsxImport([parsedSheets[i]], i === 0 ? 'init' : 'append');
-      }
-
-      setSheetsData(parsedSheets);
-      setImportDate(new Date().toLocaleString('vi-VN'));
-      if (parsedSheets.length > 0) {
-        setActiveTab(parsedSheets[0].name);
-      }
-      setImportProgress('');
-      setImporting(false);
-    } catch (err) {
-      setError('Lỗi import: ' + err.message);
-      setImporting(false);
-      setImportProgress('');
-    }
-
-    // Reset file input
-    if (fileInputRef.current) fileInputRef.current.value = '';
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchQuyCanThue().then((data) => {
+        setItems(Array.isArray(data) ? data : []);
+      }).catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
-  // Get current sheet data
-  const currentSheet = useMemo(() => {
-    return sheetsData.find(s => s.name === activeTab) || null;
-  }, [sheetsData, activeTab]);
-
-  // Filtered items for data sheets
   const filtered = useMemo(() => {
-    if (!currentSheet || currentSheet.type !== 'data') return [];
-    const items = currentSheet.items || [];
-    if (!search.trim()) return items;
-    const q = search.toLowerCase();
-    return items.filter(item =>
-      Object.entries(item).some(([k, v]) =>
-        k !== '_row' && k !== '_colors' && k !== '_isGroup' &&
-        (v || '').toString().toLowerCase().includes(q)
-      )
-    );
-  }, [currentSheet, search]);
+    let list = [...items];
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((it) =>
+        Object.entries(it).some(([k, v]) =>
+          k !== '_rowIndex' && (v || '').toString().toLowerCase().includes(q)
+        )
+      );
+    }
+    list.sort((a, b) => Number(a.STT || 0) - Number(b.STT || 0));
+    return list;
+  }, [items, search]);
 
-  const tabNames = useMemo(() => sheetsData.map(s => s.name), [sheetsData]);
+  const openAdd = () => {
+    setEditItem(null);
+    setForm({ ...EMPTY_FORM, Ngay_PS: getTodayStr(), Ngay_Cap_Nhat: getTodayStr() });
+    setModalOpen(true);
+  };
+
+  const openEdit = (item) => {
+    setEditItem(item);
+    setForm({
+      Ngay_PS: item.Ngay_PS || '',
+      Ngay_Cap_Nhat: item.Ngay_Cap_Nhat || '',
+      Nguon: item.Nguon || '',
+      Ma_Can: item.Ma_Can || '',
+      PN: item.PN || '',
+      Dien_Tich: item.Dien_Tich || '',
+      BC: item.BC || '',
+      Gia: item.Gia || '',
+      Phi_MG: item.Phi_MG || '',
+      TT: item.TT || '',
+      Slot_Xe: item.Slot_Xe || '',
+      Thang: item.Thang || '',
+      Nam: item.Nam || '',
+      Ten_Chu: item.Ten_Chu || '',
+      SDT_Chu: item.SDT_Chu || '',
+      Pass: item.Pass || '',
+      Ghi_Chu: item.Ghi_Chu || '',
+    });
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditItem(null);
+  };
+
+  const handleSave = async () => {
+    if (!form.Ma_Can.trim()) return showToast('Vui lòng nhập Mã căn', 'error');
+
+    try {
+      setSaving(true);
+      const payload = {
+        Ngay_PS: form.Ngay_PS.trim(),
+        Ngay_Cap_Nhat: form.Ngay_Cap_Nhat.trim(),
+        Nguon: form.Nguon.trim(),
+        Ma_Can: form.Ma_Can.trim(),
+        PN: form.PN.trim(),
+        Dien_Tich: form.Dien_Tich.trim(),
+        BC: form.BC.trim(),
+        Gia: form.Gia.trim(),
+        Phi_MG: form.Phi_MG.trim(),
+        TT: form.TT.trim(),
+        Slot_Xe: form.Slot_Xe.trim(),
+        Thang: form.Thang.trim(),
+        Nam: form.Nam.trim(),
+        Ten_Chu: form.Ten_Chu.trim(),
+        SDT_Chu: form.SDT_Chu.trim(),
+        Pass: form.Pass.trim(),
+        Ghi_Chu: form.Ghi_Chu.trim(),
+      };
+
+      if (editItem) {
+        await postQuyCanThue({
+          action: 'update',
+          _rowIndex: editItem._rowIndex,
+          STT: editItem.STT,
+          ...payload,
+        });
+        showToast('Cập nhật thành công!');
+      } else {
+        const maxSTT = items.reduce((m, i) => Math.max(m, Number(i.STT) || 0), 0);
+        await postQuyCanThue({
+          action: 'add',
+          STT: maxSTT + 1,
+          ...payload,
+        });
+        showToast('Thêm căn thành công!');
+      }
+      closeModal();
+      await loadData();
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      setSaving(true);
+      await postQuyCanThue({
+        action: 'delete',
+        _rowIndex: deleteTarget._rowIndex,
+      });
+      showToast('Đã xoá!');
+      setDeleteTarget(null);
+      await loadData();
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateForm = (key, val) => setForm((prev) => ({ ...prev, [key]: val }));
+
+  const TABLE_HEADERS = ['STT', 'Ngày PS', 'Ngày CN', 'Nguồn', 'Mã căn', 'PN', 'DT', 'BC', 'Giá', 'Phí MG', 'TT', 'Slot xe', 'Tháng', 'Năm', 'Tên chủ', 'SĐT chủ', 'Pass', 'Ghi chú', ''];
 
   return (
     <div style={showHeader ? s.root : { fontFamily: F, color: C.text }}>
@@ -283,14 +237,14 @@ function NguonHangInner({ showHeader }) {
       )}
 
       <div style={showHeader ? s.container : { padding: '0' }}>
-        {/* Toggle: Quỹ căn công ty / Phòng của tôi */}
+        {/* Toggle: Quỹ Căn Thuê / Phòng của tôi */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
           <button
-            onClick={() => setViewMode('company')}
+            onClick={() => setViewMode('quycanthue')}
             className="nh-tab"
-            style={{ ...s.viewToggle, ...(viewMode === 'company' ? s.viewToggleActive : {}) }}
+            style={{ ...s.viewToggle, ...(viewMode === 'quycanthue' ? s.viewToggleActive : {}) }}
           >
-            Quỹ căn công ty
+            Quỹ Căn Thuê
           </button>
           <button
             onClick={() => setViewMode('custom')}
@@ -303,343 +257,244 @@ function NguonHangInner({ showHeader }) {
 
         {viewMode === 'custom' && <NguonHangCustomPanel />}
 
-        {viewMode === 'company' && (
+        {viewMode === 'quycanthue' && (
           <>
-            {/* Import row */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={importing}
-                style={s.importBtn}
-                className="nh-tab"
-              >
-                {importing ? '⏳ Đang import...' : '📁 Import XLSX'}
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls"
-                style={{ display: 'none' }}
-                onChange={handleFileImport}
-              />
-              <button
-                onClick={loadData}
-                disabled={loading}
-                style={s.reloadBtn}
-                className="nh-tab"
-                title="Tải lại"
-              >
-                {loading ? '...' : '↻'}
-              </button>
-              {importDate && (
-                <span style={{ fontSize: 11, color: C.textMuted }}>
-                  Cập nhật: {importDate}
-                </span>
-              )}
+            {/* Title row */}
+            <div className="nh-header-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button onClick={openAdd} style={s.addBtn} className="nh-btn">+ Thêm căn</button>
+                <button onClick={loadData} disabled={loading} style={s.reloadBtn} className="nh-btn" title="Tải lại">
+                  {loading ? '...' : '↻'}
+                </button>
+              </div>
+              <div style={{ fontSize: 12, color: C.textMuted }}>{filtered.length} / {items.length} căn</div>
             </div>
 
-            {importProgress && (
-              <div style={{ padding: '8px 16px', background: C.primaryBg, borderRadius: 8, fontSize: 13, color: C.primary, marginBottom: 12 }}>
-                {importProgress}
-              </div>
-            )}
+            {/* Search */}
+            <div style={{ position: 'relative', marginBottom: 16 }}>
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14, opacity: 0.5 }}>&#128269;</span>
+              <input
+                type="text"
+                placeholder="Tìm theo mã căn, nguồn, tên chủ, SĐT..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={s.searchInput}
+              />
+              {search && <button onClick={() => setSearch('')} style={s.clearBtn}>&times;</button>}
+            </div>
 
             {error && <div style={s.errorBox}>{error}</div>}
             {loading && <div style={s.loadingBox}>Đang tải dữ liệu...</div>}
 
-            {!loading && sheetsData.length === 0 && !error && (
-              <div style={s.emptyState}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>
-                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Chưa có dữ liệu</div>
-                <div style={{ fontSize: 13, color: C.textMuted }}>
-                  Bấm "Import XLSX" để tải file Bảng Hàng lên
-                </div>
+            {/* Table */}
+            {!loading && !error && (
+              <div className="nh-table-wrap" style={s.tableWrap}>
+                <table style={s.table}>
+                  <thead>
+                    <tr>
+                      {TABLE_HEADERS.map((h, idx) => (
+                        <th key={h || `act_${idx}`} style={s.th}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.length === 0 ? (
+                      <tr><td colSpan={19} style={s.emptyTd}>{items.length === 0 ? 'Chưa có dữ liệu. Bấm "+ Thêm căn" để bắt đầu.' : 'Không tìm thấy kết quả'}</td></tr>
+                    ) : (
+                      filtered.map((item) => (
+                        <tr key={item._rowIndex} className="nh-row" style={s.tr}>
+                          <td style={{ ...s.td, textAlign: 'center', color: C.textDim, fontSize: 12 }}>{item.STT}</td>
+                          <td style={{ ...s.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_PS}</td>
+                          <td style={{ ...s.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_Cap_Nhat}</td>
+                          <td style={{ ...s.td, whiteSpace: 'pre-line' }}>{item.Nguon}</td>
+                          <td style={{ ...s.td, fontWeight: 600, whiteSpace: 'nowrap' }}>{item.Ma_Can}</td>
+                          <td style={{ ...s.td, textAlign: 'center' }}>{item.PN}</td>
+                          <td style={{ ...s.td, textAlign: 'center' }}>{item.Dien_Tich}</td>
+                          <td style={{ ...s.td, textAlign: 'center' }}>{item.BC}</td>
+                          <td style={{ ...s.td, fontFamily: 'monospace', textAlign: 'right', whiteSpace: 'nowrap' }}>{item.Gia}</td>
+                          <td style={{ ...s.td, whiteSpace: 'nowrap' }}>{item.Phi_MG}</td>
+                          <td style={{ ...s.td, whiteSpace: 'pre-line' }}>{item.TT}</td>
+                          <td style={{ ...s.td, textAlign: 'center' }}>{item.Slot_Xe}</td>
+                          <td style={{ ...s.td, textAlign: 'center' }}>{item.Thang}</td>
+                          <td style={{ ...s.td, textAlign: 'center' }}>{item.Nam}</td>
+                          <td style={{ ...s.td, fontWeight: 600, whiteSpace: 'pre-line' }}>{item.Ten_Chu}</td>
+                          <td style={{ ...s.td, whiteSpace: 'nowrap' }}>{item.SDT_Chu}</td>
+                          <td style={{ ...s.td, whiteSpace: 'pre-line', fontSize: 12 }}>{item.Pass}</td>
+                          <td style={{ ...s.td, maxWidth: 180, whiteSpace: 'pre-line', fontSize: 12, color: C.textMuted }}>{item.Ghi_Chu}</td>
+                          <td style={{ ...s.td, whiteSpace: 'nowrap', borderRight: 'none' }}>
+                            <button onClick={() => openEdit(item)} style={s.actionBtn} title="Sửa">&#9998;</button>
+                            <button onClick={() => setDeleteTarget(item)} style={{ ...s.actionBtn, color: C.error }} title="Xoá">&#128465;</button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
-            )}
-
-            {!loading && sheetsData.length > 0 && (
-              <>
-                {/* Sheet tabs */}
-                <div className="nh-tabs-wrap" style={s.tabsWrap}>
-                  <div style={s.tabsInner}>
-                    {tabNames.map(name => (
-                      <button
-                        key={name}
-                        onClick={() => { setActiveTab(name); setSearch(''); }}
-                        className="nh-tab"
-                        style={{ ...s.tabBtn, ...(name === activeTab ? s.tabActive : {}) }}
-                      >
-                        {name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Content */}
-                {currentSheet?.type === 'data' && (
-                  <>
-                    {/* Search */}
-                    <div className="nh-header-row" style={s.filterRow}>
-                      <div style={s.searchWrap}>
-                        <span style={s.searchIcon}>&#128269;</span>
-                        <input
-                          type="text"
-                          placeholder="Tìm kiếm theo bất kỳ cột nào..."
-                          value={search}
-                          onChange={(e) => setSearch(e.target.value)}
-                          style={s.searchInput}
-                        />
-                        {search && <button onClick={() => setSearch('')} style={s.clearBtn}>&times;</button>}
-                      </div>
-                      <div style={s.resultCount}>{filtered.length} / {currentSheet.items.length} dòng</div>
-                    </div>
-
-                    {/* Data table */}
-                    <div className="nh-table-wrap" style={s.tableWrap}>
-                      <table style={s.table}>
-                        <thead>
-                          <tr>
-                            <th style={s.th}>#</th>
-                            {currentSheet.headers.map((h, i) => (
-                              <th key={`${h}_${i}`} style={s.th}>{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filtered.length === 0 ? (
-                            <tr>
-                              <td colSpan={currentSheet.headers.length + 1} style={s.emptyTd}>
-                                Không tìm thấy kết quả
-                              </td>
-                            </tr>
-                          ) : (
-                            filtered.map((item, idx) => {
-                              const colors = item._colors || {};
-                              const isGroup = item._isGroup;
-
-                              if (isGroup) {
-                                return (
-                                  <tr key={item._row} style={{ background: '#FF9900' }}>
-                                    <td colSpan={currentSheet.headers.length + 1} style={{
-                                      padding: '8px 12px', fontWeight: 800, fontSize: 13,
-                                      color: '#fff', textTransform: 'uppercase',
-                                    }}>
-                                      {currentSheet.headers.map(h => item[h] || '').filter(Boolean).join(' ')}
-                                    </td>
-                                  </tr>
-                                );
-                              }
-
-                              return (
-                                <tr key={item._row} className="nh-row" style={s.tr}>
-                                  <td style={{ ...s.td, color: C.textDim, fontSize: 11, textAlign: 'center' }}>{idx + 1}</td>
-                                  {currentSheet.headers.map((h, ci) => {
-                                    const cellBg = colors[h];
-                                    const cellStyle = getCellStyle(h, item[h]);
-                                    return (
-                                      <td key={`${h}_${ci}`} style={{
-                                        ...cellStyle,
-                                        ...(cellBg ? { background: cellBg } : {}),
-                                      }}>
-                                        {renderCell(h, item[h])}
-                                      </td>
-                                    );
-                                  })}
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
-                )}
-
-                {currentSheet?.type === 'raw' && (
-                  <RawSheetView sheet={currentSheet} />
-                )}
-              </>
             )}
           </>
         )}
       </div>
+
+      {/* Modal Add/Edit */}
+      {modalOpen && (
+        <div style={s.overlay} onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}>
+          <div className="nh-modal-content" style={s.modal}>
+            <div style={s.modalHeader}>
+              <div style={s.modalTitle}>{editItem ? 'Sửa căn' : 'Thêm căn mới'}</div>
+              <button onClick={closeModal} style={s.modalClose}>&times;</button>
+            </div>
+            <div style={s.modalBody}>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <FormField label="Ngày phát sinh" value={form.Ngay_PS} onChange={(v) => updateForm('Ngay_PS', v)} placeholder="VD: 11/03/2026" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <FormField label="Ngày cập nhật" value={form.Ngay_Cap_Nhat} onChange={(v) => updateForm('Ngay_Cap_Nhat', v)} placeholder="VD: 11/03/2026" />
+                </div>
+              </div>
+
+              <FormField label="Nguồn" value={form.Nguon} onChange={(v) => updateForm('Nguon', v)} placeholder="VD: Chủ nhà, Sàn, CTV..." />
+              <FormField label="Mã căn *" value={form.Ma_Can} onChange={(v) => updateForm('Ma_Can', v)} placeholder="VD: R6-1208, T1-0515..." />
+
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={s.fieldWrap}>
+                    <label style={s.fieldLabel}>PN</label>
+                    <select value={form.PN} onChange={(e) => updateForm('PN', e.target.value)} style={s.fieldInput}>
+                      <option value="">--</option>
+                      {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={`${n}`}>{n}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <FormField label="Diện tích" value={form.Dien_Tich} onChange={(v) => updateForm('Dien_Tich', v)} placeholder="VD: 75, 90..." />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <FormField label="BC" value={form.BC} onChange={(v) => updateForm('BC', v)} placeholder="VD: ĐN, TB..." />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <FormField label="Giá" value={form.Gia} onChange={(v) => updateForm('Gia', v)} placeholder="VD: 11tr, 2.5 tỷ..." />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <FormField label="Phí MG" value={form.Phi_MG} onChange={(v) => updateForm('Phi_MG', v)} placeholder="VD: 50%, 1 tháng..." />
+                </div>
+              </div>
+
+              <FormField label="TT (Tình trạng)" value={form.TT} onChange={(v) => updateForm('TT', v)} placeholder="VD: Đang trống, Sắp hết HĐ..." />
+
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <FormField label="Slot xe" value={form.Slot_Xe} onChange={(v) => updateForm('Slot_Xe', v)} placeholder="VD: Có, Không..." />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <FormField label="Tháng" value={form.Thang} onChange={(v) => updateForm('Thang', v)} placeholder="VD: 3, 4..." />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <FormField label="Năm" value={form.Nam} onChange={(v) => updateForm('Nam', v)} placeholder="VD: 2026" />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <FormField label="Tên chủ" value={form.Ten_Chu} onChange={(v) => updateForm('Ten_Chu', v)} placeholder="Tên chủ nhà" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <FormField label="SĐT chủ" value={form.SDT_Chu} onChange={(v) => updateForm('SDT_Chu', v)} type="tel" placeholder="Số điện thoại chủ" />
+                </div>
+              </div>
+
+              <FormField label="Pass" value={form.Pass} onChange={(v) => updateForm('Pass', v)} placeholder="VD: Pass căn..." />
+
+              <div style={s.fieldWrap}>
+                <label style={s.fieldLabel}>Ghi chú</label>
+                <textarea value={form.Ghi_Chu} onChange={(e) => updateForm('Ghi_Chu', e.target.value)} placeholder="Ghi chú thêm..." style={{ ...s.fieldInput, height: 64, resize: 'vertical' }} />
+              </div>
+            </div>
+            <div style={s.modalFooter}>
+              <button onClick={closeModal} style={s.cancelBtn} className="nh-btn">Huỷ</button>
+              <button onClick={handleSave} disabled={saving} style={s.saveBtn} className="nh-btn">{saving ? 'Đang lưu...' : 'Lưu'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirm */}
+      {deleteTarget && (
+        <div style={s.overlay} onClick={(e) => { if (e.target === e.currentTarget) setDeleteTarget(null); }}>
+          <div style={s.confirmBox}>
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12, color: C.text }}>Xác nhận xoá</div>
+            <div style={{ fontSize: 14, color: C.textMuted, marginBottom: 20, lineHeight: 1.5 }}>
+              Xoá căn <strong>{deleteTarget.Ma_Can}</strong>? Hành động này không thể hoàn tác.
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setDeleteTarget(null)} style={s.cancelBtn} className="nh-btn">Huỷ</button>
+              <button onClick={confirmDelete} disabled={saving} style={{ ...s.saveBtn, background: C.error }} className="nh-btn">{saving ? 'Đang xoá...' : 'Xoá'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div style={{ ...s.toast, background: toast.type === 'error' ? C.error : C.primary, animation: 'nhToastIn 0.3s ease' }}>
+          {toast.msg}
+        </div>
+      )}
     </div>
   );
 }
 
-// ── Raw sheet view (Homestay, SĐT) ──
-function RawSheetView({ sheet }) {
-  const data = sheet.data || [];
-  const colors = sheet.colors || {};
-
-  if (data.length === 0) return <div style={s.emptyTd}>Không có dữ liệu</div>;
-
-  // Determine max columns
-  const maxCols = data.reduce((m, row) => Math.max(m, row.length), 0);
-
+// ── Sub-components ──
+function FormField({ label, value, onChange, type = 'text', placeholder = '' }) {
   return (
-    <div className="nh-table-wrap" style={s.tableWrap}>
-      <table style={s.table}>
-        <tbody>
-          {data.map((row, r) => {
-            // Skip fully empty rows
-            if (!row.some(v => v !== '' && v !== undefined && v !== null)) return null;
-
-            return (
-              <tr key={r} className="nh-row" style={s.tr}>
-                {Array.from({ length: maxCols }, (_, c) => {
-                  const val = row[c];
-                  const colorKey = `${r}_${c}`;
-                  const bg = colors[colorKey];
-                  const isHeader = bg === '#FF9900' || bg === '#FCE5CD' || bg === '#C9DAF8' || bg === '#FFD966' || bg === '#F9CB9C' || bg === '#F4CCCC' || bg === '#D9D9D9' || bg === '#A4C2F4';
-
-                  let displayVal = val;
-                  if (typeof val === 'number' && val > 40000 && val < 50000 && r > 0) {
-                    displayVal = excelDateToString(val);
-                  }
-
-                  return (
-                    <td key={c} style={{
-                      padding: '6px 8px', fontSize: 12, verticalAlign: 'middle',
-                      borderBottom: `1px solid ${C.borderLight}`,
-                      ...(bg ? { background: bg } : {}),
-                      ...(isHeader ? { fontWeight: 700, color: bg === '#FF9900' ? '#fff' : C.text } : {}),
-                      whiteSpace: 'nowrap',
-                    }}>
-                      {displayVal !== undefined && displayVal !== null ? String(displayVal) : ''}
-                    </td>
-                  );
-                })}
-              </tr>
-            );
-          }).filter(Boolean)}
-        </tbody>
-      </table>
+    <div style={s.fieldWrap}>
+      <label style={s.fieldLabel}>{label}</label>
+      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={s.fieldInput} />
     </div>
   );
-}
-
-// ── Helpers ──
-function excelDateToString(serial) {
-  const utcDays = Math.floor(serial - 25569);
-  const utcMs = utcDays * 86400 * 1000;
-  const d = new Date(utcMs);
-  const day = d.getUTCDate().toString().padStart(2, '0');
-  const month = (d.getUTCMonth() + 1).toString().padStart(2, '0');
-  const year = d.getUTCFullYear();
-  return `${day}/${month}/${year}`;
-}
-
-function renderCell(header, value) {
-  if (!value || value === '0') return value === '0' ? '0' : '';
-  const h = header.toLowerCase();
-  if (h.includes('hình') || h.includes('ảnh') || h.includes('image') || h.includes('link')) {
-    if (typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'))) {
-      return (
-        <a href={value} target="_blank" rel="noopener noreferrer" style={{ color: C.blue || '#2563EB', fontSize: 12, textDecoration: 'underline' }}>
-          Xem
-        </a>
-      );
-    }
-  }
-  return value;
-}
-
-function getCellStyle(header, value) {
-  const h = header.toLowerCase();
-  const base = { padding: '8px 10px', verticalAlign: 'middle', fontSize: 13 };
-
-  if (h.includes('giá') || h.includes('phí') || h === 'giá' || h === 'phí') {
-    return { ...base, fontFamily: 'monospace', textAlign: 'right', whiteSpace: 'nowrap' };
-  }
-  if (h === 'sđt' || h === 'sdt' || h.includes('điện thoại') || h.includes('sdt')) {
-    return { ...base, whiteSpace: 'nowrap' };
-  }
-  if (h.includes('ghi chú') || h.includes('note')) {
-    return { ...base, maxWidth: 200, whiteSpace: 'pre-line', fontSize: 12, color: C.textMuted };
-  }
-  if (h.includes('ngày') || h.includes('date') || h.includes('cập nhật') || h.includes('phát sinh')) {
-    return { ...base, whiteSpace: 'nowrap', fontSize: 12 };
-  }
-  if (h === 'mã căn' || h.includes('mã')) {
-    return { ...base, fontWeight: 600, whiteSpace: 'nowrap' };
-  }
-  if (h === 'pn' || h === 'm2' || h === 'bc' || h === 'dt (m2)' || h.includes('diện tích')) {
-    return { ...base, textAlign: 'center' };
-  }
-  return base;
 }
 
 // ── Styles ──
+const colDivider = '1.5px solid #D0D0D0';
+
 const s = {
   root: { fontFamily: F, background: C.bg, minHeight: '100vh', color: C.text },
-  viewToggle: {
-    padding: '10px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700,
-    background: '#fff', color: C.textMuted, border: `1.5px solid ${C.border}`, cursor: 'pointer',
-  },
-  viewToggleActive: {
-    background: C.primary, color: '#fff', border: '1.5px solid transparent', boxShadow: C.shadowGreen,
-  },
-  header: {
-    background: '#fff', borderBottom: `1px solid ${C.border}`,
-    position: 'sticky', top: 0, zIndex: 100, boxShadow: C.shadow,
-  },
-  headerInner: {
-    maxWidth: 1400, margin: '0 auto', padding: '12px 20px',
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-  },
+  header: { background: '#fff', borderBottom: `1px solid ${C.border}`, position: 'sticky', top: 0, zIndex: 100, boxShadow: C.shadow },
+  headerInner: { maxWidth: 1400, margin: '0 auto', padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   headerTitle: { fontSize: 18, fontWeight: 800, color: C.primary, letterSpacing: -0.3 },
   headerSub: { fontSize: 11, color: C.textMuted, marginTop: 1 },
-  backBtn: {
-    background: C.primaryBg, borderRadius: 8, width: 36, height: 36, fontSize: 18,
-    color: C.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700,
-  },
-  importBtn: {
-    background: C.gradient, color: '#fff', border: 'none', borderRadius: 10,
-    padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer',
-    fontFamily: F, boxShadow: C.shadowGreen, transition: 'all 0.15s', whiteSpace: 'nowrap',
-  },
-  reloadBtn: {
-    background: '#fff', border: `1.5px solid ${C.border}`, borderRadius: 10,
-    width: 40, height: 40, fontSize: 20, color: C.primary, cursor: 'pointer',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontFamily: F,
-  },
+  backBtn: { background: C.primaryBg, borderRadius: 8, width: 36, height: 36, fontSize: 18, color: C.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 },
+  viewToggle: { padding: '10px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700, background: '#fff', color: C.textMuted, border: `1.5px solid ${C.border}`, cursor: 'pointer' },
+  viewToggleActive: { background: C.primary, color: '#fff', border: '1.5px solid transparent', boxShadow: C.shadowGreen },
   container: { maxWidth: 1500, margin: '0 auto', padding: '16px 16px' },
-  tabsWrap: { marginBottom: 16, overflowX: 'auto' },
-  tabsInner: { display: 'flex', gap: 6, whiteSpace: 'nowrap', paddingBottom: 4 },
-  tabBtn: {
-    padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-    background: '#fff', color: C.textMuted, border: `1.5px solid ${C.border}`,
-  },
-  tabActive: {
-    background: C.gradient, color: '#fff', border: '1.5px solid transparent', boxShadow: C.shadowGreen,
-  },
-  filterRow: { display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 },
-  searchWrap: { flex: 1, position: 'relative', minWidth: 200 },
-  searchIcon: { position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14, opacity: 0.5 },
-  searchInput: {
-    width: '100%', padding: '10px 36px', border: `1.5px solid ${C.border}`, borderRadius: 10,
-    fontSize: 13, fontFamily: F, outline: 'none', background: '#fff', boxSizing: 'border-box',
-  },
-  clearBtn: {
-    position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-    background: 'none', border: 'none', fontSize: 18, color: C.textMuted, cursor: 'pointer', padding: '0 4px',
-  },
-  resultCount: { fontSize: 12, color: C.textMuted, whiteSpace: 'nowrap' },
+  addBtn: { background: C.gradient, color: '#fff', border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: F, boxShadow: C.shadowGreen, transition: 'all 0.15s', whiteSpace: 'nowrap' },
+  reloadBtn: { background: '#fff', border: `1.5px solid ${C.border}`, borderRadius: 10, width: 40, height: 40, fontSize: 20, color: C.primary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontFamily: F },
+  searchInput: { width: '100%', padding: '10px 36px', border: `1.5px solid ${C.border}`, borderRadius: 10, fontSize: 13, fontFamily: F, outline: 'none', background: '#fff', boxSizing: 'border-box' },
+  clearBtn: { position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', fontSize: 18, color: C.textMuted, cursor: 'pointer', padding: '0 4px' },
   errorBox: { background: '#FEF2F2', color: C.error, padding: '12px 16px', borderRadius: 10, fontSize: 13, marginBottom: 16 },
   loadingBox: { textAlign: 'center', padding: 40, color: C.textMuted, fontSize: 14 },
-  emptyState: { textAlign: 'center', padding: '60px 20px', color: C.textMuted },
-  tableWrap: {
-    background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`,
-    boxShadow: C.shadow, animation: 'nhFadeIn 0.3s ease',
-  },
+  tableWrap: { background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: C.shadow, animation: 'nhFadeIn 0.3s ease' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
-  th: {
-    textAlign: 'left', padding: '10px 10px', fontWeight: 700, fontSize: 11,
-    textTransform: 'uppercase', color: C.textMuted, borderBottom: `2px solid ${C.border}`,
-    whiteSpace: 'nowrap', background: '#fff',
-  },
-  tr: { borderBottom: `1px solid ${C.borderLight}`, transition: 'background 0.12s' },
-  td: { padding: '8px 10px', verticalAlign: 'middle', fontSize: 13 },
+  th: { textAlign: 'left', padding: '10px 8px', fontWeight: 700, fontSize: 11, textTransform: 'uppercase', color: C.textMuted, borderBottom: `2px solid ${C.border}`, borderRight: colDivider, whiteSpace: 'nowrap', background: '#FAFAFA' },
+  tr: { borderBottom: `1.5px solid #D0D0D0`, transition: 'background 0.12s' },
+  td: { padding: '8px 8px', verticalAlign: 'middle', fontSize: 13, borderRight: colDivider },
   emptyTd: { textAlign: 'center', padding: 40, color: C.textMuted, fontSize: 14 },
+  actionBtn: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: '4px 6px', borderRadius: 6, transition: 'background 0.12s', color: C.textMuted },
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 },
+  modal: { background: '#fff', borderRadius: 16, width: 560, maxWidth: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: C.shadowLg, animation: 'nhSlideUp 0.25s ease', overflow: 'hidden' },
+  modalHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${C.border}` },
+  modalTitle: { fontSize: 17, fontWeight: 700, color: C.text },
+  modalClose: { background: 'none', border: 'none', fontSize: 22, color: C.textMuted, cursor: 'pointer', padding: '0 4px', lineHeight: 1 },
+  modalBody: { padding: '16px 20px', overflowY: 'auto', flex: 1 },
+  modalFooter: { display: 'flex', gap: 10, justifyContent: 'flex-end', padding: '12px 20px', borderTop: `1px solid ${C.border}` },
+  fieldWrap: { marginBottom: 14 },
+  fieldLabel: { display: 'block', fontSize: 12, fontWeight: 600, color: C.textMuted, marginBottom: 4 },
+  fieldInput: { width: '100%', padding: '9px 12px', border: `1.5px solid ${C.border}`, borderRadius: 8, fontSize: 14, fontFamily: F, outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s', background: C.bgInput },
+  cancelBtn: { background: 'none', border: `1.5px solid ${C.border}`, borderRadius: 10, padding: '9px 20px', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: F, color: C.textMuted, transition: 'all 0.15s' },
+  saveBtn: { background: C.gradient, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 24px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: F, boxShadow: C.shadowGreen, transition: 'all 0.15s' },
+  confirmBox: { background: '#fff', borderRadius: 16, padding: '24px', width: 380, maxWidth: '100%', boxShadow: C.shadowLg, animation: 'nhSlideUp 0.2s ease' },
+  toast: { position: 'fixed', bottom: 24, right: 24, padding: '12px 20px', borderRadius: 10, color: '#fff', fontSize: 14, fontWeight: 600, fontFamily: F, boxShadow: C.shadowMd, zIndex: 2000 },
 };
