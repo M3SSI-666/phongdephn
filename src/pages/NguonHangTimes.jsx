@@ -234,7 +234,16 @@ function NguonHangInner({ showHeader }) {
       )}
 
       <div style={showHeader ? s.container : { padding: '0' }}>
-        {/* Title row */}
+        {/* Tab toggle */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button
+            className="nh-tab"
+            style={{ ...s.viewToggle, ...s.viewToggleActive }}
+          >
+            Quỹ Căn Thuê
+          </button>
+        </div>
+
         {(
           <>
             {/* Title row */}
@@ -445,6 +454,8 @@ const s = {
   headerTitle: { fontSize: 18, fontWeight: 800, color: C.primary, letterSpacing: -0.3 },
   headerSub: { fontSize: 11, color: C.textMuted, marginTop: 1 },
   backBtn: { background: C.primaryBg, borderRadius: 8, width: 36, height: 36, fontSize: 18, color: C.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 },
+  viewToggle: { padding: '10px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700, background: '#fff', color: C.textMuted, border: `1.5px solid ${C.border}`, cursor: 'pointer' },
+  viewToggleActive: { background: C.primary, color: '#fff', border: '1.5px solid transparent', boxShadow: C.shadowGreen },
   container: { maxWidth: 1500, margin: '0 auto', padding: '16px 16px' },
   addBtn: { background: C.gradient, color: '#fff', border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: F, boxShadow: C.shadowGreen, transition: 'all 0.15s', whiteSpace: 'nowrap' },
   reloadBtn: { background: '#fff', border: `1.5px solid ${C.border}`, borderRadius: 10, width: 40, height: 40, fontSize: 20, color: C.primary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontFamily: F },
