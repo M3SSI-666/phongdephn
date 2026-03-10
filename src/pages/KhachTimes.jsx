@@ -553,7 +553,7 @@ function FormField({ label, value, onChange, type = 'text', placeholder = '' }) 
 }
 
 // ── Styles ──
-const colDivider = `1px solid #E0E0E0`;
+const colDivider = `1.5px solid #D0D0D0`;
 
 const s = {
   root: { fontFamily: F, background: C.bg, minHeight: '100vh', color: C.text },
@@ -579,7 +579,7 @@ const s = {
   tableWrap: { background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: C.shadow, animation: 'ktFadeIn 0.3s ease' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
   th: { textAlign: 'left', padding: '10px 8px', fontWeight: 700, fontSize: 11, textTransform: 'uppercase', color: C.textMuted, borderBottom: `2px solid ${C.border}`, borderRight: colDivider, whiteSpace: 'nowrap', background: '#FAFAFA' },
-  tr: { borderBottom: `1px solid ${C.borderLight}`, transition: 'background 0.12s' },
+  tr: { borderBottom: `1.5px solid #D0D0D0`, transition: 'background 0.12s' },
   td: { padding: '8px 8px', verticalAlign: 'middle', fontSize: 13, borderRight: colDivider },
   tdName: { minWidth: 100, whiteSpace: 'nowrap' },
   emptyTd: { textAlign: 'center', padding: 40, color: C.textMuted, fontSize: 14 },
