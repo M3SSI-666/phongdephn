@@ -372,19 +372,19 @@ function KhachTimesInner({ showHeader }) {
                     <tr key={item._rowIndex} className="kt-row" style={s.tr}>
                       <td style={{ ...s.td, textAlign: 'center', color: C.textDim, fontSize: 12 }}>{item.STT}</td>
                       <td style={{ ...s.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_PS}</td>
-                      <td style={{ ...s.td, ...s.tdName, fontWeight: 600 }}>{item.Ten_Zalo}</td>
+                      <td style={{ ...s.td, ...s.tdName, fontWeight: 600, whiteSpace: 'pre-line' }}>{item.Ten_Zalo}</td>
                       <td style={{ ...s.td, whiteSpace: 'nowrap' }}>{item.SDT}</td>
                       <td style={s.td}>
                         <span style={getNhuCauBadgeStyle(item.Nhu_Cau)}>{item.Nhu_Cau || '-'}</span>
                       </td>
                       <td style={{ ...s.td, textAlign: 'center' }}>{item.Phong_Ngu}</td>
-                      <td style={s.td}>{item.Noi_That}</td>
+                      <td style={{ ...s.td, whiteSpace: 'pre-line' }}>{item.Noi_That}</td>
                       <td style={{ ...s.td, textAlign: 'center' }}>{item.Slot_Xe || '-'}</td>
-                      <td style={s.td}>{item.Thoi_Han_Thue}</td>
+                      <td style={{ ...s.td, whiteSpace: 'pre-line' }}>{item.Thoi_Han_Thue}</td>
                       <td style={{ ...s.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_Vao}</td>
-                      <td style={s.td}>{item.Dien_Tich}</td>
-                      <td style={{ ...s.td, fontFamily: 'monospace', textAlign: 'right' }}>{item.Tai_Chinh}</td>
-                      <td style={s.td}>{item.Toa}</td>
+                      <td style={{ ...s.td, whiteSpace: 'pre-line' }}>{item.Dien_Tich}</td>
+                      <td style={{ ...s.td, fontFamily: 'monospace', textAlign: 'right', whiteSpace: 'pre-line' }}>{item.Tai_Chinh}</td>
+                      <td style={{ ...s.td, whiteSpace: 'pre-line' }}>{item.Toa}</td>
                       <td style={{ ...s.td, maxWidth: 150, whiteSpace: 'pre-line', fontSize: 12 }}>{item.Can_Tu_Van}</td>
                       {/* Trạng thái — inline dropdown */}
                       <td style={{ ...s.td, padding: '4px 4px' }}>
@@ -397,7 +397,7 @@ function KhachTimesInner({ showHeader }) {
                           {TRANG_THAI_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                         </select>
                       </td>
-                      <td style={{ ...s.td, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', color: C.textMuted, fontSize: 12 }}>{item.Ghi_Chu}</td>
+                      <td style={{ ...s.td, maxWidth: 200, whiteSpace: 'pre-line', color: C.textMuted, fontSize: 12 }}>{item.Ghi_Chu}</td>
                       <td style={{ ...s.td, whiteSpace: 'nowrap', borderRight: 'none' }}>
                         <button onClick={() => openEdit(item)} style={s.actionBtn} title="Sửa">&#9998;</button>
                         <button onClick={() => setDeleteTarget(item)} style={{ ...s.actionBtn, ...s.deleteBtn }} title="Xoá">&#128465;</button>
@@ -421,7 +421,10 @@ function KhachTimesInner({ showHeader }) {
             </div>
             <div style={s.modalBody}>
               <FormField label="Ngày phát sinh" value={form.Ngay_PS} onChange={(v) => updateForm('Ngay_PS', v)} placeholder="VD: 10/03/2026" />
-              <FormField label="Tên khách (Zalo) *" value={form.Ten_Zalo} onChange={(v) => updateForm('Ten_Zalo', v)} placeholder="VD: Anh Minh (zalo: Minh BĐS)" />
+              <div style={s.fieldWrap}>
+                <label style={s.fieldLabel}>Tên khách (Zalo) *</label>
+                <textarea value={form.Ten_Zalo} onChange={(e) => updateForm('Ten_Zalo', e.target.value)} placeholder="VD: Anh Minh (zalo: Minh BĐS)" style={{ ...s.fieldInput, height: 56, resize: 'vertical' }} />
+              </div>
               <FormField label="Số điện thoại *" value={form.SDT} onChange={(v) => updateForm('SDT', v)} type="tel" />
 
               <div style={s.fieldWrap}>
@@ -444,7 +447,10 @@ function KhachTimesInner({ showHeader }) {
                 </select>
               </div>
 
-              <FormField label="Nội thất" value={form.Noi_That} onChange={(v) => updateForm('Noi_That', v)} placeholder="VD: Full nội thất, cơ bản, nguyên bản..." />
+              <div style={s.fieldWrap}>
+                <label style={s.fieldLabel}>Nội thất</label>
+                <textarea value={form.Noi_That} onChange={(e) => updateForm('Noi_That', e.target.value)} placeholder="VD: Full nội thất, cơ bản, nguyên bản..." style={{ ...s.fieldInput, height: 56, resize: 'vertical' }} />
+              </div>
 
               <div style={s.fieldWrap}>
                 <label style={s.fieldLabel}>Slot xe</label>
@@ -458,11 +464,20 @@ function KhachTimesInner({ showHeader }) {
                 </div>
               </div>
 
-              <FormField label="Thời hạn thuê" value={form.Thoi_Han_Thue} onChange={(v) => updateForm('Thoi_Han_Thue', v)} placeholder="VD: 1 năm, 2 năm, dài hạn..." />
+              <div style={s.fieldWrap}>
+                <label style={s.fieldLabel}>Thời hạn thuê</label>
+                <textarea value={form.Thoi_Han_Thue} onChange={(e) => updateForm('Thoi_Han_Thue', e.target.value)} placeholder="VD: 1 năm, 2 năm, dài hạn..." style={{ ...s.fieldInput, height: 56, resize: 'vertical' }} />
+              </div>
               <FormField label="Ngày vào" value={form.Ngay_Vao} onChange={(v) => updateForm('Ngay_Vao', v)} placeholder="VD: 15/04/2025, Tháng 5..." />
               <FormField label="Diện tích" value={form.Dien_Tich} onChange={(v) => updateForm('Dien_Tich', v)} placeholder="VD: 75m2, 90m2..." />
-              <FormField label="Tài chính" value={form.Tai_Chinh} onChange={(v) => updateForm('Tai_Chinh', v)} placeholder="VD: 11 / 11.5 / 2000" />
-              <FormField label="Tòa" value={form.Toa} onChange={(v) => updateForm('Toa', v)} placeholder="VD: T1, Park 5, R6..." />
+              <div style={s.fieldWrap}>
+                <label style={s.fieldLabel}>Tài chính</label>
+                <textarea value={form.Tai_Chinh} onChange={(e) => updateForm('Tai_Chinh', e.target.value)} placeholder="VD: 11 / 11.5 / 2000" style={{ ...s.fieldInput, height: 56, resize: 'vertical' }} />
+              </div>
+              <div style={s.fieldWrap}>
+                <label style={s.fieldLabel}>Tòa</label>
+                <textarea value={form.Toa} onChange={(e) => updateForm('Toa', e.target.value)} placeholder="VD: T1, Park 5, R6..." style={{ ...s.fieldInput, height: 56, resize: 'vertical' }} />
+              </div>
 
               <div style={s.fieldWrap}>
                 <label style={s.fieldLabel}>Căn tư vấn</label>
