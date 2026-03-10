@@ -1,13 +1,4 @@
 {
-  "functions": {
-    "api/*.js": {
-      "maxDuration": 30
-    },
-    "api/xlsx-import.js": {
-      "maxDuration": 60,
-      "memory": 1024
-    }
-  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
