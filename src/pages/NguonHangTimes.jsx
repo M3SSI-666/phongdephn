@@ -12,10 +12,22 @@ function getTodayStr() {
   return `${dd}/${mm}/${d.getFullYear()}`;
 }
 
+const RAINBOW_COLORS = [
+  { label: 'Mặc định', value: '' },
+  { label: 'Đỏ', value: '#E53E3E' },
+  { label: 'Cam', value: '#DD6B20' },
+  { label: 'Vàng', value: '#D69E2E' },
+  { label: 'Xanh lá', value: '#38A169' },
+  { label: 'Xanh dương', value: '#3182CE' },
+  { label: 'Chàm', value: '#5B21B6' },
+  { label: 'Tím', value: '#9F7AEA' },
+];
+
 const EMPTY_FORM = {
   Ngay_PS: '', Ngay_Cap_Nhat: '', Nguon: '', Ma_Can: '', PN: '',
   Dien_Tich: '', BC: '', Gia: '', Phi_MG: '', TT: '', Slot_Xe: '',
   Thang: '', Nam: '', Ten_Chu: '', SDT_Chu: '', Pass: '', Ghi_Chu: '',
+  Mau_Ma_Can: '',
 };
 
 export function NguonHangContent() {
@@ -135,6 +147,7 @@ function NguonHangInner({ showHeader }) {
       SDT_Chu: item.SDT_Chu || '',
       Pass: item.Pass || '',
       Ghi_Chu: item.Ghi_Chu || '',
+      Mau_Ma_Can: item.Mau_Ma_Can || '',
     });
     setModalOpen(true);
   };
@@ -167,6 +180,7 @@ function NguonHangInner({ showHeader }) {
         SDT_Chu: form.SDT_Chu.trim(),
         Pass: form.Pass.trim(),
         Ghi_Chu: form.Ghi_Chu.trim(),
+        Mau_Ma_Can: form.Mau_Ma_Can || '',
       };
 
       if (editItem) {
@@ -294,7 +308,7 @@ function NguonHangInner({ showHeader }) {
                           <td style={{ ...s.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_PS}</td>
                           <td style={{ ...s.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_Cap_Nhat}</td>
                           <td style={{ ...s.td, whiteSpace: 'pre-line' }}>{item.Nguon}</td>
-                          <td style={{ ...s.td, fontWeight: 600, whiteSpace: 'nowrap' }}>{item.Ma_Can}</td>
+                          <td style={{ ...s.td, fontWeight: 600, whiteSpace: 'nowrap', color: item.Mau_Ma_Can || C.text }}>{item.Ma_Can}</td>
                           <td style={{ ...s.td, textAlign: 'center' }}>{item.PN}</td>
                           <td style={{ ...s.td, textAlign: 'center' }}>{item.Dien_Tich}</td>
                           <td style={{ ...s.td, textAlign: 'center' }}>{item.BC}</td>
@@ -343,6 +357,28 @@ function NguonHangInner({ showHeader }) {
 
               <FormField label="Nguồn" value={form.Nguon} onChange={(v) => updateForm('Nguon', v)} placeholder="VD: Chủ nhà, Sàn, CTV..." />
               <FormField label="Mã căn *" value={form.Ma_Can} onChange={(v) => updateForm('Ma_Can', v)} placeholder="VD: R6-1208, T1-0515..." />
+
+              <div style={s.fieldWrap}>
+                <label style={s.fieldLabel}>Màu mã căn</label>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {RAINBOW_COLORS.map((c) => (
+                    <button
+                      key={c.value || 'default'}
+                      type="button"
+                      onClick={() => updateForm('Mau_Ma_Can', c.value)}
+                      title={c.label}
+                      style={{
+                        width: 32, height: 32, borderRadius: 8,
+                        background: c.value || '#222',
+                        border: form.Mau_Ma_Can === c.value ? '3px solid #222' : '2px solid #ddd',
+                        cursor: 'pointer',
+                        boxShadow: form.Mau_Ma_Can === c.value ? '0 0 0 2px #fff, 0 0 0 4px ' + (c.value || '#222') : 'none',
+                        transition: 'all 0.15s',
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
 
               <div style={{ display: 'flex', gap: 12 }}>
                 <div style={{ flex: 1 }}>

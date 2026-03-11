@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 
 const SHEET_NAME = 'Quy_Can_Thue';
-// 18 columns: STT, Ngay_PS, Ngay_Cap_Nhat, Nguon, Ma_Can, PN, Dien_Tich, BC, Gia, Phi_MG, TT, Slot_Xe, Thang, Nam, Ten_Chu, SDT_Chu, Pass, Ghi_Chu
-const COLUMNS = 'A:R';
+// 19 columns: STT, Ngay_PS, Ngay_Cap_Nhat, Nguon, Ma_Can, PN, Dien_Tich, BC, Gia, Phi_MG, TT, Slot_Xe, Thang, Nam, Ten_Chu, SDT_Chu, Pass, Ghi_Chu, Mau_Ma_Can
+const COLUMNS = 'A:S';
 
 export default async function handler(req, res) {
   try {
@@ -72,6 +72,7 @@ async function handleGet(req, res, sheetId, email, key) {
     SDT_Chu: row[15] || '',
     Pass: row[16] || '',
     Ghi_Chu: row[17] || '',
+    Mau_Ma_Can: row[18] || '',
     _rowIndex: i + 2,
   }));
 
@@ -94,7 +95,7 @@ async function handlePost(req, res, sheetId, email, key) {
       p.Ma_Can, p.PN, p.Dien_Tich, p.BC,
       p.Gia, p.Phi_MG, p.TT, p.Slot_Xe,
       p.Thang, p.Nam, p.Ten_Chu, p.SDT_Chu,
-      p.Pass, p.Ghi_Chu,
+      p.Pass, p.Ghi_Chu, p.Mau_Ma_Can || '',
     ];
   }
 
@@ -124,7 +125,7 @@ async function handlePost(req, res, sheetId, email, key) {
     }
 
     const row = buildRow(payload);
-    const range = `${SHEET_NAME}!A${payload._rowIndex}:R${payload._rowIndex}`;
+    const range = `${SHEET_NAME}!A${payload._rowIndex}:S${payload._rowIndex}`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?valueInputOption=USER_ENTERED`;
     const response = await fetch(url, {
       method: 'PUT',
@@ -203,7 +204,7 @@ async function createSheetWithHeaders(sheetId, token) {
   const HEADERS = [
     'STT', 'Ngay_PS', 'Ngay_Cap_Nhat', 'Nguon', 'Ma_Can', 'PN',
     'Dien_Tich', 'BC', 'Gia', 'Phi_MG', 'TT', 'Slot_Xe',
-    'Thang', 'Nam', 'Ten_Chu', 'SDT_Chu', 'Pass', 'Ghi_Chu',
+    'Thang', 'Nam', 'Ten_Chu', 'SDT_Chu', 'Pass', 'Ghi_Chu', 'Mau_Ma_Can',
   ];
 
   // 1. Tạo tab mới
@@ -215,7 +216,7 @@ async function createSheetWithHeaders(sheetId, token) {
   });
 
   // 2. Thêm header row
-  const putUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!A1:R1?valueInputOption=USER_ENTERED`;
+  const putUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!A1:S1?valueInputOption=USER_ENTERED`;
   await fetch(putUrl, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
