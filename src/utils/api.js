@@ -182,6 +182,28 @@ export async function postQuyCanThue(payload) {
   return res.json();
 }
 
+// ============ Quỹ Căn Bán ============
+export async function fetchQuyCanBan() {
+  const res = await fetch(`/api/quycanbul?t=${Date.now()}`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error('Fetch quy can ban failed');
+  return res.json();
+}
+
+export async function postQuyCanBan(payload) {
+  const res = await fetch('/api/quycanbul', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Action failed (${res.status})`);
+  }
+  return res.json();
+}
+
 // ============ Khach Times City ============
 export async function fetchKhachTimes() {
   const res = await fetch(`/api/khachtimes?t=${Date.now()}`, {
