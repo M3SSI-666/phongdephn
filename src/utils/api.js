@@ -184,7 +184,7 @@ export async function postQuyCanThue(payload) {
 
 // ============ Quỹ Căn Bán ============
 export async function fetchQuyCanBan() {
-  const res = await fetch(`/api/quycanbul?t=${Date.now()}`, {
+  const res = await fetch(`/api/quycanban?t=${Date.now()}`, {
     cache: 'no-store',
   });
   if (!res.ok) throw new Error('Fetch quy can ban failed');
@@ -192,7 +192,7 @@ export async function fetchQuyCanBan() {
 }
 
 export async function postQuyCanBan(payload) {
-  const res = await fetch('/api/quycanbul', {
+  const res = await fetch('/api/quycanban', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
