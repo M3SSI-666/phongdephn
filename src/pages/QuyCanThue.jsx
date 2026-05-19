@@ -305,7 +305,7 @@ function QuyCanThueInner() {
                   <td style={{...st.td, textAlign:'center', cursor: item.Hinh_Anh ? 'pointer' : 'default'}}
                     onClick={() => {
                       const urls = item.Hinh_Anh ? item.Hinh_Anh.split(',').map(u=>u.trim()).filter(Boolean) : [];
-                      if (urls.length) setLightbox({ urls, index: 0 });
+                      if (urls.length) setLightbox({ urls, index: 0, maCan: item.Ma_Can || 'anh_can' });
                     }}
                   ><ThumbCell value={item.Hinh_Anh} /></td>
                   <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8'}}>{item.Ghi_Chu}</td>
@@ -532,6 +532,7 @@ function QuyCanThueInner() {
         <LightboxModal
           urls={lightbox.urls}
           startIndex={lightbox.index}
+          maCan={lightbox.maCan}
           onClose={() => setLightbox(null)}
         />
       )}
@@ -570,7 +571,7 @@ function ColorPicker({ value, onChange }) {
 }
 
 // ── Lightbox ──
-function LightboxModal({ urls, startIndex, onClose }) {
+function LightboxModal({ urls, startIndex, maCan = 'anh', onClose }) {
   const [idx, setIdx]           = useState(startIndex);
   const [downloading, setDl]    = useState(false);
 
@@ -598,7 +599,7 @@ function LightboxModal({ urls, startIndex, onClose }) {
   async function dlAll() {
     setDl(true);
     for (let i = 0; i < urls.length; i++) {
-      await dlOne(urls[i], `anh_can_${i + 1}.jpg`);
+      await dlOne(urls[i], `${maCan}_${i + 1}.jpg`);
       if (i < urls.length - 1) await new Promise(r => setTimeout(r, 400));
     }
     setDl(false);
@@ -611,7 +612,7 @@ function LightboxModal({ urls, startIndex, onClose }) {
         <div style={lb.topBar}>
           <span style={lb.counter}>📷 {idx + 1} / {urls.length}</span>
           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            <button onClick={() => dlOne(urls[idx], `anh_can_${idx+1}.jpg`)} style={lb.dlBtn}>⬇ Ảnh này</button>
+            <button onClick={() => dlOne(urls[idx], `${maCan}_${idx+1}.jpg`)} style={lb.dlBtn}>⬇ Ảnh này</button>
             <button onClick={dlAll} disabled={downloading} style={lb.dlAllBtn}>
               {downloading ? '⏳ Đang tải...' : `⬇ Tất cả (${urls.length})`}
             </button>
