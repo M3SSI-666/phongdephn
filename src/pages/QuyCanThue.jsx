@@ -284,8 +284,8 @@ function QuyCanThueInner() {
               ) : filtered.map(item => (
                 <tr key={item._rowIndex} className="ct-row" style={st.tr}>
                   <td style={{...st.td, textAlign:'center', color:'#8a9bb8', fontSize:12}}>{item.STT}</td>
-                  <td style={{...st.td, whiteSpace:'nowrap', fontSize:12}}>{item.Ngay_Update}</td>
-                  <td style={{...st.td, fontWeight:600, whiteSpace:'nowrap', color:item.Mau_Ma_Can||'#e2e8f0'}}>{item.Ma_Can}</td>
+                  <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', fontSize:12}}>{item.Ngay_Update}</td>
+                  <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', background:item.Mau_Ma_Can||'transparent', color:'#fff', borderRadius: item.Mau_Ma_Can ? 6 : 0}}>{item.Ma_Can}</td>
                   <td style={{...st.td, textAlign:'center'}}>{item.Thiet_Ke}</td>
                   <td style={{...st.td, textAlign:'center'}}>{item.Dien_Tich}</td>
                   <td style={{...st.td, textAlign:'center'}}>
@@ -295,15 +295,15 @@ function QuyCanThueInner() {
                       padding:'2px 8px', borderRadius:10, fontSize:11, fontWeight:700,
                     }}>{item.Slot_Xe || 'Không'}</span>
                   </td>
-                  <td style={{...st.td}}>{item.Huong_BC}</td>
-                  <td style={{...st.td, fontWeight:600, whiteSpace:'nowrap', color:C.primary}}>{item.Gia}</td>
-                  <td style={{...st.td, fontSize:12}}>{item.Phi_MG}</td>
-                  <td style={{...st.td}}>{item.Noi_That}</td>
-                  <td style={{...st.td, fontSize:12}}>{item.Thoi_Gian_Vao}</td>
-                  <td style={{...st.td, whiteSpace:'nowrap'}}>{item.Lien_He}</td>
-                  <td style={{...st.td}}><ThumbCell value={item.Hinh_Anh} /></td>
-                  <td style={{...st.td, fontSize:12, color:'#94a3b8'}}>{item.Ghi_Chu}</td>
-                  <td style={{...st.td, whiteSpace:'nowrap', borderRight:'none'}}>
+                  <td style={{...st.td, textAlign:'center'}}>{item.Huong_BC}</td>
+                  <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap'}}>{item.Gia}</td>
+                  <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Phi_MG}</td>
+                  <td style={{...st.td, textAlign:'center'}}>{item.Noi_That}</td>
+                  <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Thoi_Gian_Vao}</td>
+                  <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap'}}>{item.Lien_He}</td>
+                  <td style={{...st.td, textAlign:'center'}}><ThumbCell value={item.Hinh_Anh} /></td>
+                  <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8'}}>{item.Ghi_Chu}</td>
+                  <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none'}}>
                     <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>
                     <button onClick={() => setDeleteTarget(item)} style={{...st.actionBtn, color:C.error}} title="Xoá">&#128465;</button>
                   </td>
