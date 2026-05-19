@@ -126,7 +126,7 @@ function QuyCanThueInner() {
       const result = await parseThue(rawText);
       setForm(prev => ({
         ...prev,
-        Ma_Can:        result.Ma_Can        || prev.Ma_Can,
+        Ma_Can:        (result.Ma_Can || prev.Ma_Can).toUpperCase(),
         Thiet_Ke:      result.Thiet_Ke      || prev.Thiet_Ke,
         Dien_Tich:     result.Dien_Tich     || prev.Dien_Tich,
         Slot_Xe:       result.Slot_Xe       || prev.Slot_Xe,
