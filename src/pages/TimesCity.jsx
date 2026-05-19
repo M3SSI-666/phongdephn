@@ -2,15 +2,18 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { C } from '../utils/theme';
 import { KhachTimesContent } from './KhachTimes';
-import { NguonHangContent } from './NguonHangTimes';
+import { QuyCanThueContent, QuyCanBanContent } from './NguonHangTimes';
+import { QuyShophouseContent } from './QuyShophouse';
 import { QuyHomestayContent } from './QuyHomestay';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
 const TABS = [
-  { key: 'khach',    label: 'Khách hàng' },
-  { key: 'nguon',    label: 'Nguồn hàng' },
-  { key: 'homestay', label: 'Quỹ Homestay' },
+  { key: 'khach',     label: 'Khách hàng' },
+  { key: 'thue',      label: 'Quỹ Căn Thuê' },
+  { key: 'ban',       label: 'Quỹ Căn Bán' },
+  { key: 'shophouse', label: 'Quỹ Shophouse' },
+  { key: 'homestay',  label: 'Quỹ Homestay' },
 ];
 
 export default function TimesCity() {
@@ -69,9 +72,11 @@ export default function TimesCity() {
 
       {/* Content */}
       <div style={s.content}>
-        {activeTab === 'khach'    && <KhachTimesContent />}
-        {activeTab === 'nguon'    && <NguonHangContent />}
-        {activeTab === 'homestay' && <QuyHomestayContent />}
+        {activeTab === 'khach'     && <KhachTimesContent />}
+        {activeTab === 'thue'      && <QuyCanThueContent />}
+        {activeTab === 'ban'       && <QuyCanBanContent />}
+        {activeTab === 'shophouse' && <QuyShophouseContent />}
+        {activeTab === 'homestay'  && <QuyHomestayContent />}
       </div>
     </div>
   );

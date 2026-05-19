@@ -44,13 +44,21 @@ export function NguonHangContent() {
   return <NguonHangInner showHeader={false} />;
 }
 
+export function QuyCanThueContent() {
+  return <NguonHangInner showHeader={false} fixedMode="thue" />;
+}
+
+export function QuyCanBanContent() {
+  return <NguonHangInner showHeader={false} fixedMode="ban" />;
+}
+
 export default function NguonHangTimes() {
   return <NguonHangInner showHeader={true} />;
 }
 
-function NguonHangInner({ showHeader }) {
+function NguonHangInner({ showHeader, fixedMode }) {
   const navigate = useNavigate();
-  const [viewMode, setViewMode] = useState('thue'); // 'thue' | 'ban'
+  const [viewMode, setViewMode] = useState(fixedMode || 'thue'); // 'thue' | 'ban'
 
   // Shared states
   const [items, setItems] = useState([]);
@@ -523,23 +531,25 @@ function NguonHangInner({ showHeader }) {
       )}
 
       <div style={showHeader ? st.container : { padding: '0' }}>
-        {/* Tab toggle */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button
-            className="nh-tab"
-            onClick={() => switchTab('thue')}
-            style={{ ...st.viewToggle, ...(isThue ? st.viewToggleActive : {}) }}
-          >
-            Quỹ Căn Thuê
-          </button>
-          <button
-            className="nh-tab"
-            onClick={() => switchTab('ban')}
-            style={{ ...st.viewToggle, ...(!isThue ? st.viewToggleActive : {}) }}
-          >
-            Quỹ Căn Bán
-          </button>
-        </div>
+        {/* Tab toggle — ẩn khi đang dùng fixedMode */}
+        {!fixedMode && (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              className="nh-tab"
+              onClick={() => switchTab('thue')}
+              style={{ ...st.viewToggle, ...(isThue ? st.viewToggleActive : {}) }}
+            >
+              Quỹ Căn Thuê
+            </button>
+            <button
+              className="nh-tab"
+              onClick={() => switchTab('ban')}
+              style={{ ...st.viewToggle, ...(!isThue ? st.viewToggleActive : {}) }}
+            >
+              Quỹ Căn Bán
+            </button>
+          </div>
+        )}
 
         <>
           {/* Title row */}
