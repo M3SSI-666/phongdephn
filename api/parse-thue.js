@@ -25,7 +25,7 @@ Rules:
 - Phi_MG: broker fee from "Giá:" line. "phí đủ"→"Phí đủ", "1 tháng"→"1 tháng", "50%"→"50%", "phí nửa"→"Nửa tháng". Empty if not mentioned.
 - Noi_That: furniture/interior from "Hiện trạng:" line. "full đồ"→"Full nội thất", "đầy đủ"→"Full nội thất", "cơ bản"→"Cơ bản", "trống"→"Không nội thất", "không đồ"→"Không nội thất".
 - Slot_Xe: "Có" if "slot xe", "có xe", "bãi xe" mentioned in "Hiện trạng:". Default "Không".
-- Thoi_Gian_Vao: move-in time from "Thời gian vào:" (keep original text, e.g. "Luôn", "Tháng 6/2025").
+- Thoi_Gian_Vao: full content from "Thời gian vào:" line — keep everything after the colon including notes. Only normalize abbreviations: "lun"→"Luôn", "ngay"→"Ngay". Keep all additional context (e.g. "Luôn, ưu tiên nước ngoài", "Tháng 6/2025, có thể linh hoạt").
 - Lien_He: contact phone/name from "Xem nhà lh:" or "Liên hệ:" line. Keep original format.
 
 Message: ${cleanText}`;

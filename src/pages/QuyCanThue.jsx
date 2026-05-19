@@ -377,7 +377,7 @@ function QuyCanThueInner() {
 
                 {/* Mã căn */}
                 <div style={{ gridColumn:'1/-1' }}>
-                  <FormField label="Mã Căn *" value={form.Ma_Can} onChange={v => set('Ma_Can', v)} placeholder="VD: P0112a11, R6-1208" />
+                  <FormField label="Mã Căn *" value={form.Ma_Can} onChange={v => set('Ma_Can', v.toUpperCase())} placeholder="VD: P0112A11, R6-1208" />
                 </div>
 
                 {/* Màu */}
