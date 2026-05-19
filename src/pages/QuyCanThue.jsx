@@ -65,6 +65,7 @@ function QuyCanThueInner() {
 
   const [toast, setToast]           = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [lightbox, setLightbox]     = useState(null); // { urls:[], index:0 }
   const toastTimer                  = useRef(null);
 
   useEffect(() => {
@@ -301,7 +302,12 @@ function QuyCanThueInner() {
                   <td style={{...st.td, textAlign:'center'}}>{item.Noi_That}</td>
                   <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Thoi_Gian_Vao}</td>
                   <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap'}}>{item.Lien_He}</td>
-                  <td style={{...st.td, textAlign:'center'}}><ThumbCell value={item.Hinh_Anh} /></td>
+                  <td style={{...st.td, textAlign:'center', cursor: item.Hinh_Anh ? 'pointer' : 'default'}}
+                    onClick={() => {
+                      const urls = item.Hinh_Anh ? item.Hinh_Anh.split(',').map(u=>u.trim()).filter(Boolean) : [];
+                      if (urls.length) setLightbox({ urls, index: 0 });
+                    }}
+                  ><ThumbCell value={item.Hinh_Anh} /></td>
                   <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8'}}>{item.Ghi_Chu}</td>
                   <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none'}}>
                     <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>
@@ -521,6 +527,14 @@ function QuyCanThueInner() {
           {toast.msg}
         </div>
       )}
+
+      {lightbox && (
+        <LightboxModal
+          urls={lightbox.urls}
+          startIndex={lightbox.index}
+          onClose={() => setLightbox(null)}
+        />
+      )}
     </div>
   );
 }
@@ -554,6 +568,95 @@ function ColorPicker({ value, onChange }) {
     </div>
   );
 }
+
+// ── Lightbox ──
+function LightboxModal({ urls, startIndex, onClose }) {
+  const [idx, setIdx]           = useState(startIndex);
+  const [downloading, setDl]    = useState(false);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === 'ArrowLeft')  setIdx(i => Math.max(0, i - 1));
+      if (e.key === 'ArrowRight') setIdx(i => Math.min(urls.length - 1, i + 1));
+      if (e.key === 'Escape')     onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [urls.length, onClose]);
+
+  async function dlOne(url, name) {
+    try {
+      const blob = await fetch(url).then(r => r.blob());
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl; a.download = name;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(blobUrl);
+    } catch(e) {}
+  }
+
+  async function dlAll() {
+    setDl(true);
+    for (let i = 0; i < urls.length; i++) {
+      await dlOne(urls[i], `anh_can_${i + 1}.jpg`);
+      if (i < urls.length - 1) await new Promise(r => setTimeout(r, 400));
+    }
+    setDl(false);
+  }
+
+  return (
+    <div style={lb.overlay} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={lb.container}>
+        {/* Top bar */}
+        <div style={lb.topBar}>
+          <span style={lb.counter}>📷 {idx + 1} / {urls.length}</span>
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            <button onClick={() => dlOne(urls[idx], `anh_can_${idx+1}.jpg`)} style={lb.dlBtn}>⬇ Ảnh này</button>
+            <button onClick={dlAll} disabled={downloading} style={lb.dlAllBtn}>
+              {downloading ? '⏳ Đang tải...' : `⬇ Tất cả (${urls.length})`}
+            </button>
+            <button onClick={onClose} style={lb.closeBtn}>✕</button>
+          </div>
+        </div>
+
+        {/* Main image */}
+        <div style={lb.imgWrap}>
+          {idx > 0 && <button onClick={() => setIdx(i => i - 1)} style={lb.arrowLeft}>‹</button>}
+          <img src={urls[idx]} alt="" style={lb.img} />
+          {idx < urls.length - 1 && <button onClick={() => setIdx(i => i + 1)} style={lb.arrowRight}>›</button>}
+        </div>
+
+        {/* Thumbnail strip */}
+        {urls.length > 1 && (
+          <div style={lb.thumbRow}>
+            {urls.map((u, i) => (
+              <img key={i} src={u} alt="" onClick={() => setIdx(i)}
+                style={{ ...lb.thumb, ...(i === idx ? lb.thumbActive : {}) }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const lb = {
+  overlay:     { position:'fixed', inset:0, background:'rgba(0,0,0,0.93)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:'16px' },
+  container:   { display:'flex', flexDirection:'column', width:'100%', maxWidth:920, gap:12, fontFamily:F },
+  topBar:      { display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 4px' },
+  counter:     { color:'#e2e8f0', fontSize:14, fontWeight:600 },
+  dlBtn:       { background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:8, padding:'7px 14px', color:'#e2e8f0', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:F },
+  dlAllBtn:    { background:'linear-gradient(135deg,#38b274,#2a8a5a)', border:'none', borderRadius:8, padding:'7px 16px', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, boxShadow:'0 2px 8px rgba(56,178,116,0.4)' },
+  closeBtn:    { background:'rgba(255,255,255,0.1)', border:'none', borderRadius:8, width:36, height:36, color:'#e2e8f0', fontSize:20, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', lineHeight:1 },
+  imgWrap:     { position:'relative', display:'flex', alignItems:'center', justifyContent:'center' },
+  img:         { maxWidth:'100%', maxHeight:'68vh', objectFit:'contain', borderRadius:10, boxShadow:'0 8px 40px rgba(0,0,0,0.7)' },
+  arrowLeft:   { position:'absolute', left:0, background:'rgba(0,0,0,0.55)', border:'none', color:'#fff', fontSize:42, width:52, height:72, cursor:'pointer', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center', lineHeight:1, zIndex:1 },
+  arrowRight:  { position:'absolute', right:0, background:'rgba(0,0,0,0.55)', border:'none', color:'#fff', fontSize:42, width:52, height:72, cursor:'pointer', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center', lineHeight:1, zIndex:1 },
+  thumbRow:    { display:'flex', gap:8, justifyContent:'center', flexWrap:'wrap', paddingTop:4 },
+  thumb:       { width:58, height:58, objectFit:'cover', borderRadius:7, cursor:'pointer', opacity:0.5, border:'2px solid transparent', transition:'all 0.15s' },
+  thumbActive: { opacity:1, border:'2px solid #38b274', transform:'scale(1.08)' },
+};
 
 // ── Styles ──
 const D = '1.5px solid #2d3240';
