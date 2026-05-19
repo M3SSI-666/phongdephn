@@ -30,6 +30,7 @@ const TABLE_HEADERS = [
   'STT', 'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
   'Hướng BC', 'Giá', 'Phí MG', 'Nội Thất', 'Thời Gian Vào', 'Liên Hệ', 'Ảnh', 'Ghi Chú', '',
 ];
+const COL_WIDTHS = [42, 92, 100, 72, 66, 76, 85, 70, 90, 110, 130, 110, 80, 220, 72];
 
 export function QuyCanThueContent() {
   return <QuyCanThueInner />;
@@ -71,7 +72,7 @@ function QuyCanThueInner() {
     style.textContent = `
       @keyframes ctSlideUp { from{opacity:0;transform:translateY(32px)} to{opacity:1;transform:translateY(0)} }
       @keyframes ctToastIn  { from{opacity:0;transform:translateX(100%)} to{opacity:1;transform:translateX(0)} }
-      .ct-row:hover { background: ${C.primaryBg} !important; }
+      .ct-row:hover { background: rgba(255,255,255,0.06) !important; }
       .ct-btn:active { transform: scale(0.97); }
       .ct-table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
       .ct-table-wrap::-webkit-scrollbar { height:6px; }
@@ -230,7 +231,7 @@ function QuyCanThueInner() {
   // ── Thumbnail cell ──
   function ThumbCell({ value }) {
     const urls = value ? value.split(',').map(u=>u.trim()).filter(Boolean) : [];
-    if (!urls.length) return <span style={{color:'#ccc'}}>—</span>;
+    if (!urls.length) return <span style={{color:'#4a5568'}}>—</span>;
     return (
       <div style={{display:'flex',gap:3}}>
         {urls.slice(0,2).map((u,i) => <img key={i} src={u} alt="" style={{width:32,height:32,objectFit:'cover',borderRadius:4}} />)}
@@ -272,7 +273,7 @@ function QuyCanThueInner() {
           <table style={st.table}>
             <thead>
               <tr>
-                {TABLE_HEADERS.map((h,i) => <th key={h||`a${i}`} style={st.th}>{h}</th>)}
+                {TABLE_HEADERS.map((h,i) => <th key={h||`a${i}`} style={{...st.th, width:COL_WIDTHS[i], minWidth:COL_WIDTHS[i]}}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -282,9 +283,9 @@ function QuyCanThueInner() {
                 </td></tr>
               ) : filtered.map(item => (
                 <tr key={item._rowIndex} className="ct-row" style={st.tr}>
-                  <td style={{...st.td, textAlign:'center', color:C.textDim, fontSize:12}}>{item.STT}</td>
+                  <td style={{...st.td, textAlign:'center', color:'#8a9bb8', fontSize:12}}>{item.STT}</td>
                   <td style={{...st.td, whiteSpace:'nowrap', fontSize:12}}>{item.Ngay_Update}</td>
-                  <td style={{...st.td, fontWeight:600, whiteSpace:'nowrap', color:item.Mau_Ma_Can||C.text}}>{item.Ma_Can}</td>
+                  <td style={{...st.td, fontWeight:600, whiteSpace:'nowrap', color:item.Mau_Ma_Can||'#e2e8f0'}}>{item.Ma_Can}</td>
                   <td style={{...st.td, textAlign:'center'}}>{item.Thiet_Ke}</td>
                   <td style={{...st.td, textAlign:'center'}}>{item.Dien_Tich}</td>
                   <td style={{...st.td, textAlign:'center'}}>
@@ -301,7 +302,7 @@ function QuyCanThueInner() {
                   <td style={{...st.td, fontSize:12}}>{item.Thoi_Gian_Vao}</td>
                   <td style={{...st.td, whiteSpace:'nowrap'}}>{item.Lien_He}</td>
                   <td style={{...st.td}}><ThumbCell value={item.Hinh_Anh} /></td>
-                  <td style={{...st.td, maxWidth:160, fontSize:12, color:C.textMuted}}>{item.Ghi_Chu}</td>
+                  <td style={{...st.td, fontSize:12, color:'#94a3b8'}}>{item.Ghi_Chu}</td>
                   <td style={{...st.td, whiteSpace:'nowrap', borderRight:'none'}}>
                     <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>
                     <button onClick={() => setDeleteTarget(item)} style={{...st.actionBtn, color:C.error}} title="Xoá">&#128465;</button>
@@ -555,20 +556,20 @@ function ColorPicker({ value, onChange }) {
 }
 
 // ── Styles ──
-const D = '1.5px solid #D0D0D0';
+const D = '1.5px solid #2d3240';
 const st = {
   addBtn:      { background:C.gradient, color:'#fff', border:'none', borderRadius:10, padding:'10px 20px', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:F, boxShadow:C.shadowGreen, whiteSpace:'nowrap' },
-  reloadBtn:   { background:'#fff', border:`1.5px solid ${C.border}`, borderRadius:10, width:40, height:40, fontSize:20, color:C.primary, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontFamily:F },
-  searchInput: { width:'100%', padding:'10px 36px', border:`1.5px solid ${C.border}`, borderRadius:10, fontSize:13, fontFamily:F, outline:'none', background:'#fff', boxSizing:'border-box' },
-  clearBtn:    { position:'absolute', right:10, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', fontSize:18, color:C.textMuted, cursor:'pointer' },
+  reloadBtn:   { background:'#22263a', border:'1.5px solid #3a3f52', borderRadius:10, width:40, height:40, fontSize:20, color:C.primary, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontFamily:F },
+  searchInput: { width:'100%', padding:'10px 36px', border:'1.5px solid #3a3f52', borderRadius:10, fontSize:13, fontFamily:F, outline:'none', background:'#1e2130', color:'#e2e8f0', boxSizing:'border-box' },
+  clearBtn:    { position:'absolute', right:10, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', fontSize:18, color:'#8a9bb8', cursor:'pointer' },
   errorBox:    { background:'#FEF2F2', color:C.error, padding:'12px 16px', borderRadius:10, fontSize:13, marginBottom:16 },
-  loadingBox:  { textAlign:'center', padding:40, color:C.textMuted, fontSize:14 },
-  tableWrap:   { background:'#fff', borderRadius:12, border:`1px solid ${C.border}`, boxShadow:C.shadow },
+  loadingBox:  { textAlign:'center', padding:40, color:'#8a9bb8', fontSize:14 },
+  tableWrap:   { background:'#1a1d27', borderRadius:12, border:'1px solid #2d3240', boxShadow:'0 4px 24px rgba(0,0,0,0.4)' },
   table:       { width:'100%', borderCollapse:'collapse', fontSize:13 },
-  th:          { textAlign:'left', padding:'10px 8px', fontWeight:700, fontSize:11, textTransform:'uppercase', color:C.textMuted, borderBottom:`2px solid ${C.border}`, borderRight:D, whiteSpace:'nowrap', background:'#FAFAFA' },
-  tr:          { borderBottom:'1.5px solid #D0D0D0', transition:'background 0.12s' },
-  td:          { padding:'8px 8px', verticalAlign:'middle', fontSize:13, borderRight:D },
-  emptyTd:     { textAlign:'center', padding:40, color:C.textMuted, fontSize:14 },
+  th:          { textAlign:'center', padding:'10px 8px', fontWeight:700, fontSize:11, textTransform:'uppercase', color:'#8a9bb8', borderBottom:'2px solid #2d3240', borderRight:D, whiteSpace:'nowrap', background:'#13151e' },
+  tr:          { borderBottom:'1.5px solid #2d3240', transition:'background 0.12s' },
+  td:          { padding:'8px 8px', verticalAlign:'middle', fontSize:13, borderRight:D, color:'#e2e8f0' },
+  emptyTd:     { textAlign:'center', padding:40, color:'#8a9bb8', fontSize:14 },
   actionBtn:   { background:'none', border:'none', cursor:'pointer', fontSize:16, padding:'4px 6px', borderRadius:6, color:C.textMuted },
   overlay:     { position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 },
   modal:       { background:'#fff', borderRadius:16, width:620, maxWidth:'100%', maxHeight:'92vh', display:'flex', flexDirection:'column', boxShadow:C.shadowLg, animation:'ctSlideUp 0.25s ease', overflow:'hidden' },
