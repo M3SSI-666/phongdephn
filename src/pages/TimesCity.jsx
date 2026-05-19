@@ -99,9 +99,7 @@ const s = {
     boxShadow: C.shadow,
   },
   headerInner: {
-    maxWidth: 1400,
-    margin: '0 auto',
-    padding: '12px 20px',
+    padding: '12px 16px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -132,14 +130,13 @@ const s = {
   tabsContainer: {
     background: '#fff',
     borderBottom: `1px solid ${C.border}`,
-    padding: '0 20px',
+    padding: '0 12px',
   },
   tabsRow: {
-    maxWidth: 1400,
-    margin: '0 auto',
     display: 'flex',
     gap: 8,
     paddingTop: 8,
+    overflowX: 'auto',
   },
   mainTab: {
     padding: '12px 28px',
@@ -161,8 +158,6 @@ const s = {
     boxShadow: C.shadowGreen,
   },
   content: {
-    maxWidth: 1500,
-    margin: '0 auto',
-    padding: '20px 16px',
+    padding: '16px 12px',
   },
 };
