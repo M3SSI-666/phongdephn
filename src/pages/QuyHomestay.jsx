@@ -64,7 +64,7 @@ function QuyHomestayInner() {
     style.textContent = `
       @keyframes hsSlideUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
       @keyframes hsToastIn { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
-      .hs-row:hover { background: ${C.primaryBg} !important; }
+      .hs-row:hover { background: rgba(255,255,255,0.06) !important; }
       .hs-btn:active { transform: scale(0.97); }
       .hs-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
       .hs-table-wrap::-webkit-scrollbar { height: 6px; }
@@ -525,34 +525,34 @@ function ColorPicker({ value, onChange }) {
   );
 }
 
-const colDivider = '1.5px solid #D0D0D0';
+const colDivider = '1.5px solid #2d3240';
 
 const st = {
   addBtn: { background: C.gradient, color: '#fff', border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: F, boxShadow: C.shadowGreen, transition: 'all 0.15s', whiteSpace: 'nowrap' },
-  reloadBtn: { background: '#fff', border: `1.5px solid ${C.border}`, borderRadius: 10, width: 40, height: 40, fontSize: 20, color: C.primary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontFamily: F },
-  searchInput: { width: '100%', padding: '10px 36px', border: `1.5px solid ${C.border}`, borderRadius: 10, fontSize: 13, fontFamily: F, outline: 'none', background: '#fff', boxSizing: 'border-box' },
-  clearBtn: { position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', fontSize: 18, color: C.textMuted, cursor: 'pointer', padding: '0 4px' },
-  errorBox: { background: '#FEF2F2', color: C.error, padding: '12px 16px', borderRadius: 10, fontSize: 13, marginBottom: 16 },
-  loadingBox: { textAlign: 'center', padding: 40, color: C.textMuted, fontSize: 14 },
-  tableWrap: { background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: C.shadow },
+  reloadBtn: { background: '#22263a', border: '1.5px solid #3a3f52', borderRadius: 10, width: 40, height: 40, fontSize: 20, color: C.primary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontFamily: F },
+  searchInput: { width: '100%', padding: '10px 36px', border: '1.5px solid #3a3f52', borderRadius: 10, fontSize: 13, fontFamily: F, outline: 'none', background: '#1e2130', color: '#e2e8f0', boxSizing: 'border-box' },
+  clearBtn: { position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', fontSize: 18, color: '#8a9bb8', cursor: 'pointer', padding: '0 4px' },
+  errorBox: { background: '#2d1515', color: '#fc8181', padding: '12px 16px', borderRadius: 10, fontSize: 13, marginBottom: 16 },
+  loadingBox: { textAlign: 'center', padding: 40, color: '#8a9bb8', fontSize: 14 },
+  tableWrap: { background: '#1a1d27', borderRadius: 12, border: '1px solid #2d3240', boxShadow: '0 4px 24px rgba(0,0,0,0.4)' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
-  th: { textAlign: 'left', padding: '10px 8px', fontWeight: 700, fontSize: 11, textTransform: 'uppercase', color: C.textMuted, borderBottom: `2px solid ${C.border}`, borderRight: colDivider, whiteSpace: 'nowrap', background: '#FAFAFA' },
-  tr: { borderBottom: `1.5px solid #D0D0D0`, transition: 'background 0.12s' },
-  td: { padding: '8px 8px', verticalAlign: 'middle', fontSize: 13, borderRight: colDivider },
-  emptyTd: { textAlign: 'center', padding: 40, color: C.textMuted, fontSize: 14 },
-  actionBtn: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: '4px 6px', borderRadius: 6, color: C.textMuted },
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 },
-  modal: { background: '#fff', borderRadius: 16, width: 580, maxWidth: '100%', maxHeight: '92vh', display: 'flex', flexDirection: 'column', boxShadow: C.shadowLg, animation: 'hsSlideUp 0.25s ease', overflow: 'hidden' },
-  modalHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${C.border}` },
-  modalTitle: { fontSize: 17, fontWeight: 700, color: C.text },
-  modalClose: { background: 'none', border: 'none', fontSize: 22, color: C.textMuted, cursor: 'pointer', padding: '0 4px', lineHeight: 1 },
+  th: { textAlign: 'center', padding: '10px 8px', fontWeight: 700, fontSize: 11, textTransform: 'uppercase', color: '#8a9bb8', borderBottom: '2px solid #2d3240', borderRight: colDivider, whiteSpace: 'nowrap', background: '#13151e' },
+  tr: { borderBottom: '1.5px solid #2d3240', transition: 'background 0.12s' },
+  td: { padding: '8px 8px', verticalAlign: 'middle', fontSize: 13, borderRight: colDivider, color: '#e2e8f0' },
+  emptyTd: { textAlign: 'center', padding: 40, color: '#8a9bb8', fontSize: 14 },
+  actionBtn: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: '4px 6px', borderRadius: 6, color: '#8a9bb8' },
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 },
+  modal: { background: '#1a1d27', borderRadius: 16, width: 580, maxWidth: '100%', maxHeight: '92vh', display: 'flex', flexDirection: 'column', boxShadow: C.shadowLg, animation: 'hsSlideUp 0.25s ease', overflow: 'hidden' },
+  modalHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #2d3240' },
+  modalTitle: { fontSize: 17, fontWeight: 700, color: '#e2e8f0' },
+  modalClose: { background: 'none', border: 'none', fontSize: 22, color: '#8a9bb8', cursor: 'pointer', padding: '0 4px', lineHeight: 1 },
   modalBody: { padding: '16px 20px', overflowY: 'auto', flex: 1 },
-  modalFooter: { display: 'flex', gap: 10, justifyContent: 'flex-end', padding: '12px 20px', borderTop: `1px solid ${C.border}` },
+  modalFooter: { display: 'flex', gap: 10, justifyContent: 'flex-end', padding: '12px 20px', borderTop: '1px solid #2d3240' },
   fieldWrap: { marginBottom: 14 },
-  fieldLabel: { display: 'block', fontSize: 12, fontWeight: 600, color: C.textMuted, marginBottom: 4 },
-  fieldInput: { width: '100%', padding: '9px 12px', border: `1.5px solid ${C.border}`, borderRadius: 8, fontSize: 14, fontFamily: F, outline: 'none', boxSizing: 'border-box', background: C.bgInput },
-  cancelBtn: { background: 'none', border: `1.5px solid ${C.border}`, borderRadius: 10, padding: '9px 20px', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: F, color: C.textMuted },
+  fieldLabel: { display: 'block', fontSize: 12, fontWeight: 600, color: '#8a9bb8', marginBottom: 4 },
+  fieldInput: { width: '100%', padding: '9px 12px', border: '1.5px solid #3a3f52', borderRadius: 8, fontSize: 14, fontFamily: F, outline: 'none', boxSizing: 'border-box', background: '#22263a', color: '#e2e8f0' },
+  cancelBtn: { background: 'none', border: '1.5px solid #3a3f52', borderRadius: 10, padding: '9px 20px', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: F, color: '#8a9bb8' },
   saveBtn: { background: C.gradient, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 24px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: F, boxShadow: C.shadowGreen },
-  confirmBox: { background: '#fff', borderRadius: 16, padding: '24px', width: 380, maxWidth: '100%', boxShadow: C.shadowLg, animation: 'hsSlideUp 0.2s ease' },
+  confirmBox: { background: '#1a1d27', borderRadius: 16, padding: '24px', width: 380, maxWidth: '100%', boxShadow: C.shadowLg, animation: 'hsSlideUp 0.2s ease' },
   toast: { position: 'fixed', bottom: 24, right: 24, padding: '12px 20px', borderRadius: 10, color: '#fff', fontSize: 14, fontWeight: 600, fontFamily: F, boxShadow: C.shadowMd, zIndex: 2000 },
 };
