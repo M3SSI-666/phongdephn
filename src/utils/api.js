@@ -204,6 +204,28 @@ export async function postQuyCanBan(payload) {
   return res.json();
 }
 
+// ============ Quỹ Homestay ============
+export async function fetchQuyHomestay() {
+  const res = await fetch(`/api/quyhomestay?t=${Date.now()}`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error('Fetch quy homestay failed');
+  return res.json();
+}
+
+export async function postQuyHomestay(payload) {
+  const res = await fetch('/api/quyhomestay', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Action failed (${res.status})`);
+  }
+  return res.json();
+}
+
 // ============ Khach Times City ============
 export async function fetchKhachTimes() {
   const res = await fetch(`/api/khachtimes?t=${Date.now()}`, {

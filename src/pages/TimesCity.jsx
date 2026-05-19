@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { C } from '../utils/theme';
 import { KhachTimesContent } from './KhachTimes';
 import { NguonHangContent } from './NguonHangTimes';
+import { QuyHomestayContent } from './QuyHomestay';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
 const TABS = [
-  { key: 'khach', label: 'Khách hàng' },
-  { key: 'nguon', label: 'Nguồn hàng' },
+  { key: 'khach',    label: 'Khách hàng' },
+  { key: 'nguon',    label: 'Nguồn hàng' },
+  { key: 'homestay', label: 'Quỹ Homestay' },
 ];
 
 export default function TimesCity() {
@@ -67,8 +69,9 @@ export default function TimesCity() {
 
       {/* Content */}
       <div style={s.content}>
-        {activeTab === 'khach' && <KhachTimesContent />}
-        {activeTab === 'nguon' && <NguonHangContent />}
+        {activeTab === 'khach'    && <KhachTimesContent />}
+        {activeTab === 'nguon'    && <NguonHangContent />}
+        {activeTab === 'homestay' && <QuyHomestayContent />}
       </div>
     </div>
   );
