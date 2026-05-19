@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { C } from '../utils/theme';
 import { KhachTimesContent } from './KhachTimes';
-import { QuyCanThueContent, QuyCanBanContent } from './NguonHangTimes';
+import { QuyCanThueContent } from './QuyCanThue';
+import { QuyCanBanContent } from './NguonHangTimes';
 import { QuyShophouseContent } from './QuyShophouse';
 import { QuyHomestayContent } from './QuyHomestay';
 
