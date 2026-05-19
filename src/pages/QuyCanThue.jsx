@@ -241,7 +241,7 @@ function QuyCanThueInner() {
   }
 
   return (
-    <div style={{ fontFamily: F, color: C.text }}>
+    <div style={{ fontFamily: F, color: '#e2e8f0' }}>
       {/* Header row */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, gap:12, flexWrap:'wrap' }}>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>

@@ -86,17 +86,17 @@ export default function TimesCity() {
 const s = {
   root: {
     fontFamily: F,
-    background: C.bg,
+    background: '#0f1117',
     minHeight: '100vh',
-    color: C.text,
+    color: '#e2e8f0',
   },
   header: {
-    background: '#fff',
-    borderBottom: `1px solid ${C.border}`,
+    background: '#13151e',
+    borderBottom: '1px solid #2d3240',
     position: 'sticky',
     top: 0,
     zIndex: 100,
-    boxShadow: C.shadow,
+    boxShadow: '0 2px 12px rgba(0,0,0,0.4)',
   },
   headerInner: {
     padding: '12px 16px',
@@ -112,11 +112,11 @@ const s = {
   },
   headerSub: {
     fontSize: 11,
-    color: C.textMuted,
+    color: '#8a9bb8',
     marginTop: 1,
   },
   backBtn: {
-    background: C.primaryBg,
+    background: 'rgba(56,178,116,0.15)',
     borderRadius: 8,
     width: 36,
     height: 36,
@@ -128,8 +128,8 @@ const s = {
     fontWeight: 700,
   },
   tabsContainer: {
-    background: '#fff',
-    borderBottom: `1px solid ${C.border}`,
+    background: '#13151e',
+    borderBottom: '1px solid #2d3240',
     padding: '0 12px',
   },
   tabsRow: {
@@ -143,9 +143,9 @@ const s = {
     borderRadius: '10px 10px 0 0',
     fontSize: 15,
     fontWeight: 700,
-    background: C.bg,
-    color: C.textMuted,
-    border: `1.5px solid ${C.border}`,
+    background: '#1a1d27',
+    color: '#8a9bb8',
+    border: '1.5px solid #2d3240',
     borderBottom: 'none',
     position: 'relative',
     top: 1,
