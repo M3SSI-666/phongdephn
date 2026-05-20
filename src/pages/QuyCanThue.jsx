@@ -333,8 +333,7 @@ function QuyCanThueInner() {
                   {/* Header tòa */}
                   <tr key={`header-${toa}`}>
                     <td colSpan={TABLE_HEADERS.length} style={st.toaHeader}>
-                      <span style={st.toaLabel}>🏢 Tòa {TOA_LABEL[toa] || toa}</span>
-                      <span style={st.toaCount}>{toaItems.length} căn</span>
+                      <span style={st.toaLabel}>{toa}</span>
                     </td>
                   </tr>
                   {/* Các căn trong tòa */}
@@ -804,9 +803,8 @@ const st = {
   tr:          { borderBottom:'1.5px solid #2d3240', transition:'background 0.12s' },
   td:          { padding:'8px 8px', verticalAlign:'middle', fontSize:13, borderRight:D, color:'#e2e8f0' },
   emptyTd:     { textAlign:'center', padding:40, color:'#8a9bb8', fontSize:14 },
-  toaHeader:   { background:'linear-gradient(90deg,#1e3a2e,#1a2e3e)', borderBottom:'2px solid #38b274', borderTop:'2px solid #2d3240', padding:'8px 12px', display:'flex', alignItems:'center', justifyContent:'space-between' },
-  toaLabel:    { fontWeight:800, fontSize:13, color:'#38b274', letterSpacing:1, textTransform:'uppercase' },
-  toaCount:    { fontSize:11, color:'#8a9bb8', background:'rgba(255,255,255,0.07)', padding:'2px 10px', borderRadius:20, fontWeight:600 },
+  toaHeader:   { background:'#E6A817', padding:'7px 0', textAlign:'center' },
+  toaLabel:    { fontWeight:800, fontSize:14, color:'#1a1200', letterSpacing:2, textTransform:'uppercase' },
   actionBtn:   { background:'none', border:'none', cursor:'pointer', fontSize:16, padding:'4px 6px', borderRadius:6, color:C.textMuted },
   overlay:     { position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 },
   modal:       { background:'#fff', borderRadius:16, width:620, maxWidth:'100%', maxHeight:'92vh', display:'flex', flexDirection:'column', boxShadow:C.shadowLg, animation:'ctSlideUp 0.25s ease', overflow:'hidden' },
