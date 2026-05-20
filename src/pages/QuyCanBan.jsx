@@ -253,7 +253,7 @@ function QuyCanBanInner() {
 
   function ThumbCell({ value }) {
     const urls = value ? value.split(',').map(u=>u.trim()).filter(Boolean) : [];
-    if (!urls.length) return <span style={{color:'#4a5568'}}>—</span>;
+    if (!urls.length) return <span style={{color:'#8a9bb8', fontSize:16}} title="Xem mặt bằng">🗺</span>;
     const sorted = sortMedia(urls);
     return (
       <div style={{display:'flex',gap:3,justifyContent:'center'}}>
@@ -341,10 +341,10 @@ function QuyCanBanInner() {
                       <td style={{...st.td, textAlign:'center'}}>{item.Noi_That}</td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap'}}>{item.SDT}</td>
                       <td style={{...st.td, textAlign:'center'}}>{item.Ten_Chu}</td>
-                      <td style={{...st.td, textAlign:'center', cursor: item.Hinh_Anh ? 'pointer' : 'default'}}
+                      <td style={{...st.td, textAlign:'center', cursor:'pointer'}}
                         onClick={() => {
                           const urls = item.Hinh_Anh ? item.Hinh_Anh.split(',').map(u=>u.trim()).filter(Boolean) : [];
-                          if (urls.length) setLightbox({ urls: sortMedia(urls), index: 0, maCan: item.Ma_Can || 'media' });
+                          setLightbox({ urls: sortMedia(urls), index: 0, maCan: item.Ma_Can || 'media', defaultTab: urls.length ? 'anh' : 'matbang' });
                         }}
                       ><ThumbCell value={item.Hinh_Anh} /></td>
                       <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Nguon}</td>
@@ -585,6 +585,7 @@ function QuyCanBanInner() {
           urls={lightbox.urls}
           startIndex={lightbox.index}
           maCan={lightbox.maCan}
+          defaultTab={lightbox.defaultTab}
           onClose={() => setLightbox(null)}
         />
       )}
@@ -656,8 +657,8 @@ function FloorPlanTab({ maCan }) {
   );
 }
 
-function LightboxModal({ urls, startIndex, maCan = 'anh', onClose }) {
-  const [tab, setTab]        = useState('anh');
+function LightboxModal({ urls, startIndex, maCan = 'anh', defaultTab = 'anh', onClose }) {
+  const [tab, setTab]        = useState(defaultTab);
   const [idx, setIdx]        = useState(startIndex);
   const [downloading, setDl] = useState(false);
 
