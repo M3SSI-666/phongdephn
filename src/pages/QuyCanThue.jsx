@@ -126,6 +126,24 @@ function QuyCanThueInner() {
   const TOA_LABEL = { T18: 'T18 (P04)' }; // T18 hiển thị là P04
 
   const grouped = useMemo(() => {
+    function parsePN(thietKe) {
+      const m = (thietKe || '').match(/(\d+)\s*[Pp][Nn]/);
+      return m ? parseInt(m[1]) : 99;
+    }
+    function parseGia(gia) {
+      const s = (gia || '').toLowerCase().replace(/,/g, '.').replace(/\s+/g, '');
+      const ty = s.match(/([\d.]+)\s*t[ỷy]/);
+      if (ty) return parseFloat(ty[1]) * 1000;
+      const tr = s.match(/([\d.]+)\s*tr/);
+      if (tr) return parseFloat(tr[1]);
+      const n = s.match(/([\d.]+)/);
+      return n ? parseFloat(n[1]) : 99999;
+    }
+    function parseDT(dt) {
+      const n = (dt || '').replace(/[^\d.]/g, '');
+      return n ? parseFloat(n) : 0;
+    }
+
     const map = new Map();
     for (const item of filtered) {
       const m = (item.Ma_Can||'').toUpperCase().match(/^([A-Z]+\d{1,2})/);
@@ -134,6 +152,15 @@ function QuyCanThueInner() {
       map.get(key).push(item);
     }
     const entries = Array.from(map.entries());
+    entries.forEach(([, arr]) => {
+      arr.sort((a, b) => {
+        const pn = parsePN(a.Thiet_Ke) - parsePN(b.Thiet_Ke);
+        if (pn !== 0) return pn;
+        const gia = parseGia(a.Gia) - parseGia(b.Gia);
+        if (gia !== 0) return gia;
+        return parseDT(b.Dien_Tich) - parseDT(a.Dien_Tich);
+      });
+    });
     return entries.sort(([a],[b]) => {
       const ia = TOA_ORDER.indexOf(a);
       const ib = TOA_ORDER.indexOf(b);
