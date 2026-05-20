@@ -21,8 +21,14 @@ Rules:
 - Thiet_Ke: design/layout from "Thiết kế:" (e.g. "3PN", "2PN", "Studio"). Normalize "3n"→"3PN", "2n"→"2PN".
 - Dien_Tich: area with unit from "Diện tích:" (e.g. "106m²", "75m²"). Normalize "106m"→"106m²".
 - Huong_BC: balcony direction from "Hướng ban công:" (e.g. "Nam", "Đông Nam", "Tây Bắc").
-- Gia: full content from "Giá:" line — keep everything after the colon as-is, including any suffix like "tv", "thương lượng", "thoả thuận", etc. (e.g. "14tr tv", "23tr", "15 triệu thoả thuận"). Do NOT strip or split anything from this field.
-- Phi_MG: broker fee from "Giá:" line. "phí đủ"→"Phí đủ", "1 tháng"→"1 tháng", "50%"→"50%", "phí nửa"→"Nửa tháng". Empty if not mentioned.
+- Gia + Phi_MG: parse from "Giá:" line together using these rules:
+  • If price has "tv" or "thu về" → Gia="Xtr tv" (e.g. "14tr tv"), Phi_MG="" (empty — tv means net price, no broker fee)
+  • If price has "pmg X" → Gia=price only (e.g. "15tr"), Phi_MG=the pmg value (e.g. "pmg 1/2"→"1/2", "pmg 10tr"→"10tr", "pmg 1 tháng"→"1 tháng")
+  • If price has "phí đủ" → Gia=price only, Phi_MG="Phí đủ"
+  • If price has "phí nửa" or "nửa tháng" → Gia=price only, Phi_MG="Nửa tháng"
+  • If price has "1 tháng" (fee) → Gia=price only, Phi_MG="1 tháng"
+  • If no fee info → Gia=full price text, Phi_MG=""
+  Examples: "15tr pmg 1/2"→Gia="15tr",Phi_MG="1/2" | "14tr tv"→Gia="14tr tv",Phi_MG="" | "23tr phí đủ"→Gia="23tr",Phi_MG="Phí đủ"
 - Noi_That: furniture/interior from "Hiện trạng:" line. "full đồ"→"Full nội thất", "đầy đủ"→"Full nội thất", "cơ bản"→"Cơ bản", "trống"→"Không nội thất", "không đồ"→"Không nội thất".
 - Slot_Xe: "Có" if "slot xe", "có xe", "bãi xe" mentioned in "Hiện trạng:". Default "Không".
 - Thoi_Gian_Vao: full content from "Thời gian vào:" line — keep everything after the colon including notes. Only normalize abbreviations: "lun"→"Luôn", "ngay"→"Ngay". Keep all additional context (e.g. "Luôn, ưu tiên nước ngoài", "Tháng 6/2025, có thể linh hoạt").
