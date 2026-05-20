@@ -29,8 +29,8 @@ Rules:
   • If price has "1 tháng" (fee) → Gia=price only, Phi_MG="1 tháng"
   • If no fee info → Gia=full price text, Phi_MG=""
   Examples: "15tr pmg 1/2"→Gia="15tr",Phi_MG="1/2" | "14tr tv"→Gia="14tr tv",Phi_MG="" | "23tr phí đủ"→Gia="23tr",Phi_MG="Phí đủ"
-- Noi_That: full content from "Hiện trạng:" line — keep the original text as-is, do NOT normalize to fixed categories. Just copy everything after the colon (e.g. "có đồ, nhà sửa đẹp", "full đồ nội thất cao cấp", "trống hoàn toàn").
-- Slot_Xe: "Có" if "slot xe", "có xe", "bãi xe" mentioned anywhere in the message. Default "Không".
+- Noi_That: content from "Hiện trạng:" line — keep original text BUT remove any slot/parking mentions (e.g. "không slot", "có slot", "slot xe", "không có xe", "có xe"). Only keep the furniture/interior description. Example: "có đồ, nhà sửa đẹp, không slot" → "có đồ, nhà sửa đẹp".
+- Slot_Xe: detect from entire message especially "Hiện trạng:" line. "có slot"/"slot xe"/"có xe"/"bãi xe" → "Có". "không slot"/"không có xe"/"không xe" → "Không". Default "Không".
 - Thoi_Gian_Vao: full content from "Thời gian vào:" line — keep everything after the colon including notes. Only normalize abbreviations: "lun"→"Luôn", "ngay"→"Ngay". Keep all additional context (e.g. "Luôn, ưu tiên nước ngoài", "Tháng 6/2025, có thể linh hoạt").
 - Lien_He: contact phone/name from "Xem nhà lh:" or "Liên hệ:" line. Keep original format.
 
