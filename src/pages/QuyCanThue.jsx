@@ -23,14 +23,14 @@ const RAINBOW_COLORS = [
 const EMPTY_FORM = {
   Ma_Can: '', Thiet_Ke: '', Dien_Tich: '', Slot_Xe: 'Không',
   Huong_BC: '', Gia: '', Phi_MG: '', Noi_That: '',
-  Thoi_Gian_Vao: '', Lien_He: '', Hinh_Anh: '', Ghi_Chu: '', Mau_Ma_Can: '',
+  Thoi_Gian_Vao: '', Lien_He: '', Hinh_Anh: '', Nguon: '', Ghi_Chu: '', Mau_Ma_Can: '',
 };
 
 const TABLE_HEADERS = [
   'STT', 'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
-  'Hướng BC', 'Giá', 'Phí MG', 'Nội Thất', 'Thời Gian Vào', 'Liên Hệ', 'Ảnh', 'Ghi Chú', '',
+  'Hướng BC', 'Giá', 'Phí MG', 'Nội Thất', 'Thời Gian Vào', 'Liên Hệ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
 ];
-const COL_WIDTHS = [42, 92, 100, 72, 66, 76, 85, 70, 90, 110, 130, 110, 80, 220, 72];
+const COL_WIDTHS = [42, 92, 100, 72, 66, 76, 85, 70, 90, 110, 130, 110, 80, 100, 220, 72];
 
 export function QuyCanThueContent() {
   return <QuyCanThueInner />;
@@ -188,6 +188,7 @@ function QuyCanThueInner() {
       Thoi_Gian_Vao: item.Thoi_Gian_Vao || '',
       Lien_He:       item.Lien_He       || '',
       Hinh_Anh:      item.Hinh_Anh      || '',
+      Nguon:         item.Nguon         || '',
       Ghi_Chu:       item.Ghi_Chu       || '',
       Mau_Ma_Can:    item.Mau_Ma_Can    || '',
     });
@@ -302,12 +303,13 @@ function QuyCanThueInner() {
                   <td style={{...st.td, textAlign:'center'}}>{item.Noi_That}</td>
                   <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Thoi_Gian_Vao}</td>
                   <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap'}}>{item.Lien_He}</td>
-                  <td style={{...st.td, textAlign:'center', cursor: item.Hinh_Anh ? 'pointer' : 'default'}}
+                  <td style={{...st.td, textAlign:'center', cursor: item.Hinh_Anh ? 'pointer' : 'default', position:'relative'}}
                     onClick={() => {
                       const urls = item.Hinh_Anh ? item.Hinh_Anh.split(',').map(u=>u.trim()).filter(Boolean) : [];
                       if (urls.length) setLightbox({ urls, index: 0, maCan: item.Ma_Can || 'anh_can' });
                     }}
                   ><ThumbCell value={item.Hinh_Anh} /></td>
+                  <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Nguon}</td>
                   <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8'}}>{item.Ghi_Chu}</td>
                   <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none'}}>
                     <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>
@@ -433,6 +435,10 @@ function QuyCanThueInner() {
 
                 <div style={{ gridColumn:'1/-1' }}>
                   <FormField label="Liên Hệ (Chủ nhà / SĐT)" value={form.Lien_He} onChange={v => set('Lien_He', v)} placeholder="VD: 0363560203, Anh Nam" />
+                </div>
+
+                <div style={{ gridColumn:'1/-1' }}>
+                  <FormField label="Nguồn (Ai mang hàng về)" value={form.Nguon} onChange={v => set('Nguon', v)} placeholder="VD: Anh Phong, Chị Lan, Zalo nhóm..." />
                 </div>
 
                 {/* Ghi chú */}
