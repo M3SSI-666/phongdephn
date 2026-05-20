@@ -143,16 +143,18 @@ function QuyCanThueInner() {
     finally { setParsing(false); }
   }
 
-  // ── Image upload ──
-  async function handleImageFiles(files) {
+  // ── Media upload (ảnh + video) ──
+  async function handleMediaFiles(files) {
     if (!files?.length) return;
     setUploading(true);
     const existing = form.Hinh_Anh ? form.Hinh_Anh.split(',').map(u=>u.trim()).filter(Boolean) : [];
     const newUrls = [...existing];
     for (const file of Array.from(files)) {
-      if (!file.type.startsWith('image/')) { showToast(`${file.name} không phải ảnh`, 'error'); continue; }
+      const isVid = file.type.startsWith('video/');
+      const isImg = file.type.startsWith('image/');
+      if (!isVid && !isImg) { showToast(`${file.name} không phải ảnh hoặc video`, 'error'); continue; }
       try {
-        const url = await uploadToCloudinary(file, 'image', setUpProgress);
+        const url = await uploadToCloudinary(file, isVid ? 'video' : 'image', setUpProgress);
         newUrls.push(url);
       } catch(e) { showToast('Upload thất bại: ' + e.message, 'error'); }
     }
@@ -230,14 +232,30 @@ function QuyCanThueInner() {
     finally { setSaving(false); }
   }
 
+  // ── Media helpers ──
+  function isVideo(url) {
+    return /\.(mp4|mov|avi|webm|mkv|m4v)(\?|$)/i.test(url) || url.includes('/video/upload/');
+  }
+  function sortMedia(urls) {
+    return [...urls.filter(isVideo), ...urls.filter(u => !isVideo(u))];
+  }
+
   // ── Thumbnail cell ──
   function ThumbCell({ value }) {
     const urls = value ? value.split(',').map(u=>u.trim()).filter(Boolean) : [];
     if (!urls.length) return <span style={{color:'#4a5568'}}>—</span>;
+    const sorted = sortMedia(urls);
     return (
-      <div style={{display:'flex',gap:3}}>
-        {urls.slice(0,2).map((u,i) => <img key={i} src={u} alt="" style={{width:32,height:32,objectFit:'cover',borderRadius:4}} />)}
-        {urls.length > 2 && <span style={{fontSize:11,color:C.textMuted,alignSelf:'center'}}>+{urls.length-2}</span>}
+      <div style={{display:'flex',gap:3,justifyContent:'center'}}>
+        {sorted.slice(0,2).map((u,i) => isVideo(u) ? (
+          <div key={i} style={{position:'relative',width:32,height:32}}>
+            <video src={u} style={{width:32,height:32,objectFit:'cover',borderRadius:4}} muted />
+            <span style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,background:'rgba(0,0,0,0.35)',borderRadius:4}}>▶</span>
+          </div>
+        ) : (
+          <img key={i} src={u} alt="" style={{width:32,height:32,objectFit:'cover',borderRadius:4}} />
+        ))}
+        {urls.length > 2 && <span style={{fontSize:11,color:'#8a9bb8',alignSelf:'center'}}>+{urls.length-2}</span>}
       </div>
     );
   }
@@ -306,7 +324,7 @@ function QuyCanThueInner() {
                   <td style={{...st.td, textAlign:'center', cursor: item.Hinh_Anh ? 'pointer' : 'default', position:'relative'}}
                     onClick={() => {
                       const urls = item.Hinh_Anh ? item.Hinh_Anh.split(',').map(u=>u.trim()).filter(Boolean) : [];
-                      if (urls.length) setLightbox({ urls, index: 0, maCan: item.Ma_Can || 'anh_can' });
+                      if (urls.length) setLightbox({ urls: sortMedia(urls), index: 0, maCan: item.Ma_Can || 'media' });
                     }}
                   ><ThumbCell value={item.Hinh_Anh} /></td>
                   <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Nguon}</td>
@@ -453,16 +471,23 @@ function QuyCanThueInner() {
                 </div>
               </div>
 
-              {/* ── Image upload ── */}
+              {/* ── Media upload (ảnh + video) ── */}
               <div style={{ marginTop:16 }}>
-                <label style={st.fieldLabel}>Hình Ảnh Căn</label>
+                <label style={st.fieldLabel}>Hình Ảnh / Video Căn</label>
 
                 {/* Thumbnails */}
                 {form.Hinh_Anh && (
                   <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:10 }}>
                     {form.Hinh_Anh.split(',').map(u=>u.trim()).filter(Boolean).map((url,i) => (
                       <div key={i} style={{ position:'relative' }}>
-                        <img src={url} alt="" style={{ width:72, height:72, objectFit:'cover', borderRadius:8, border:`1px solid ${C.border}` }} />
+                        {isVideo(url) ? (
+                          <div style={{ position:'relative', width:72, height:72 }}>
+                            <video src={url} style={{ width:72, height:72, objectFit:'cover', borderRadius:8, border:'1px solid #3a3f52' }} muted />
+                            <span style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, background:'rgba(0,0,0,0.4)', borderRadius:8 }}>▶</span>
+                          </div>
+                        ) : (
+                          <img src={url} alt="" style={{ width:72, height:72, objectFit:'cover', borderRadius:8, border:'1px solid #3a3f52' }} />
+                        )}
                         <button
                           type="button" onClick={() => removeImage(url)}
                           style={{ position:'absolute', top:-6, right:-6, width:20, height:20, borderRadius:'50%', background:C.error, color:'#fff', border:'none', cursor:'pointer', fontSize:13, fontWeight:700, lineHeight:'20px', textAlign:'center' }}
@@ -477,24 +502,24 @@ function QuyCanThueInner() {
                   onClick={() => !uploading && fileInputRef.current?.click()}
                   onDragOver={e => { e.preventDefault(); setDragOver(true); }}
                   onDragLeave={() => setDragOver(false)}
-                  onDrop={e => { e.preventDefault(); setDragOver(false); handleImageFiles(e.dataTransfer.files); }}
+                  onDrop={e => { e.preventDefault(); setDragOver(false); handleMediaFiles(e.dataTransfer.files); }}
                   style={{
-                    border:`2px dashed ${dragOver ? C.primary : uploading ? C.primary : C.border}`,
+                    border:`2px dashed ${dragOver ? C.primary : uploading ? C.primary : '#3a3f52'}`,
                     borderRadius:10, padding:'16px 20px',
                     cursor: uploading ? 'default':'pointer',
-                    textAlign:'center', color:C.textMuted, fontSize:13,
-                    background: dragOver ? C.primaryBg : uploading ? '#EBF8FF':'#FAFAFA',
+                    textAlign:'center', color:'#8a9bb8', fontSize:13,
+                    background: dragOver ? 'rgba(56,178,116,0.08)' : uploading ? 'rgba(56,178,116,0.05)' : '#1e2130',
                     transition:'all 0.15s',
                   }}
                 >
                   {uploading
-                    ? <><strong>Đang upload... {upProgress}%</strong><div style={{background:C.border,borderRadius:4,height:4,marginTop:8}}><div style={{background:C.primary,width:`${upProgress}%`,height:'100%',borderRadius:4,transition:'width 0.3s'}}/></div></>
-                    : form.Hinh_Anh ? '📷 Thêm ảnh (click hoặc kéo thả)' : '📷 Click hoặc kéo thả ảnh vào đây'
+                    ? <><strong style={{color:'#e2e8f0'}}>Đang upload... {upProgress}%</strong><div style={{background:'#2d3240',borderRadius:4,height:4,marginTop:8}}><div style={{background:C.primary,width:`${upProgress}%`,height:'100%',borderRadius:4,transition:'width 0.3s'}}/></div></>
+                    : form.Hinh_Anh ? '📷 Thêm ảnh / video (click hoặc kéo thả)' : '📷🎥 Click hoặc kéo thả ảnh, video vào đây'
                   }
                 </div>
                 <input
-                  ref={fileInputRef} type="file" accept="image/*" multiple style={{ display:'none' }}
-                  onChange={e => { handleImageFiles(e.target.files); e.target.value=''; }}
+                  ref={fileInputRef} type="file" accept="image/*,video/*" multiple style={{ display:'none' }}
+                  onChange={e => { handleMediaFiles(e.target.files); e.target.value=''; }}
                 />
               </div>
             </div>
@@ -577,6 +602,10 @@ function ColorPicker({ value, onChange }) {
 }
 
 // ── Lightbox ──
+function isVideoUrl(url) {
+  return /\.(mp4|mov|avi|webm|mkv|m4v)(\?|$)/i.test(url) || url.includes('/video/upload/');
+}
+
 function LightboxModal({ urls, startIndex, maCan = 'anh', onClose }) {
   const [idx, setIdx]           = useState(startIndex);
   const [downloading, setDl]    = useState(false);
@@ -629,7 +658,11 @@ function LightboxModal({ urls, startIndex, maCan = 'anh', onClose }) {
         {/* Main image */}
         <div style={lb.imgWrap}>
           {idx > 0 && <button onClick={() => setIdx(i => i - 1)} style={lb.arrowLeft}>‹</button>}
-          <img src={urls[idx]} alt="" style={lb.img} />
+          {isVideoUrl(urls[idx]) ? (
+            <video key={urls[idx]} src={urls[idx]} controls autoPlay style={lb.img} />
+          ) : (
+            <img src={urls[idx]} alt="" style={lb.img} />
+          )}
           {idx < urls.length - 1 && <button onClick={() => setIdx(i => i + 1)} style={lb.arrowRight}>›</button>}
         </div>
 
@@ -637,9 +670,21 @@ function LightboxModal({ urls, startIndex, maCan = 'anh', onClose }) {
         {urls.length > 1 && (
           <div style={lb.thumbRow}>
             {urls.map((u, i) => (
-              <img key={i} src={u} alt="" onClick={() => setIdx(i)}
-                style={{ ...lb.thumb, ...(i === idx ? lb.thumbActive : {}) }}
-              />
+              <div key={i} onClick={() => setIdx(i)}
+                style={{ position:'relative', cursor:'pointer', borderRadius:7, overflow:'hidden', flexShrink:0,
+                  width:58, height:58, border: i===idx ? '2px solid #38b274' : '2px solid transparent',
+                  opacity: i===idx ? 1 : 0.55, transform: i===idx ? 'scale(1.08)':'scale(1)', transition:'all 0.15s',
+                }}
+              >
+                {isVideoUrl(u) ? (
+                  <>
+                    <video src={u} style={{width:58,height:58,objectFit:'cover'}} muted />
+                    <span style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,background:'rgba(0,0,0,0.4)'}}>▶</span>
+                  </>
+                ) : (
+                  <img src={u} alt="" style={{width:58,height:58,objectFit:'cover'}} />
+                )}
+              </div>
             ))}
           </div>
         )}
