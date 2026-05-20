@@ -591,19 +591,53 @@ function isVideoUrl(url) {
   return /\.(mp4|mov|avi|webm|mkv|m4v)(\?|$)/i.test(url) || url.includes('/video/upload/');
 }
 
+function extractBuilding(maCan) {
+  // T181010 → T18 | P0112A11 → P01 | R6-1208 → R6
+  const m = (maCan || '').toUpperCase().match(/^([A-Z]+\d{1,2})/);
+  return m ? m[1] : null;
+}
+
+function FloorPlanTab({ maCan }) {
+  const code = extractBuilding(maCan);
+  const [src, setSrc] = useState(code ? `/mat-bang/${code}.jpg` : null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (code) { setSrc(`/mat-bang/${code}.jpg`); setFailed(false); }
+  }, [code]);
+
+  if (!code) return <div style={lb.mbMsg}>Không xác định được mã tòa từ "{maCan}"</div>;
+  if (failed)  return <div style={lb.mbMsg}>Chưa có ảnh mặt bằng cho tòa <strong>{code}</strong></div>;
+  return (
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
+      <div style={{ fontSize:13, color:'#8a9bb8' }}>Mặt bằng tòa <strong style={{color:'#e2e8f0'}}>{code}</strong></div>
+      <img
+        src={src} alt={`Mặt bằng ${code}`}
+        style={{ maxWidth:'100%', maxHeight:'72vh', objectFit:'contain', borderRadius:10, boxShadow:'0 8px 40px rgba(0,0,0,0.7)' }}
+        onError={() => {
+          if (src?.endsWith('.jpg')) setSrc(`/mat-bang/${code}.png`);
+          else setFailed(true);
+        }}
+      />
+    </div>
+  );
+}
+
 function LightboxModal({ urls, startIndex, maCan = 'anh', onClose }) {
+  const [tab, setTab]           = useState('anh'); // 'anh' | 'matbang'
   const [idx, setIdx]           = useState(startIndex);
   const [downloading, setDl]    = useState(false);
 
   useEffect(() => {
     const handler = (e) => {
+      if (tab !== 'anh') { if (e.key === 'Escape') onClose(); return; }
       if (e.key === 'ArrowLeft')  setIdx(i => Math.max(0, i - 1));
       if (e.key === 'ArrowRight') setIdx(i => Math.min(urls.length - 1, i + 1));
       if (e.key === 'Escape')     onClose();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [urls.length, onClose]);
+  }, [urls.length, onClose, tab]);
 
   async function dlOne(url, name) {
     try {
@@ -630,48 +664,66 @@ function LightboxModal({ urls, startIndex, maCan = 'anh', onClose }) {
       <div style={lb.container}>
         {/* Top bar */}
         <div style={lb.topBar}>
-          <span style={lb.counter}>📷 {idx + 1} / {urls.length}</span>
-          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            <button onClick={() => dlOne(urls[idx], `${maCan}_${idx+1}.jpg`)} style={lb.dlBtn}>⬇ Ảnh này</button>
-            <button onClick={dlAll} disabled={downloading} style={lb.dlAllBtn}>
-              {downloading ? '⏳ Đang tải...' : `⬇ Tất cả (${urls.length})`}
+          {/* Tabs */}
+          <div style={{ display:'flex', gap:6 }}>
+            <button onClick={() => setTab('anh')}
+              style={{ ...lb.tabBtn, ...(tab==='anh' ? lb.tabBtnActive : {}) }}>
+              📷 Ảnh
             </button>
+            <button onClick={() => setTab('matbang')}
+              style={{ ...lb.tabBtn, ...(tab==='matbang' ? lb.tabBtnActive : {}) }}>
+              🗺 Mặt Bằng
+            </button>
+          </div>
+          {/* Right controls */}
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            {tab === 'anh' && <>
+              <span style={lb.counter}>{idx + 1} / {urls.length}</span>
+              <button onClick={() => dlOne(urls[idx], `${maCan}_${idx+1}.jpg`)} style={lb.dlBtn}>⬇ Ảnh này</button>
+              <button onClick={dlAll} disabled={downloading} style={lb.dlAllBtn}>
+                {downloading ? '⏳ Đang tải...' : `⬇ Tất cả (${urls.length})`}
+              </button>
+            </>}
             <button onClick={onClose} style={lb.closeBtn}>✕</button>
           </div>
         </div>
 
-        {/* Main image */}
-        <div style={lb.imgWrap}>
-          {idx > 0 && <button onClick={() => setIdx(i => i - 1)} style={lb.arrowLeft}>‹</button>}
-          {isVideoUrl(urls[idx]) ? (
-            <video key={urls[idx]} src={urls[idx]} controls autoPlay style={lb.img} />
-          ) : (
-            <img src={urls[idx]} alt="" style={lb.img} />
-          )}
-          {idx < urls.length - 1 && <button onClick={() => setIdx(i => i + 1)} style={lb.arrowRight}>›</button>}
-        </div>
-
-        {/* Thumbnail strip */}
-        {urls.length > 1 && (
-          <div style={lb.thumbRow}>
-            {urls.map((u, i) => (
-              <div key={i} onClick={() => setIdx(i)}
-                style={{ position:'relative', cursor:'pointer', borderRadius:7, overflow:'hidden', flexShrink:0,
-                  width:58, height:58, border: i===idx ? '2px solid #38b274' : '2px solid transparent',
-                  opacity: i===idx ? 1 : 0.55, transform: i===idx ? 'scale(1.08)':'scale(1)', transition:'all 0.15s',
-                }}
-              >
-                {isVideoUrl(u) ? (
-                  <>
-                    <video src={u} style={{width:58,height:58,objectFit:'cover'}} muted />
-                    <span style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,background:'rgba(0,0,0,0.4)'}}>▶</span>
-                  </>
-                ) : (
-                  <img src={u} alt="" style={{width:58,height:58,objectFit:'cover'}} />
-                )}
-              </div>
-            ))}
+        {tab === 'anh' ? (<>
+          {/* Main image/video */}
+          <div style={lb.imgWrap}>
+            {idx > 0 && <button onClick={() => setIdx(i => i - 1)} style={lb.arrowLeft}>‹</button>}
+            {isVideoUrl(urls[idx]) ? (
+              <video key={urls[idx]} src={urls[idx]} controls autoPlay style={lb.img} />
+            ) : (
+              <img src={urls[idx]} alt="" style={lb.img} />
+            )}
+            {idx < urls.length - 1 && <button onClick={() => setIdx(i => i + 1)} style={lb.arrowRight}>›</button>}
           </div>
+
+          {/* Thumbnail strip */}
+          {urls.length > 1 && (
+            <div style={lb.thumbRow}>
+              {urls.map((u, i) => (
+                <div key={i} onClick={() => setIdx(i)}
+                  style={{ position:'relative', cursor:'pointer', borderRadius:7, overflow:'hidden', flexShrink:0,
+                    width:58, height:58, border: i===idx ? '2px solid #38b274' : '2px solid transparent',
+                    opacity: i===idx ? 1 : 0.55, transform: i===idx ? 'scale(1.08)':'scale(1)', transition:'all 0.15s',
+                  }}
+                >
+                  {isVideoUrl(u) ? (
+                    <>
+                      <video src={u} style={{width:58,height:58,objectFit:'cover'}} muted />
+                      <span style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,background:'rgba(0,0,0,0.4)'}}>▶</span>
+                    </>
+                  ) : (
+                    <img src={u} alt="" style={{width:58,height:58,objectFit:'cover'}} />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </>) : (
+          <FloorPlanTab maCan={maCan} />
         )}
       </div>
     </div>
@@ -682,7 +734,10 @@ const lb = {
   overlay:     { position:'fixed', inset:0, background:'rgba(0,0,0,0.93)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:'16px' },
   container:   { display:'flex', flexDirection:'column', width:'100%', maxWidth:920, gap:12, fontFamily:F },
   topBar:      { display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 4px' },
+  tabBtn:      { background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:8, padding:'7px 16px', color:'#8a9bb8', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:F, transition:'all 0.15s' },
+  tabBtnActive:{ background:'rgba(56,178,116,0.2)', border:'1px solid #38b274', color:'#38b274' },
   counter:     { color:'#e2e8f0', fontSize:14, fontWeight:600 },
+  mbMsg:       { textAlign:'center', padding:'60px 20px', color:'#8a9bb8', fontSize:14 },
   dlBtn:       { background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:8, padding:'7px 14px', color:'#e2e8f0', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:F },
   dlAllBtn:    { background:'linear-gradient(135deg,#38b274,#2a8a5a)', border:'none', borderRadius:8, padding:'7px 16px', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, boxShadow:'0 2px 8px rgba(56,178,116,0.4)' },
   closeBtn:    { background:'rgba(255,255,255,0.1)', border:'none', borderRadius:8, width:36, height:36, color:'#e2e8f0', fontSize:20, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', lineHeight:1 },
