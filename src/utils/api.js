@@ -222,6 +222,24 @@ export async function parseThue(text) {
   }
 }
 
+// ============ Parse Căn Bán (Times City format) ============
+export async function parseBan(text) {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const res = await fetch('/api/parse-ban', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    if (res.ok) return res.json();
+    const err = await res.json().catch(() => ({}));
+    if (res.status === 429 && attempt === 1) {
+      await new Promise(r => setTimeout(r, 5000));
+      continue;
+    }
+    throw new Error(err.error || `Parse failed (${res.status})`);
+  }
+}
+
 // ============ Quỹ Shophouse ============
 export async function fetchQuyShophouse() {
   const res = await fetch(`/api/quyshophouse?t=${Date.now()}`, { cache: 'no-store' });

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { C } from '../utils/theme';
 import { KhachTimesContent } from './KhachTimes';
 import { QuyCanThueContent } from './QuyCanThue';
-import { QuyCanBanContent } from './NguonHangTimes';
+import { QuyCanBanContent } from './QuyCanBan';
 import { QuyShophouseContent } from './QuyShophouse';
 import { QuyHomestayContent } from './QuyHomestay';
 
