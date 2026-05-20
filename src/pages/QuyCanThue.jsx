@@ -117,6 +117,18 @@ function QuyCanThueInner() {
     return list.sort((a,b) => Number(a.STT||0) - Number(b.STT||0));
   }, [items, search]);
 
+  // Group theo tòa: T01 < T02 < ... < P01 < P02 ...
+  const grouped = useMemo(() => {
+    const map = new Map();
+    for (const item of filtered) {
+      const m = (item.Ma_Can||'').toUpperCase().match(/^([A-Z]+\d{1,2})/);
+      const key = m ? m[1] : '—';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(item);
+    }
+    return Array.from(map.entries()).sort(([a],[b]) => a.localeCompare(b));
+  }, [filtered]);
+
   // ── AI Parse ──
   async function handleParse() {
     if (!rawText.trim()) return showToast('Hãy paste tin Zalo vào trước', 'error');
@@ -301,39 +313,51 @@ function QuyCanThueInner() {
                 <tr><td colSpan={TABLE_HEADERS.length} style={st.emptyTd}>
                   {items.length === 0 ? 'Chưa có căn nào. Bấm "+ Thêm Căn" để bắt đầu.' : 'Không tìm thấy'}
                 </td></tr>
-              ) : filtered.map(item => (
-                <tr key={item._rowIndex} className="ct-row" style={st.tr}>
-                  <td style={{...st.td, textAlign:'center', color:'#8a9bb8', fontSize:12}}>{item.STT}</td>
-                  <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', fontSize:12}}>{item.Ngay_Update}</td>
-                  <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', background:item.Mau_Ma_Can||'transparent', color:'#fff', borderRadius: item.Mau_Ma_Can ? 6 : 0}}>{item.Ma_Can}</td>
-                  <td style={{...st.td, textAlign:'center'}}>{item.Thiet_Ke}</td>
-                  <td style={{...st.td, textAlign:'center'}}>{(item.Dien_Tich||'').replace(/\s*m²|m2|m$/i,'').trim()}</td>
-                  <td style={{...st.td, textAlign:'center'}}>
-                    <span style={{
-                      background: item.Slot_Xe === 'Có' ? '#C6F6D5' : '#FED7D7',
-                      color: item.Slot_Xe === 'Có' ? '#276749' : '#9B2C2C',
-                      padding:'2px 8px', borderRadius:10, fontSize:11, fontWeight:700,
-                    }}>{item.Slot_Xe || 'Không'}</span>
-                  </td>
-                  <td style={{...st.td, textAlign:'center'}}>{item.Huong_BC}</td>
-                  <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap'}}>{item.Gia}</td>
-                  <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Phi_MG}</td>
-                  <td style={{...st.td, textAlign:'center'}}>{item.Noi_That}</td>
-                  <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Thoi_Gian_Vao}</td>
-                  <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap'}}>{item.Lien_He}</td>
-                  <td style={{...st.td, textAlign:'center', cursor: item.Hinh_Anh ? 'pointer' : 'default', position:'relative'}}
-                    onClick={() => {
-                      const urls = item.Hinh_Anh ? item.Hinh_Anh.split(',').map(u=>u.trim()).filter(Boolean) : [];
-                      if (urls.length) setLightbox({ urls: sortMedia(urls), index: 0, maCan: item.Ma_Can || 'media' });
-                    }}
-                  ><ThumbCell value={item.Hinh_Anh} /></td>
-                  <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Nguon}</td>
-                  <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8'}}>{item.Ghi_Chu}</td>
-                  <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none'}}>
-                    <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>
-                    <button onClick={() => setDeleteTarget(item)} style={{...st.actionBtn, color:C.error}} title="Xoá">&#128465;</button>
-                  </td>
-                </tr>
+              ) : grouped.map(([toa, toaItems]) => (
+                <>
+                  {/* Header tòa */}
+                  <tr key={`header-${toa}`}>
+                    <td colSpan={TABLE_HEADERS.length} style={st.toaHeader}>
+                      <span style={st.toaLabel}>🏢 Tòa {toa}</span>
+                      <span style={st.toaCount}>{toaItems.length} căn</span>
+                    </td>
+                  </tr>
+                  {/* Các căn trong tòa */}
+                  {toaItems.map(item => (
+                    <tr key={item._rowIndex} className="ct-row" style={st.tr}>
+                      <td style={{...st.td, textAlign:'center', color:'#8a9bb8', fontSize:12}}>{item.STT}</td>
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', fontSize:12}}>{item.Ngay_Update}</td>
+                      <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', background:item.Mau_Ma_Can||'transparent', color:'#fff', borderRadius: item.Mau_Ma_Can ? 6 : 0}}>{item.Ma_Can}</td>
+                      <td style={{...st.td, textAlign:'center'}}>{item.Thiet_Ke}</td>
+                      <td style={{...st.td, textAlign:'center'}}>{(item.Dien_Tich||'').replace(/\s*m²|m2|m$/i,'').trim()}</td>
+                      <td style={{...st.td, textAlign:'center'}}>
+                        <span style={{
+                          background: item.Slot_Xe === 'Có' ? '#C6F6D5' : '#FED7D7',
+                          color: item.Slot_Xe === 'Có' ? '#276749' : '#9B2C2C',
+                          padding:'2px 8px', borderRadius:10, fontSize:11, fontWeight:700,
+                        }}>{item.Slot_Xe || 'Không'}</span>
+                      </td>
+                      <td style={{...st.td, textAlign:'center'}}>{item.Huong_BC}</td>
+                      <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap'}}>{item.Gia}</td>
+                      <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Phi_MG}</td>
+                      <td style={{...st.td, textAlign:'center'}}>{item.Noi_That}</td>
+                      <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Thoi_Gian_Vao}</td>
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap'}}>{item.Lien_He}</td>
+                      <td style={{...st.td, textAlign:'center', cursor: item.Hinh_Anh ? 'pointer' : 'default'}}
+                        onClick={() => {
+                          const urls = item.Hinh_Anh ? item.Hinh_Anh.split(',').map(u=>u.trim()).filter(Boolean) : [];
+                          if (urls.length) setLightbox({ urls: sortMedia(urls), index: 0, maCan: item.Ma_Can || 'media' });
+                        }}
+                      ><ThumbCell value={item.Hinh_Anh} /></td>
+                      <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Nguon}</td>
+                      <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8'}}>{item.Ghi_Chu}</td>
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none'}}>
+                        <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>
+                        <button onClick={() => setDeleteTarget(item)} style={{...st.actionBtn, color:C.error}} title="Xoá">&#128465;</button>
+                      </td>
+                    </tr>
+                  ))}
+                </>
               ))}
             </tbody>
           </table>
@@ -765,6 +789,9 @@ const st = {
   tr:          { borderBottom:'1.5px solid #2d3240', transition:'background 0.12s' },
   td:          { padding:'8px 8px', verticalAlign:'middle', fontSize:13, borderRight:D, color:'#e2e8f0' },
   emptyTd:     { textAlign:'center', padding:40, color:'#8a9bb8', fontSize:14 },
+  toaHeader:   { background:'linear-gradient(90deg,#1e3a2e,#1a2e3e)', borderBottom:'2px solid #38b274', borderTop:'2px solid #2d3240', padding:'8px 12px', display:'flex', alignItems:'center', justifyContent:'space-between' },
+  toaLabel:    { fontWeight:800, fontSize:13, color:'#38b274', letterSpacing:1, textTransform:'uppercase' },
+  toaCount:    { fontSize:11, color:'#8a9bb8', background:'rgba(255,255,255,0.07)', padding:'2px 10px', borderRadius:20, fontWeight:600 },
   actionBtn:   { background:'none', border:'none', cursor:'pointer', fontSize:16, padding:'4px 6px', borderRadius:6, color:C.textMuted },
   overlay:     { position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 },
   modal:       { background:'#fff', borderRadius:16, width:620, maxWidth:'100%', maxHeight:'92vh', display:'flex', flexDirection:'column', boxShadow:C.shadowLg, animation:'ctSlideUp 0.25s ease', overflow:'hidden' },
