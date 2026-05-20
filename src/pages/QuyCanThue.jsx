@@ -27,10 +27,10 @@ const EMPTY_FORM = {
 };
 
 const TABLE_HEADERS = [
-  'STT', 'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
+  'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
   'Hướng BC', 'Giá', 'Phí MG', 'Nội Thất', 'Thời Gian Vào', 'Liên Hệ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
 ];
-const COL_WIDTHS = [42, 92, 100, 72, 66, 76, 85, 70, 90, 110, 130, 110, 80, 100, 220, 72];
+const COL_WIDTHS = [92, 100, 72, 66, 76, 85, 70, 90, 110, 130, 110, 80, 100, 220, 72];
 
 export function QuyCanThueContent() {
   return <QuyCanThueInner />;
@@ -339,7 +339,6 @@ function QuyCanThueInner() {
                   {/* Các căn trong tòa */}
                   {toaItems.map(item => (
                     <tr key={item._rowIndex} className="ct-row" style={st.tr}>
-                      <td style={{...st.td, textAlign:'center', color:'#8a9bb8', fontSize:12}}>{item.STT}</td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', fontSize:12}}>{item.Ngay_Update}</td>
                       <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', background:item.Mau_Ma_Can||'transparent', color:'#fff', borderRadius: item.Mau_Ma_Can ? 6 : 0}}>{item.Ma_Can}</td>
                       <td style={{...st.td, textAlign:'center'}}>{item.Thiet_Ke}</td>
