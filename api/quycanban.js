@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 
 const SHEET_NAME = 'Quy_Can_Ban';
-// 15 columns: Ngay_Update, Ma_Can, Thiet_Ke, Dien_Tich, Slot_Xe, Huong_BC, Huong_Cua, Gia, Phi, Noi_That, SDT, Ten_Chu, Hinh_Anh, Nguon, Mau_Ma_Can
-const COLUMNS = 'A:O';
+// 16 columns: Ngay_Update, Ma_Can, Thiet_Ke, Dien_Tich, Slot_Xe, Huong_BC, Huong_Cua, Gia, Phi, Noi_That, SDT, Ten_Chu, Hinh_Anh, Nguon, Ghi_Chu, Mau_Ma_Can
+const COLUMNS = 'A:P';
 
 export default async function handler(req, res) {
   try {
@@ -60,7 +60,8 @@ async function handleGet(req, res, sheetId, email, key) {
     Ten_Chu:     row[11] || '',
     Hinh_Anh:    row[12] || '',
     Nguon:       row[13] || '',
-    Mau_Ma_Can:  row[14] || '',
+    Ghi_Chu:     row[14] || '',
+    Mau_Ma_Can:  row[15] || '',
     _rowIndex: i + 2,
   }));
 
@@ -91,6 +92,7 @@ async function handlePost(req, res, sheetId, email, key) {
       p.Ten_Chu    || '',
       p.Hinh_Anh   || '',
       p.Nguon      || '',
+      p.Ghi_Chu    || '',
       p.Mau_Ma_Can || '',
     ];
   }
@@ -108,7 +110,7 @@ async function handlePost(req, res, sheetId, email, key) {
 
   if (payload.action === 'update') {
     if (!payload._rowIndex) return res.status(400).json({ error: 'Missing _rowIndex' });
-    const range = `${SHEET_NAME}!A${payload._rowIndex}:O${payload._rowIndex}`;
+    const range = `${SHEET_NAME}!A${payload._rowIndex}:P${payload._rowIndex}`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?valueInputOption=USER_ENTERED`;
     const response = await fetch(url, {
       method: 'PUT',
@@ -151,14 +153,14 @@ async function createSheetWithHeaders(sheetId, token) {
   const HEADERS = [
     'Ngay_Update', 'Ma_Can', 'Thiet_Ke', 'Dien_Tich', 'Slot_Xe',
     'Huong_BC', 'Huong_Cua', 'Gia', 'Phi', 'Noi_That',
-    'SDT', 'Ten_Chu', 'Hinh_Anh', 'Nguon', 'Mau_Ma_Can',
+    'SDT', 'Ten_Chu', 'Hinh_Anh', 'Nguon', 'Ghi_Chu', 'Mau_Ma_Can',
   ];
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ requests: [{ addSheet: { properties: { title: SHEET_NAME } } }] }),
   });
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!A1:O1?valueInputOption=USER_ENTERED`, {
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!A1:P1?valueInputOption=USER_ENTERED`, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ values: [HEADERS] }),

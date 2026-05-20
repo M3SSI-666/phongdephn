@@ -18,14 +18,14 @@ const RAINBOW_COLORS = [
 const EMPTY_FORM = {
   Ma_Can: '', Thiet_Ke: '', Dien_Tich: '', Slot_Xe: 'Không',
   Huong_BC: '', Huong_Cua: '', Gia: '', Phi: 'Thu về',
-  Noi_That: '', SDT: '', Ten_Chu: '', Hinh_Anh: '', Nguon: '', Mau_Ma_Can: '',
+  Noi_That: '', SDT: '', Ten_Chu: '', Hinh_Anh: '', Nguon: '', Ghi_Chu: '', Mau_Ma_Can: '',
 };
 
 const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
-  'Hướng BC', 'Hướng Cửa', 'Giá', 'Phí', 'Nội Thất', 'SDT', 'Tên Chủ', 'Ảnh', 'Nguồn', '',
+  'Hướng BC', 'Hướng Cửa', 'Giá', 'Phí', 'Nội Thất', 'SDT', 'Tên Chủ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
 ];
-const COL_WIDTHS = [92, 100, 72, 66, 76, 80, 80, 90, 80, 110, 110, 100, 80, 100, 72];
+const COL_WIDTHS = [92, 100, 72, 66, 76, 80, 80, 90, 80, 110, 110, 100, 80, 100, 200, 72];
 
 export function QuyCanBanContent() {
   return <QuyCanBanInner />;
@@ -205,6 +205,7 @@ function QuyCanBanInner() {
       Ten_Chu:   item.Ten_Chu   || '',
       Hinh_Anh:  item.Hinh_Anh  || '',
       Nguon:     item.Nguon     || '',
+      Ghi_Chu:   item.Ghi_Chu   || '',
       Mau_Ma_Can:item.Mau_Ma_Can|| '',
     });
     setModalMode('edit');
@@ -347,6 +348,7 @@ function QuyCanBanInner() {
                         }}
                       ><ThumbCell value={item.Hinh_Anh} /></td>
                       <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Nguon}</td>
+                      <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8'}}>{item.Ghi_Chu}</td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none'}}>
                         <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>
                         <button onClick={() => setDeleteTarget(item)} style={{...st.actionBtn, color:C.error}} title="Xoá">&#128465;</button>
@@ -480,6 +482,16 @@ function QuyCanBanInner() {
 
                 <div style={{ gridColumn:'1/-1' }}>
                   <FormField label="Nguồn (Ai mang hàng về)" value={form.Nguon} onChange={v => set('Nguon', v)} placeholder="VD: Anh Phong, Chị Lan, Zalo nhóm..." />
+                </div>
+
+                <div style={{ gridColumn:'1/-1' }}>
+                  <label style={st.fieldLabel}>Ghi Chú</label>
+                  <textarea
+                    value={form.Ghi_Chu}
+                    onChange={e => set('Ghi_Chu', e.target.value)}
+                    placeholder="Ghi chú thêm, lưu ý..."
+                    style={{ ...st.fieldInput, height:60, resize:'vertical' }}
+                  />
                 </div>
               </div>
 
