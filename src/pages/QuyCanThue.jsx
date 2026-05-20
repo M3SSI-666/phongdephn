@@ -432,22 +432,7 @@ function QuyCanThueInner() {
                 <FormField label="Giá" value={form.Gia} onChange={v => set('Gia', v)} placeholder="VD: 23 triệu" />
                 <FormField label="Phí Môi Giới" value={form.Phi_MG} onChange={v => set('Phi_MG', v)} placeholder="VD: Phí đủ, 1 tháng" />
 
-                {/* Nội thất */}
-                <div>
-                  <label style={st.fieldLabel}>Nội Thất</label>
-                  <select value={form.Noi_That} onChange={e => set('Noi_That', e.target.value)} style={st.fieldInput}>
-                    <option value="">-- Chọn --</option>
-                    {['Full nội thất','Cơ bản','Không nội thất'].map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                  {form.Noi_That === '' && (
-                    <input
-                      value={form.Noi_That}
-                      onChange={e => set('Noi_That', e.target.value)}
-                      placeholder="Hoặc nhập tự do..."
-                      style={{ ...st.fieldInput, marginTop:6 }}
-                    />
-                  )}
-                </div>
+                <FormField label="Nội Thất" value={form.Noi_That} onChange={v => set('Noi_That', v)} placeholder="VD: Full đồ, có đồ nhà sửa đẹp, trống..." />
 
                 <FormField label="Thời Gian Vào" value={form.Thoi_Gian_Vao} onChange={v => set('Thoi_Gian_Vao', v)} placeholder="VD: Luôn, Tháng 6/2025" />
 
