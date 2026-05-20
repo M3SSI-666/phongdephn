@@ -481,7 +481,7 @@ function QuyCanBanInner() {
                 <FormField label="Tên Chủ" value={form.Ten_Chu} onChange={v => set('Ten_Chu', v)} placeholder="VD: Anh Nam, Chị Hoa" />
 
                 <div style={{ gridColumn:'1/-1' }}>
-                  <FormField label="Nguồn (Ai mang hàng về)" value={form.Nguon} onChange={v => set('Nguon', v)} placeholder="VD: Anh Phong, Chị Lan, Zalo nhóm..." />
+                  <FormField label="Nguồn" value={form.Nguon} onChange={v => set('Nguon', v)} placeholder="VD: Anh Phong, Chị Lan, Zalo nhóm..." />
                 </div>
 
                 <div style={{ gridColumn:'1/-1' }}>
