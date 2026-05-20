@@ -803,7 +803,7 @@ const st = {
   tr:          { borderBottom:'1.5px solid #2d3240', transition:'background 0.12s' },
   td:          { padding:'8px 8px', verticalAlign:'middle', fontSize:13, borderRight:D, color:'#e2e8f0' },
   emptyTd:     { textAlign:'center', padding:40, color:'#8a9bb8', fontSize:14 },
-  toaHeader:   { background:'#AAEE88', padding:'7px 0', textAlign:'center' },
+  toaHeader:   { background:'#CCEFAA', padding:'7px 0', textAlign:'center' },
   toaLabel:    { fontWeight:800, fontSize:14, color:'#1a2e0e', letterSpacing:2, textTransform:'uppercase' },
   actionBtn:   { background:'none', border:'none', cursor:'pointer', fontSize:16, padding:'4px 6px', borderRadius:6, color:C.textMuted },
   overlay:     { position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 },
