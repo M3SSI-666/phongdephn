@@ -117,7 +117,14 @@ function QuyCanThueInner() {
     return list.sort((a,b) => Number(a.STT||0) - Number(b.STT||0));
   }, [items, search]);
 
-  // Group theo tòa: T01 < T02 < ... < P01 < P02 ...
+  // Thứ tự tòa cố định: T01-T11, P01-P03, T18(=P04), P05-P12
+  const TOA_ORDER = [
+    'T01','T02','T03','T04','T05','T06','T07','T08','T09','T10','T11',
+    'P01','P02','P03','T18','P05','P06','P07','P08',
+    'P09','P10','P11','P12',
+  ];
+  const TOA_LABEL = { T18: 'T18 (P04)' }; // T18 hiển thị là P04
+
   const grouped = useMemo(() => {
     const map = new Map();
     for (const item of filtered) {
@@ -126,7 +133,15 @@ function QuyCanThueInner() {
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(item);
     }
-    return Array.from(map.entries()).sort(([a],[b]) => a.localeCompare(b));
+    const entries = Array.from(map.entries());
+    return entries.sort(([a],[b]) => {
+      const ia = TOA_ORDER.indexOf(a);
+      const ib = TOA_ORDER.indexOf(b);
+      if (ia === -1 && ib === -1) return a.localeCompare(b);
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
   }, [filtered]);
 
   // ── AI Parse ──
@@ -318,7 +333,7 @@ function QuyCanThueInner() {
                   {/* Header tòa */}
                   <tr key={`header-${toa}`}>
                     <td colSpan={TABLE_HEADERS.length} style={st.toaHeader}>
-                      <span style={st.toaLabel}>🏢 Tòa {toa}</span>
+                      <span style={st.toaLabel}>🏢 Tòa {TOA_LABEL[toa] || toa}</span>
                       <span style={st.toaCount}>{toaItems.length} căn</span>
                     </td>
                   </tr>
