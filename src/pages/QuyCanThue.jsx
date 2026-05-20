@@ -307,7 +307,7 @@ function QuyCanThueInner() {
                   <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', fontSize:12}}>{item.Ngay_Update}</td>
                   <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', background:item.Mau_Ma_Can||'transparent', color:'#fff', borderRadius: item.Mau_Ma_Can ? 6 : 0}}>{item.Ma_Can}</td>
                   <td style={{...st.td, textAlign:'center'}}>{item.Thiet_Ke}</td>
-                  <td style={{...st.td, textAlign:'center'}}>{item.Dien_Tich}</td>
+                  <td style={{...st.td, textAlign:'center'}}>{(item.Dien_Tich||'').replace(/\s*m²|m2|m$/i,'').trim()}</td>
                   <td style={{...st.td, textAlign:'center'}}>
                     <span style={{
                       background: item.Slot_Xe === 'Có' ? '#C6F6D5' : '#FED7D7',
