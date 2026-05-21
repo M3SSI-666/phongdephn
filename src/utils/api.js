@@ -204,53 +204,25 @@ export async function postQuyCanBan(payload) {
   return res.json();
 }
 
-// ============ Parse Căn Thuê (Times City format) ============
-export async function parseThue(text) {
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    const res = await fetch('/api/parse-thue', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
-    });
-    if (res.ok) return res.json();
-    const err = await res.json().catch(() => ({}));
-    if (res.status === 429 && attempt === 1) {
-      await new Promise(r => setTimeout(r, 5000));
-      continue;
-    }
-    throw new Error(err.error || `Parse failed (${res.status})`);
-  }
-}
-
-// ============ Parse Search Query (AI smart search) ============
-export async function parseSearchQuery(query) {
-  const res = await fetch('/api/parse-search', {
+// ============ Parse Times City (unified: thue|ban|search) ============
+async function callParseTC(body, retry = true) {
+  const res = await fetch('/api/parse-tc', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify(body),
   });
   if (res.ok) return res.json();
   const err = await res.json().catch(() => ({}));
-  throw new Error(err.error || `Search parse failed (${res.status})`);
+  if (res.status === 429 && retry) {
+    await new Promise(r => setTimeout(r, 5000));
+    return callParseTC(body, false);
+  }
+  throw new Error(err.error || `Parse failed (${res.status})`);
 }
 
-// ============ Parse Căn Bán (Times City format) ============
-export async function parseBan(text) {
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    const res = await fetch('/api/parse-ban', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
-    });
-    if (res.ok) return res.json();
-    const err = await res.json().catch(() => ({}));
-    if (res.status === 429 && attempt === 1) {
-      await new Promise(r => setTimeout(r, 5000));
-      continue;
-    }
-    throw new Error(err.error || `Parse failed (${res.status})`);
-  }
-}
+export function parseThue(text) { return callParseTC({ type: 'thue', text }); }
+export function parseBan(text)  { return callParseTC({ type: 'ban',  text }); }
+export function parseSearchQuery(query) { return callParseTC({ type: 'search', query }); }
 
 // ============ Quỹ Shophouse ============
 export async function fetchQuyShophouse() {

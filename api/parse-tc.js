@@ -1,18 +1,18 @@
+// Unified Times City parse handler: type=thue|ban|search
 export default async function handler(req, res) {
   try {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    const { text } = req.body;
-    if (!text?.trim()) return res.status(400).json({ error: 'Missing text' });
+    const { type, text, query } = req.body;
 
-    const cleanText = text
-      .replace(/[\u{1F000}-\u{1F9FF}]/gu, '')
-      .replace(/[\u{2600}-\u{27BF}]/gu, '')
-      .replace(/[\u{200B}-\u{200D}\u{FEFF}]/gu, '')
-      .replace(/\s+/g, ' ')
-      .trim();
+    let PROMPT;
 
-    const PROMPT = `Parse this Times City apartment rental message (Vietnamese). Return ONLY valid JSON, no markdown.
+    if (type === 'thue') {
+      if (!text?.trim()) return res.status(400).json({ error: 'Missing text' });
+      const cleanText = text
+        .replace(/[\u{1F000}-\u{1F9FF}]/gu, '').replace(/[\u{2600}-\u{27BF}]/gu, '')
+        .replace(/[\u{200B}-\u{200D}\u{FEFF}]/gu, '').replace(/\s+/g, ' ').trim();
+      PROMPT = `Parse this Times City apartment rental message (Vietnamese). Return ONLY valid JSON, no markdown.
 
 {"Ma_Can":"","Thiet_Ke":"","Dien_Tich":"","Huong_BC":"","Gia":"","Phi_MG":"","Noi_That":"","Slot_Xe":"Không","Thoi_Gian_Vao":"","Lien_He":""}
 
@@ -29,20 +29,64 @@ Rules:
   • If price has "1 tháng" (fee) → Gia=price only, Phi_MG="1 tháng"
   • If no fee info → Gia=full price text, Phi_MG=""
   Examples: "15tr pmg 1/2"→Gia="15tr",Phi_MG="1/2" | "14tr tv"→Gia="14tr tv",Phi_MG="" | "23tr phí đủ"→Gia="23tr",Phi_MG="Phí đủ"
-- Noi_That: content from "Hiện trạng:" line — keep original text BUT remove any slot/parking mentions (e.g. "không slot", "có slot", "slot xe", "không có xe", "có xe"). Only keep the furniture/interior description. Example: "có đồ, nhà sửa đẹp, không slot" → "có đồ, nhà sửa đẹp".
-- Slot_Xe: detect from entire message especially "Hiện trạng:" line. "có slot"/"slot xe"/"có xe"/"bãi xe" → "Có". "không slot"/"không có xe"/"không xe" → "Không". Default "Không".
-- Thoi_Gian_Vao: full content from "Thời gian vào:" line — keep everything after the colon including notes. Only normalize abbreviations: "lun"→"Luôn", "ngay"→"Ngay". Keep all additional context (e.g. "Luôn, ưu tiên nước ngoài", "Tháng 6/2025, có thể linh hoạt").
-- Lien_He: contact phone/name from "Xem nhà lh:" or "Liên hệ:" line. Keep original format.
+- Noi_That: content from "Hiện trạng:" line — keep original text BUT remove any slot/parking mentions. Example: "có đồ, nhà sửa đẹp, không slot" → "có đồ, nhà sửa đẹp".
+- Slot_Xe: detect from entire message. "có slot"/"slot xe"/"có xe"/"bãi xe" → "Có". "không slot"/"không có xe"/"không xe" → "Không". Default "Không".
+- Thoi_Gian_Vao: full content from "Thời gian vào:" line. Only normalize: "lun"→"Luôn", "ngay"→"Ngay". Keep all additional context.
+- Lien_He: contact phone/name from "Xem nhà lh:" or "Liên hệ:" line.
 
 Message: ${cleanText}`;
 
-    // Try Groq first (faster)
+    } else if (type === 'ban') {
+      if (!text?.trim()) return res.status(400).json({ error: 'Missing text' });
+      const cleanText = text
+        .replace(/[\u{1F000}-\u{1F9FF}]/gu, '').replace(/[\u{2600}-\u{27BF}]/gu, '')
+        .replace(/[\u{200B}-\u{200D}\u{FEFF}]/gu, '').replace(/\s+/g, ' ').trim();
+      PROMPT = `Parse this Times City apartment FOR SALE message (Vietnamese). Return ONLY valid JSON, no markdown.
+
+{"Ma_Can":"","Thiet_Ke":"","Dien_Tich":"","Huong_BC":"","Gia":"","Phi":"Thu về","Noi_That":"","Slot_Xe":"Không","SDT":"","Ten_Chu":""}
+
+Rules:
+- Ma_Can: apartment code from "Căn hộ:" or "Căn:" line. Keep original format, uppercase all letters.
+- Thiet_Ke: design/layout (e.g. "3PN", "2PN", "Studio"). Normalize "3n"→"3PN", "2n"→"2PN".
+- Dien_Tich: area with unit (e.g. "106m²", "75m²"). Normalize "106m"→"106m²".
+- Huong_BC: balcony direction (e.g. "Nam", "Đông Nam", "Tây Bắc").
+- Gia + Phi: parse from "Giá:" line:
+  • If "bao phí" or "phí đủ" → Gia=price without fee text, Phi="Bao phí"
+  • If "pmg X" → Gia=price only, Phi=the pmg value
+  • Otherwise → Gia=full price text, Phi="Thu về"
+  Examples: "5.5 tỷ bao phí"→Gia="5.5 tỷ",Phi="Bao phí" | "4.2 tỷ"→Gia="4.2 tỷ",Phi="Thu về"
+- Noi_That: content from "Hiện trạng:" line — remove slot/parking mentions, keep furniture description.
+- Slot_Xe: "có slot"/"slot xe"/"có xe" → "Có". "không slot"/"không xe" → "Không". Default "Không".
+- SDT: phone number from "Liên hệ:", "SĐT:", "Xem nhà lh:" line.
+- Ten_Chu: owner/contact name if mentioned.
+
+Message: ${cleanText}`;
+
+    } else if (type === 'search') {
+      if (!query?.trim()) return res.status(400).json({ error: 'Missing query' });
+      PROMPT = `Parse this Vietnamese real estate search query and extract filter criteria. Return ONLY valid JSON, no markdown.
+
+{"Thiet_Ke":null,"Slot_Xe":null,"Gia_Max":null,"Gia_Min":null,"Huong_BC":null,"Noi_That":null,"Toa":null}
+
+Rules:
+- Thiet_Ke: "1PN"|"2PN"|"3PN"|"4PN"|"Studio"|null. Detect: "2 ngủ"→"2PN", "2n"→"2PN", "3 phòng ngủ"→"3PN". null if not mentioned.
+- Slot_Xe: "Có" if "có slot"/"slot xe"/"có xe". "Không" if "không slot"/"không xe". null if not mentioned.
+- Gia_Max: max budget in triệu. Convert: "19tr"→19, "dưới 20 triệu"→20, "tài chính 19"→19, "4 tỷ"→4000, "tối đa 25tr"→25, "khoảng 20tr"→20. null if not mentioned.
+- Gia_Min: min price in triệu. "từ 15tr"→15, "trên 18 triệu"→18. null if not mentioned.
+- Huong_BC: "Bắc"|"Nam"|"Đông"|"Tây"|"Đông Nam"|"Đông Bắc"|"Tây Nam"|"Tây Bắc"|null.
+- Noi_That: furniture keywords to search. null if not mentioned.
+- Toa: building code like "T04","P01","T18". Normalize: pad single digit "p1"→"P01","t4"→"T04". null if not mentioned.
+
+Query: ${query}`;
+
+    } else {
+      return res.status(400).json({ error: 'Invalid type. Use: thue|ban|search' });
+    }
+
+    // Try Groq first
     const groqKeys = [];
     if (process.env.GROQ_API_KEY) groqKeys.push(process.env.GROQ_API_KEY);
-    for (let i = 2; i <= 10; i++) {
-      const v = process.env[`GROQ_API_KEY_${i}`];
-      if (v) groqKeys.push(v);
-    }
+    for (let i = 2; i <= 10; i++) { const v = process.env[`GROQ_API_KEY_${i}`]; if (v) groqKeys.push(v); }
 
     if (groqKeys.length > 0) {
       const start = Math.floor(Math.random() * groqKeys.length);
@@ -56,10 +100,7 @@ Message: ${cleanText}`;
     // Fallback Gemini
     const geminiKeys = [];
     if (process.env.GEMINI_API_KEY) geminiKeys.push(process.env.GEMINI_API_KEY);
-    for (let i = 2; i <= 10; i++) {
-      const v = process.env[`GEMINI_API_KEY_${i}`];
-      if (v) geminiKeys.push(v);
-    }
+    for (let i = 2; i <= 10; i++) { const v = process.env[`GEMINI_API_KEY_${i}`]; if (v) geminiKeys.push(v); }
 
     if (geminiKeys.length > 0) {
       const body = JSON.stringify({
@@ -76,7 +117,7 @@ Message: ${cleanText}`;
 
     return res.status(429).json({ error: 'Rate limit. Thử lại sau 15 giây.' });
   } catch (err) {
-    console.error('[parse-thue]', err.message);
+    console.error('[parse-tc]', err.message);
     return res.status(500).json({ error: err.message });
   }
 }
