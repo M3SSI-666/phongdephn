@@ -120,6 +120,7 @@ function QuyCanBanInner() {
     if (f.Huong_BC) parts.push('Hướng ' + f.Huong_BC);
     if (f.Noi_That) parts.push(f.Noi_That);
     if (f.Toa) parts.push('Tòa ' + f.Toa);
+    if (f.Khu) parts.push('Khu ' + f.Khu);
     return parts.join(' · ');
   }
 
@@ -132,7 +133,8 @@ function QuyCanBanInner() {
       if (aiFilter.Gia_Min != null) list = list.filter(it => { const g = parseGiaValue(it.Gia); return g == null || g >= aiFilter.Gia_Min; });
       if (aiFilter.Huong_BC) list = list.filter(it => (it.Huong_BC||'').toLowerCase().includes(aiFilter.Huong_BC.toLowerCase()));
       if (aiFilter.Noi_That) list = list.filter(it => (it.Noi_That||'').toLowerCase().includes(aiFilter.Noi_That.toLowerCase()));
-      if (aiFilter.Toa)      list = list.filter(it => (it.Ma_Can||'').toUpperCase().startsWith(aiFilter.Toa.toUpperCase()));
+      if (aiFilter.Toa_List) list = list.filter(it => aiFilter.Toa_List.some(t => (it.Ma_Can||'').toUpperCase().startsWith(t)));
+      else if (aiFilter.Toa) list = list.filter(it => (it.Ma_Can||'').toUpperCase().startsWith(aiFilter.Toa.toUpperCase()));
     }
     return list;
   }, [items, aiFilter]);
@@ -189,6 +191,12 @@ function QuyCanBanInner() {
     });
   }, [filtered]);
 
+  const KHU_TOA = {
+    Times:        ['T01','T02','T03','T04','T05','T06','T07','T08','T09','T10','T11'],
+    ParkHill:     ['P01','P02','P03','T18','P05','P06','P07','P08'],
+    ParkPremium:  ['P09','P10','P11','P12'],
+  };
+
   function normalizeFilter(f) {
     const r = { ...f };
     if (r.Slot_Xe != null) {
@@ -197,6 +205,10 @@ function QuyCanBanInner() {
     }
     if (r.Thiet_Ke != null) r.Thiet_Ke = r.Thiet_Ke.toUpperCase().replace(/\s+/g, '');
     if (r.Toa != null) r.Toa = r.Toa.toUpperCase().replace(/^([A-Z]+)(\d)$/, '$10$2');
+    if (r.Khu != null) {
+      const key = Object.keys(KHU_TOA).find(k => k.toLowerCase() === r.Khu.toLowerCase());
+      r.Toa_List = key ? KHU_TOA[key] : null;
+    }
     return r;
   }
 

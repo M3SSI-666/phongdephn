@@ -64,9 +64,14 @@ Message: ${cleanText}`;
 
     } else if (type === 'search') {
       if (!query?.trim()) return res.status(400).json({ error: 'Missing query' });
-      PROMPT = `Parse this Vietnamese real estate search query and extract filter criteria. Return ONLY valid JSON, no markdown.
+      PROMPT = `Parse this Vietnamese real estate search query for Times City Hanoi apartments. Return ONLY valid JSON, no markdown.
 
-{"Thiet_Ke":null,"Slot_Xe":null,"Gia_Max":null,"Gia_Min":null,"Huong_BC":null,"Noi_That":null,"Toa":null}
+{"Thiet_Ke":null,"Slot_Xe":null,"Gia_Max":null,"Gia_Min":null,"Huong_BC":null,"Noi_That":null,"Toa":null,"Khu":null}
+
+Times City zone knowledge (IMPORTANT):
+- Khu "Times" = tòa T01,T02,T03,T04,T05,T06,T07,T08,T09,T10,T11
+- Khu "ParkHill" = tòa P01,P02,P03,T18(=P04),P05,P06,P07,P08
+- Khu "ParkPremium" = tòa P09,P10,P11,P12 (also called "G4" or "Park Premium")
 
 Rules:
 - Thiet_Ke: "1PN"|"2PN"|"3PN"|"4PN"|"Studio"|null. Detect: "2 ngủ"→"2PN", "2n"→"2PN", "3 phòng ngủ"→"3PN". null if not mentioned.
@@ -75,7 +80,10 @@ Rules:
 - Gia_Min: min price in triệu. "từ 15tr"→15, "trên 18 triệu"→18. null if not mentioned.
 - Huong_BC: "Bắc"|"Nam"|"Đông"|"Tây"|"Đông Nam"|"Đông Bắc"|"Tây Nam"|"Tây Bắc"|null.
 - Noi_That: furniture keywords to search. null if not mentioned.
-- Toa: building code like "T04","P01","T18". Normalize: pad single digit "p1"→"P01","t4"→"T04". null if not mentioned.
+- Toa: specific building code ONLY if user mentions a specific tower like "tòa T04","tòa P01","T18". Normalize: pad single digit "p1"→"P01","t4"→"T04". null if not mentioned or if a zone (Khu) is mentioned instead.
+- Khu: "Times" | "ParkHill" | "ParkPremium" | null. Detect zone mentions: "khu times"/"times"→"Times", "park hill"/"parkhill"/"khu park"→"ParkHill", "park premium"/"g4"/"premium"→"ParkPremium". If user mentions a specific Toa, set Khu=null. null if not mentioned.
+
+Important: Toa and Khu are mutually exclusive — if zone is detected set Khu and leave Toa null, and vice versa.
 
 Query: ${query}`;
 
