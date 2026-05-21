@@ -189,11 +189,23 @@ function QuyCanBanInner() {
     });
   }, [filtered]);
 
+  function normalizeFilter(f) {
+    const r = { ...f };
+    if (r.Slot_Xe != null) {
+      const s = r.Slot_Xe.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      r.Slot_Xe = s.includes('co') && !s.includes('khong') ? 'Có' : 'Không';
+    }
+    if (r.Thiet_Ke != null) r.Thiet_Ke = r.Thiet_Ke.toUpperCase().replace(/\s+/g, '');
+    if (r.Toa != null) r.Toa = r.Toa.toUpperCase().replace(/^([A-Z]+)(\d)$/, '$10$2');
+    return r;
+  }
+
   async function handleAiSearch() {
     if (!aiQuery.trim()) return;
     setAiSearching(true);
     try {
-      const f = await parseSearchQuery(aiQuery);
+      const raw = await parseSearchQuery(aiQuery);
+      const f = normalizeFilter(raw);
       const hasAny = Object.values(f).some(v => v != null);
       if (!hasAny) return showToast('Không nhận ra tiêu chí, thử mô tả rõ hơn', 'error');
       setAiFilter(f);
