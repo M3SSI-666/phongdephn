@@ -392,7 +392,7 @@ function QuyCanBanInner() {
             type="text"
             placeholder="VD: 2 ngủ có slot tài chính 4 tỷ · 3PN tòa P03 full đồ hướng nam..."
             value={aiQuery}
-            onChange={e => { setAiQuery(e.target.value); if (aiFilter) setAiFilter(null); }}
+            onChange={e => setAiQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleAiSearch()}
             style={{ ...st.searchInput, paddingRight: 90 }}
           />

@@ -416,7 +416,7 @@ function QuyCanThueInner() {
             type="text"
             placeholder="VD: 2 ngủ có slot tài chính 19tr · 3PN tòa T18 không đồ hướng bắc..."
             value={aiQuery}
-            onChange={e => { setAiQuery(e.target.value); if (aiFilter) setAiFilter(null); }}
+            onChange={e => setAiQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleAiSearch()}
             style={{ ...st.searchInput, paddingRight: 90 }}
           />
