@@ -65,6 +65,7 @@ function QuyCanThueInner() {
 
   const [toast, setToast]           = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [dupTarget, setDupTarget]   = useState(null); // { existing, payload }
   const [lightbox, setLightbox]     = useState(null); // { urls:[], index:0 }
   const toastTimer                  = useRef(null);
 
@@ -263,11 +264,34 @@ function QuyCanThueInner() {
       if (modalMode === 'edit') {
         await postQuyCanThue({ action: 'update', _rowIndex: editItem._rowIndex, STT: editItem.STT, ...payload });
         showToast('Cập nhật thành công!');
+        closeModal();
+        await loadData();
       } else {
+        const existing = items.find(i => (i.Ma_Can||'').toUpperCase() === payload.Ma_Can.toUpperCase());
+        if (existing) {
+          setSaving(false);
+          setDupTarget({ existing, payload });
+          return;
+        }
         const maxSTT = items.reduce((m,i) => Math.max(m, Number(i.STT)||0), 0);
         await postQuyCanThue({ action: 'add', STT: maxSTT + 1, ...payload });
         showToast('Thêm căn thành công!');
+        closeModal();
+        await loadData();
       }
+    } catch(e) { showToast(e.message, 'error'); }
+    finally { setSaving(false); }
+  }
+
+  async function confirmDup() {
+    if (!dupTarget) return;
+    try {
+      setSaving(true);
+      const { existing, payload } = dupTarget;
+      const mergedHinh = payload.Hinh_Anh || existing.Hinh_Anh || '';
+      await postQuyCanThue({ action: 'update', _rowIndex: existing._rowIndex, STT: existing.STT, ...payload, Hinh_Anh: mergedHinh });
+      showToast('Đã cập nhật căn ' + payload.Ma_Can + '!');
+      setDupTarget(null);
       closeModal();
       await loadData();
     } catch(e) { showToast(e.message, 'error'); }
@@ -596,6 +620,26 @@ function QuyCanThueInner() {
               <button onClick={() => setDeleteTarget(null)} style={st.cancelBtn} className="ct-btn">Huỷ</button>
               <button onClick={confirmDelete} disabled={saving} style={{ ...st.saveBtn, background:C.error }} className="ct-btn">
                 {saving ? 'Đang xoá...' : 'Xoá'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate confirm */}
+      {dupTarget && (
+        <div style={st.overlay} onClick={e => e.target===e.currentTarget && setDupTarget(null)}>
+          <div style={st.confirmBox}>
+            <div style={{ fontSize:16, fontWeight:600, marginBottom:12, color:C.text }}>Căn đã tồn tại</div>
+            <div style={{ fontSize:14, color:C.textMuted, marginBottom:20, lineHeight:1.6 }}>
+              Căn <strong style={{color:'#2d3748'}}>{dupTarget.existing.Ma_Can}</strong> đã có trên bảng hàng.<br/>
+              Bạn có muốn cập nhật lại theo thông tin mới không?<br/>
+              <span style={{fontSize:12}}>(Ảnh cũ sẽ được giữ lại nếu bạn chưa upload ảnh mới)</span>
+            </div>
+            <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
+              <button onClick={() => setDupTarget(null)} style={st.cancelBtn} className="ct-btn">Huỷ</button>
+              <button onClick={confirmDup} disabled={saving} style={st.saveBtn} className="ct-btn">
+                {saving ? 'Đang cập nhật...' : 'Cập nhật'}
               </button>
             </div>
           </div>
