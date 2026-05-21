@@ -222,6 +222,18 @@ export async function parseThue(text) {
   }
 }
 
+// ============ Parse Search Query (AI smart search) ============
+export async function parseSearchQuery(query) {
+  const res = await fetch('/api/parse-search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  });
+  if (res.ok) return res.json();
+  const err = await res.json().catch(() => ({}));
+  throw new Error(err.error || `Search parse failed (${res.status})`);
+}
+
 // ============ Parse Căn Bán (Times City format) ============
 export async function parseBan(text) {
   for (let attempt = 1; attempt <= 2; attempt++) {

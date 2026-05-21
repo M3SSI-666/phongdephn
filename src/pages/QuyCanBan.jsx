@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { C } from '../utils/theme';
-import { fetchQuyCanBan, postQuyCanBan, parseBan, uploadToCloudinary } from '../utils/api';
+import { fetchQuyCanBan, postQuyCanBan, parseBan, uploadToCloudinary, parseSearchQuery } from '../utils/api';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -40,7 +40,9 @@ function QuyCanBanInner() {
   const [loading, setLoading]       = useState(true);
   const [saving, setSaving]         = useState(false);
   const [error, setError]           = useState('');
-  const [search, setSearch]         = useState('');
+  const [aiQuery, setAiQuery]       = useState('');
+  const [aiFilter, setAiFilter]     = useState(null);
+  const [aiSearching, setAiSearching] = useState(false);
 
   const [modalMode, setModalMode]   = useState('closed');
   const [editItem, setEditItem]     = useState(null);
@@ -101,14 +103,39 @@ function QuyCanBanInner() {
     return () => clearInterval(iv);
   }, []);
 
+  function parseGiaValue(gia) {
+    const s = (gia||'').toLowerCase().replace(/\s+/g,'');
+    const ty = s.match(/([\d.]+)t[ỷy]/); if (ty) return parseFloat(ty[1]) * 1000;
+    const tr = s.match(/([\d.]+)tr/); if (tr) return parseFloat(tr[1]);
+    const n = s.match(/([\d.]+)/); return n ? parseFloat(n[1]) : null;
+  }
+
+  function buildFilterSummary(f) {
+    const parts = [];
+    if (f.Thiet_Ke) parts.push(f.Thiet_Ke);
+    if (f.Slot_Xe) parts.push('Slot: ' + f.Slot_Xe);
+    if (f.Gia_Min != null && f.Gia_Max != null) parts.push(`${f.Gia_Min >= 1000 ? f.Gia_Min/1000+'tỷ' : f.Gia_Min+'tr'}–${f.Gia_Max >= 1000 ? f.Gia_Max/1000+'tỷ' : f.Gia_Max+'tr'}`);
+    else if (f.Gia_Max != null) parts.push(`≤ ${f.Gia_Max >= 1000 ? (f.Gia_Max/1000)+'tỷ' : f.Gia_Max+'tr'}`);
+    else if (f.Gia_Min != null) parts.push(`≥ ${f.Gia_Min >= 1000 ? (f.Gia_Min/1000)+'tỷ' : f.Gia_Min+'tr'}`);
+    if (f.Huong_BC) parts.push('Hướng ' + f.Huong_BC);
+    if (f.Noi_That) parts.push(f.Noi_That);
+    if (f.Toa) parts.push('Tòa ' + f.Toa);
+    return parts.join(' · ');
+  }
+
   const filtered = useMemo(() => {
     let list = [...items];
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(it => Object.entries(it).some(([k,v]) => k !== '_rowIndex' && (v||'').toString().toLowerCase().includes(q)));
+    if (aiFilter) {
+      if (aiFilter.Thiet_Ke) list = list.filter(it => (it.Thiet_Ke||'').toUpperCase() === aiFilter.Thiet_Ke.toUpperCase());
+      if (aiFilter.Slot_Xe)  list = list.filter(it => (it.Slot_Xe||'Không') === aiFilter.Slot_Xe);
+      if (aiFilter.Gia_Max != null) list = list.filter(it => { const g = parseGiaValue(it.Gia); return g == null || g <= aiFilter.Gia_Max; });
+      if (aiFilter.Gia_Min != null) list = list.filter(it => { const g = parseGiaValue(it.Gia); return g == null || g >= aiFilter.Gia_Min; });
+      if (aiFilter.Huong_BC) list = list.filter(it => (it.Huong_BC||'').toLowerCase().includes(aiFilter.Huong_BC.toLowerCase()));
+      if (aiFilter.Noi_That) list = list.filter(it => (it.Noi_That||'').toLowerCase().includes(aiFilter.Noi_That.toLowerCase()));
+      if (aiFilter.Toa)      list = list.filter(it => (it.Ma_Can||'').toUpperCase().startsWith(aiFilter.Toa.toUpperCase()));
     }
     return list;
-  }, [items, search]);
+  }, [items, aiFilter]);
 
   const TOA_ORDER = [
     'T01','T02','T03','T04','T05','T06','T07','T08','T09','T10','T11',
@@ -161,6 +188,18 @@ function QuyCanBanInner() {
       return ia - ib;
     });
   }, [filtered]);
+
+  async function handleAiSearch() {
+    if (!aiQuery.trim()) return;
+    setAiSearching(true);
+    try {
+      const f = await parseSearchQuery(aiQuery);
+      const hasAny = Object.values(f).some(v => v != null);
+      if (!hasAny) return showToast('Không nhận ra tiêu chí, thử mô tả rõ hơn', 'error');
+      setAiFilter(f);
+    } catch(e) { showToast(e.message, 'error'); }
+    finally { setAiSearching(false); }
+  }
 
   async function handleParse() {
     if (!rawText.trim()) return showToast('Hãy paste tin Zalo vào trước', 'error');
@@ -333,14 +372,42 @@ function QuyCanBanInner() {
         <div style={{ fontSize:12, color:C.textMuted }}>{filtered.length} / {items.length} căn</div>
       </div>
 
-      <div style={{ position:'relative', marginBottom:16 }}>
-        <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', fontSize:14, opacity:0.5 }}>&#128269;</span>
-        <input
-          type="text" placeholder="Tìm theo mã căn, tên chủ, nội thất..."
-          value={search} onChange={e => setSearch(e.target.value)}
-          style={st.searchInput}
-        />
-        {search && <button onClick={() => setSearch('')} style={st.clearBtn}>&times;</button>}
+      {/* AI Search */}
+      <div style={{ marginBottom: aiFilter ? 8 : 16 }}>
+        <div style={{ position:'relative' }}>
+          <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', fontSize:14 }}>✨</span>
+          <input
+            type="text"
+            placeholder="VD: 2 ngủ có slot tài chính 4 tỷ · 3PN tòa P03 full đồ hướng nam..."
+            value={aiQuery}
+            onChange={e => { setAiQuery(e.target.value); if (aiFilter) setAiFilter(null); }}
+            onKeyDown={e => e.key === 'Enter' && handleAiSearch()}
+            style={{ ...st.searchInput, paddingRight: 90 }}
+          />
+          {aiFilter ? (
+            <button onClick={() => { setAiFilter(null); setAiQuery(''); }} style={st.clearBtn}>&times;</button>
+          ) : (
+            <button
+              onClick={handleAiSearch}
+              disabled={aiSearching || !aiQuery.trim()}
+              style={{
+                position:'absolute', right:8, top:'50%', transform:'translateY(-50%)',
+                background: aiSearching || !aiQuery.trim() ? '#3a3f52' : 'linear-gradient(135deg,#38b274,#2a8a5a)',
+                border:'none', borderRadius:8, padding:'6px 14px', color:'#fff',
+                fontSize:12, fontWeight:700, cursor: aiSearching || !aiQuery.trim() ? 'default':'pointer', fontFamily:F,
+              }}
+            >{aiSearching ? '⟳ Đang tìm...' : '🔍 Tìm'}</button>
+          )}
+        </div>
+        {aiFilter && (
+          <div style={{ background:'rgba(56,178,116,0.12)', border:'1px solid rgba(56,178,116,0.3)', borderRadius:8, padding:'8px 14px', marginTop:8, display:'flex', alignItems:'center', justifyContent:'space-between', fontSize:13 }}>
+            <span style={{ color:'#38b274' }}>
+              ✅ Đang lọc: <strong>{buildFilterSummary(aiFilter)}</strong>
+              <span style={{ color:'#8a9bb8', fontWeight:400, marginLeft:8 }}>· {filtered.length} căn phù hợp</span>
+            </span>
+            <button onClick={() => { setAiFilter(null); setAiQuery(''); }} style={{ background:'none', border:'none', color:'#8a9bb8', cursor:'pointer', fontSize:18, lineHeight:1 }}>×</button>
+          </div>
+        )}
       </div>
 
       {error && <div style={st.errorBox}>{error}</div>}
