@@ -161,10 +161,11 @@ export async function postXlsxImport(sheets, mode = 'init') {
 }
 
 // ============ Quỹ Căn Thuê ============
-export async function fetchQuyCanThue() {
-  const res = await fetch(`/api/quycanthue?t=${Date.now()}`, {
-    cache: 'no-store',
-  });
+export async function fetchQuyCanThue(userId, role) {
+  const params = new URLSearchParams({ t: Date.now() });
+  if (userId) params.set('userId', userId);
+  if (role)   params.set('role', role);
+  const res = await fetch(`/api/quycanthue?${params}`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Fetch quy can thue failed');
   return res.json();
 }
@@ -183,10 +184,11 @@ export async function postQuyCanThue(payload) {
 }
 
 // ============ Quỹ Căn Bán ============
-export async function fetchQuyCanBan() {
-  const res = await fetch(`/api/quycanban?t=${Date.now()}`, {
-    cache: 'no-store',
-  });
+export async function fetchQuyCanBan(userId, role) {
+  const params = new URLSearchParams({ t: Date.now() });
+  if (userId) params.set('userId', userId);
+  if (role)   params.set('role', role);
+  const res = await fetch(`/api/quycanban?${params}`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Fetch quy can ban failed');
   return res.json();
 }

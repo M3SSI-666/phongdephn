@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useUser } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
 import { fetchQuyCanThue, postQuyCanThue, parseThue, uploadToCloudinary, parseSearchQuery } from '../utils/api';
 
@@ -22,9 +23,17 @@ const RAINBOW_COLORS = [
 
 const EMPTY_FORM = {
   Ma_Can: '', Thiet_Ke: '', Dien_Tich: '', Slot_Xe: 'Không',
-  Huong_BC: '', Gia: '', Phi_MG: '', Noi_That: '',
+  Huong_BC: '', Gia: '', Phi_MG: '', Noi_That: 'Đồ cơ bản',
   Thoi_Gian_Vao: '', Lien_He: '', Hinh_Anh: '', Nguon: '', Ghi_Chu: '', Mau_Ma_Can: '',
 };
+
+function normalizeNoiThat(val) {
+  const s = (val || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  if (!s) return '';
+  if (s.includes('full') || s.includes('day du') || s.includes('du do')) return 'Full đồ';
+  if (s.includes('khong') || s.includes('trong') || s.includes('tho')) return 'Không đồ';
+  return 'Đồ cơ bản';
+}
 
 const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
@@ -40,10 +49,23 @@ export default function QuyCanThue() {
   return <QuyCanThueInner />;
 }
 
+function formatTs(iso) {
+  const d = new Date(iso);
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mn = String(d.getMinutes()).padStart(2,'0');
+  return `${dd}/${mm} ${hh}:${mn}`;
+}
+
 function QuyCanThueInner() {
+  const { user } = useUser();
+  const userId = user?.id;
+  const role   = user?.publicMetadata?.role || 'staff';
   const [items, setItems]           = useState([]);
   const [loading, setLoading]       = useState(true);
   const [saving, setSaving]         = useState(false);
+  const [importLog, setImportLog]   = useState(() => { try { return JSON.parse(localStorage.getItem('importLog_thue') || '[]'); } catch { return []; } });
   const [error, setError]           = useState('');
   const [aiQuery, setAiQuery]       = useState('');
   const [aiFilter, setAiFilter]     = useState(null);
@@ -98,16 +120,16 @@ function QuyCanThueInner() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true); setError('');
-      const data = await fetchQuyCanThue();
+      const data = await fetchQuyCanThue(userId, role);
       setItems(Array.isArray(data) ? data : []);
     } catch(e) { setError(e.message); }
     finally { setLoading(false); }
-  }, []);
+  }, [userId, role]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
   useEffect(() => {
-    const iv = setInterval(() => fetchQuyCanThue().then(d => setItems(Array.isArray(d)?d:[])).catch(()=>{}), 30000);
+    const iv = setInterval(() => fetchQuyCanThue(userId, role).then(d => setItems(Array.isArray(d)?d:[])).catch(()=>{}), 30000);
     return () => clearInterval(iv);
   }, []);
 
@@ -244,6 +266,7 @@ function QuyCanThueInner() {
     setParsed(false);
     try {
       const result = await parseThue(rawText);
+      const ghiChuNote = result.Ghi_Chu_NT?.trim() || '';
       setForm(prev => ({
         ...prev,
         Ma_Can:        (result.Ma_Can || prev.Ma_Can).toUpperCase(),
@@ -256,6 +279,7 @@ function QuyCanThueInner() {
         Noi_That:      result.Noi_That      || prev.Noi_That,
         Thoi_Gian_Vao: result.Thoi_Gian_Vao || prev.Thoi_Gian_Vao,
         Lien_He:       result.Lien_He       || prev.Lien_He,
+        Ghi_Chu:       ghiChuNote ? (prev.Ghi_Chu ? prev.Ghi_Chu + ', ' + ghiChuNote : ghiChuNote) : prev.Ghi_Chu,
       }));
       setParsed(true);
       showToast('AI đã điền thông tin — kiểm tra lại trước khi lưu');
@@ -320,14 +344,25 @@ function QuyCanThueInner() {
   function closeModal() { setModalMode('closed'); setEditItem(null); }
   const set = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
 
+  function pushImportLog(maCan) {
+    const entry = { Ma_Can: maCan, ts: new Date().toISOString() };
+    setImportLog(prev => {
+      const next = [entry, ...prev].slice(0, 20);
+      localStorage.setItem('importLog_thue', JSON.stringify(next));
+      return next;
+    });
+  }
+
   // ── Save ──
   async function handleSave() {
     if (!form.Ma_Can.trim()) return showToast('Vui lòng nhập Mã căn', 'error');
     try {
       setSaving(true);
       const payload = Object.fromEntries(Object.entries(form).map(([k,v]) => [k, typeof v==='string' ? v.trim() : v]));
+      payload.Owner_Id = userId || '';
       if (modalMode === 'edit') {
-        await postQuyCanThue({ action: 'update', _rowIndex: editItem._rowIndex, STT: editItem.STT, ...payload });
+        await postQuyCanThue({ action: 'update', _rowIndex: editItem._rowIndex, STT: editItem.STT, Owner_Id: editItem.Owner_Id || userId || '', ...payload });
+        pushImportLog(payload.Ma_Can);
         showToast('Cập nhật thành công!');
         closeModal();
         await loadData();
@@ -340,6 +375,7 @@ function QuyCanThueInner() {
         }
         const maxSTT = items.reduce((m,i) => Math.max(m, Number(i.STT)||0), 0);
         await postQuyCanThue({ action: 'add', STT: maxSTT + 1, ...payload });
+        pushImportLog(payload.Ma_Can);
         showToast('Thêm căn thành công!');
         closeModal();
         await loadData();
@@ -354,7 +390,8 @@ function QuyCanThueInner() {
       setSaving(true);
       const { existing, payload } = dupTarget;
       const mergedHinh = payload.Hinh_Anh || existing.Hinh_Anh || '';
-      await postQuyCanThue({ action: 'update', _rowIndex: existing._rowIndex, STT: existing.STT, ...payload, Hinh_Anh: mergedHinh });
+      await postQuyCanThue({ action: 'update', _rowIndex: existing._rowIndex, STT: existing.STT, Owner_Id: existing.Owner_Id || userId || '', ...payload, Hinh_Anh: mergedHinh });
+      pushImportLog(payload.Ma_Can);
       showToast('Đã cập nhật căn ' + payload.Ma_Can + '!');
       setDupTarget(null);
       closeModal();
@@ -413,8 +450,39 @@ function QuyCanThueInner() {
             {loading ? '...' : '↻'}
           </button>
         </div>
-        <div style={{ fontSize:12, color:C.textMuted }}>{filtered.length} / {items.length} căn</div>
+        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+          <div style={{ fontSize:12, color:C.textMuted }}>{filtered.length} / {items.length} căn</div>
+          <button
+            title="Normalize Nội Thất trong Sheets (chạy 1 lần)"
+            onClick={async () => {
+              if (!confirm('Normalize toàn bộ cột Nội Thất trong Sheets?')) return;
+              const r = await fetch('/api/migrate-noi-that', { method: 'POST' });
+              const d = await r.json();
+              alert(JSON.stringify(d.results, null, 2));
+              loadData();
+            }}
+            style={{ background:'#2d3240', border:'1px solid #3a3f52', borderRadius:8, padding:'4px 10px', fontSize:11, color:'#8a9bb8', cursor:'pointer', fontFamily:F }}
+          >🔧 Fix NT</button>
+        </div>
       </div>
+
+      {/* Import Log */}
+      {importLog.length > 0 && (
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12, flexWrap:'wrap' }}>
+          <span style={{ fontSize:11, color:'#8a9bb8', whiteSpace:'nowrap', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.4px' }}>📋 Import gần nhất:</span>
+          {importLog.slice(0,3).map((e,i) => (
+            <span key={i} style={{
+              background:'rgba(255,255,255,0.05)', border:'1px solid #2d3240',
+              borderRadius:8, padding:'4px 12px', fontSize:12, whiteSpace:'nowrap',
+              display:'flex', gap:6, alignItems:'center',
+            }}>
+              <span style={{ color:'#e2e8f0', fontWeight:700 }}>{e.Ma_Can}</span>
+              <span style={{ color:'#8a9bb8' }}>·</span>
+              <span style={{ color:'#8a9bb8' }}>{formatTs(e.ts)}</span>
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* AI Search */}
       <div style={{ marginBottom: aiFilter ? 8 : 16 }}>
@@ -496,7 +564,7 @@ function QuyCanThueInner() {
                       <td style={{...st.td, textAlign:'center'}}>{item.Huong_BC}</td>
                       <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap'}}>{item.Gia}</td>
                       <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Phi_MG}</td>
-                      <td style={{...st.td, textAlign:'center'}}>{item.Noi_That}</td>
+                      <td style={{...st.td, textAlign:'center'}}>{normalizeNoiThat(item.Noi_That)}</td>
                       <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Thoi_Gian_Vao}</td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap'}}>{item.Lien_He}</td>
                       <td style={{...st.td, textAlign:'center', cursor:'pointer'}}
@@ -612,7 +680,23 @@ function QuyCanThueInner() {
                 <FormField label="Giá" value={form.Gia} onChange={v => set('Gia', v)} placeholder="VD: 23 triệu" />
                 <FormField label="Phí Môi Giới" value={form.Phi_MG} onChange={v => set('Phi_MG', v)} placeholder="VD: Phí đủ, 1 tháng" />
 
-                <FormField label="Nội Thất" value={form.Noi_That} onChange={v => set('Noi_That', v)} placeholder="VD: Full đồ, có đồ nhà sửa đẹp, trống..." />
+                {/* Nội Thất */}
+                <div>
+                  <label style={st.fieldLabel}>Nội Thất</label>
+                  <div style={{ display:'flex', gap:8 }}>
+                    {['Full đồ','Đồ cơ bản','Không đồ'].map(opt => (
+                      <button key={opt} type="button" onClick={() => set('Noi_That', opt)}
+                        style={{
+                          flex:1, padding:'9px 0', borderRadius:8, fontSize:13, fontWeight:700,
+                          border:`1.5px solid ${form.Noi_That===opt ? C.primary : C.border}`,
+                          background: form.Noi_That===opt ? 'rgba(49,130,206,0.15)' : '#fff',
+                          color: form.Noi_That===opt ? C.primary : C.textMuted,
+                          cursor:'pointer', fontFamily:F,
+                        }}
+                      >{opt}</button>
+                    ))}
+                  </div>
+                </div>
 
                 <FormField label="Thời Gian Vào" value={form.Thoi_Gian_Vao} onChange={v => set('Thoi_Gian_Vao', v)} placeholder="VD: Luôn, Tháng 6/2025" />
 
