@@ -36,8 +36,8 @@ const TABLE_HEADERS = [
 ];
 const COL_WIDTHS = [92, 100, 72, 66, 76, 80, 80, 90, 80, 110, 110, 100, 80, 100, 200, 72];
 
-export function QuyCanBanContent() {
-  return <QuyCanBanInner />;
+export function QuyCanBanContent({ overrideUserId, overrideRole } = {}) {
+  return <QuyCanBanInner overrideUserId={overrideUserId} overrideRole={overrideRole} />;
 }
 
 export default function QuyCanBan() {
@@ -53,10 +53,10 @@ function formatTs(iso) {
   return `${dd}/${mm} ${hh}:${mn}`;
 }
 
-function QuyCanBanInner() {
+function QuyCanBanInner({ overrideUserId, overrideRole } = {}) {
   const { user } = useUser();
-  const userId = user?.id;
-  const role   = user?.publicMetadata?.role || 'staff';
+  const userId = overrideUserId || user?.id;
+  const role   = overrideRole   || user?.publicMetadata?.role || 'staff';
   const [items, setItems]           = useState([]);
   const [loading, setLoading]       = useState(true);
   const [saving, setSaving]         = useState(false);

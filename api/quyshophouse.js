@@ -70,7 +70,7 @@ async function handleGet(req, res, sheetId, email, key) {
     _rowIndex: i + 2,
   }));
 
-  if (role !== 'admin' && userId) {
+  if (userId) {
     items = items.filter(it => it.Owner_Id === userId);
   }
 

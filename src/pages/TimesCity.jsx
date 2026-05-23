@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
 import { KhachTimesContent } from './KhachTimes';
@@ -28,12 +28,20 @@ export default function TimesCity() {
 // ── Main App ──
 function TimesCityApp() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useUser();
   const { signOut } = useClerk();
   const [activeTab, setActiveTab] = useState('thue');
 
   const role = user?.publicMetadata?.role || 'staff';
   const isAdmin = role === 'admin';
+
+  // Admin xem bảng hàng của nhân viên
+  const viewAsId   = isAdmin ? searchParams.get('viewAs')   : null;
+  const viewAsName = isAdmin ? searchParams.get('viewName') : null;
+
+  // userId thực sự dùng để fetch: nếu admin đang viewAs thì dùng id nhân viên, không thì dùng id của mình
+  const effectiveUserId = viewAsId || user?.id;
 
   const visibleTabs = isAdmin ? TABS : TABS.filter(t => t.key !== 'khach');
 
@@ -83,6 +91,18 @@ function TimesCityApp() {
         </div>
       </div>
 
+      {/* Banner xem bảng hàng nhân viên */}
+      {viewAsId && (
+        <div style={{ background:'rgba(99,179,237,0.12)', borderBottom:'1px solid #63b3ed', padding:'10px 20px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <span style={{ fontSize:13, color:'#63b3ed', fontWeight:600 }}>
+            👁 Đang xem bảng hàng của <strong>{decodeURIComponent(viewAsName || '')}</strong>
+          </span>
+          <button onClick={() => navigate('/timescity')} style={{ background:'none', border:'1px solid #63b3ed', borderRadius:8, padding:'4px 14px', color:'#63b3ed', cursor:'pointer', fontSize:12, fontFamily:F, fontWeight:700 }}>
+            ← Về bảng của tôi
+          </button>
+        </div>
+      )}
+
       {/* Main Tabs */}
       <div style={s.tabsContainer}>
         <div className="tc-tabs-row" style={s.tabsRow}>
@@ -101,11 +121,11 @@ function TimesCityApp() {
 
       {/* Content */}
       <div style={s.content}>
-        {activeTab === 'khach'     && isAdmin && <KhachTimesContent />}
-        {activeTab === 'thue'      && <QuyCanThueContent />}
-        {activeTab === 'ban'       && <QuyCanBanContent />}
-        {activeTab === 'shophouse' && <QuyShophouseContent />}
-        {activeTab === 'homestay'  && <QuyHomestayContent />}
+        {activeTab === 'khach'     && isAdmin && !viewAsId && <KhachTimesContent />}
+        {activeTab === 'thue'      && <QuyCanThueContent overrideUserId={effectiveUserId} overrideRole={role} />}
+        {activeTab === 'ban'       && <QuyCanBanContent  overrideUserId={effectiveUserId} overrideRole={role} />}
+        {activeTab === 'shophouse' && <QuyShophouseContent overrideUserId={effectiveUserId} overrideRole={role} />}
+        {activeTab === 'homestay'  && <QuyHomestayContent overrideUserId={effectiveUserId} overrideRole={role} />}
       </div>
     </div>
   );

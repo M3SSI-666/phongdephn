@@ -35,18 +35,18 @@ const TABLE_HEADERS = [
   'Tầng', 'Giá', 'Phí MG', 'TT', 'Slot xe', 'Tên chủ', 'SĐT', 'Pass', 'Ghi chú', '',
 ];
 
-export function QuyShophouseContent() {
-  return <QuyShophouseInner />;
+export function QuyShophouseContent({ overrideUserId, overrideRole } = {}) {
+  return <QuyShophouseInner overrideUserId={overrideUserId} overrideRole={overrideRole} />;
 }
 
 export default function QuyShophouse() {
   return <QuyShophouseInner />;
 }
 
-function QuyShophouseInner() {
+function QuyShophouseInner({ overrideUserId, overrideRole } = {}) {
   const { user } = useUser();
-  const userId = user?.id;
-  const role   = user?.publicMetadata?.role || 'staff';
+  const userId = overrideUserId || user?.id;
+  const role   = overrideRole   || user?.publicMetadata?.role || 'staff';
   const [items, setItems]           = useState([]);
   const [loading, setLoading]       = useState(true);
   const [saving, setSaving]         = useState(false);

@@ -35,18 +35,18 @@ const TABLE_HEADERS = [
   'TT', 'Tên chủ/QL', 'SĐT', 'Pass', 'Nội thất', 'Tiện nghi', 'Ảnh', 'Ghi chú', '',
 ];
 
-export function QuyHomestayContent() {
-  return <QuyHomestayInner />;
+export function QuyHomestayContent({ overrideUserId, overrideRole } = {}) {
+  return <QuyHomestayInner overrideUserId={overrideUserId} overrideRole={overrideRole} />;
 }
 
 export default function QuyHomestay() {
   return <QuyHomestayInner />;
 }
 
-function QuyHomestayInner() {
+function QuyHomestayInner({ overrideUserId, overrideRole } = {}) {
   const { user } = useUser();
-  const userId = user?.id;
-  const role   = user?.publicMetadata?.role || 'staff';
+  const userId = overrideUserId || user?.id;
+  const role   = overrideRole   || user?.publicMetadata?.role || 'staff';
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

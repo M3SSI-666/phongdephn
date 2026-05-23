@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useUser, useClerk, useAuth } from '@clerk/clerk-react';
+import { useNavigate } from 'react-router-dom';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -13,6 +14,7 @@ const ROLE_CONFIG = {
 export default function AdminDashboard() {
   const { user } = useUser();
   const { signOut } = useClerk();
+  const navigate = useNavigate();
   const [users, setUsers]     = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(null);
@@ -191,6 +193,7 @@ export default function AdminDashboard() {
                   onApprove={null}
                   onBan={() => banUser(u.id, u.name)}
                   onRoleChange={role => updateUser(u.id, role, true)}
+                  onViewInventory={u.id !== user.id ? () => navigate(`/timescity?viewAs=${u.id}&viewName=${encodeURIComponent(u.name)}`) : null}
                 />
               ))}
             </Section>
@@ -221,7 +224,7 @@ function Section({ title, accent, children }) {
   );
 }
 
-function UserRow({ u, saving, onApprove, onBan, onRoleChange }) {
+function UserRow({ u, saving, onApprove, onBan, onRoleChange, onViewInventory }) {
   const isSaving = saving === u.id;
   const fmt = ts => ts ? new Date(ts).toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
   const isWaitlist = u.source === 'waitlist';
@@ -263,6 +266,12 @@ function UserRow({ u, saving, onApprove, onBan, onRoleChange }) {
 
       {/* Actions */}
       <div style={{ display:'flex', gap:8, flexShrink:0 }}>
+        {onViewInventory && (
+          <button onClick={onViewInventory} disabled={isSaving}
+            style={{ background:'rgba(99,179,237,0.12)', border:'1px solid #63b3ed', borderRadius:8, padding:'6px 14px', color:'#63b3ed', cursor:'pointer', fontFamily:F, fontSize:12, fontWeight:700 }}>
+            👁 Xem bảng hàng
+          </button>
+        )}
         {onApprove && (
           <button onClick={onApprove} disabled={isSaving}
             style={{ background:'rgba(56,178,116,0.15)', border:'1px solid #38b274', borderRadius:8, padding:'6px 14px', color:'#38b274', cursor:'pointer', fontFamily:F, fontSize:12, fontWeight:700 }}>

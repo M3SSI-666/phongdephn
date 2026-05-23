@@ -41,8 +41,8 @@ const TABLE_HEADERS = [
 ];
 const COL_WIDTHS = [92, 100, 72, 66, 76, 85, 70, 90, 110, 130, 110, 80, 100, 220, 72];
 
-export function QuyCanThueContent() {
-  return <QuyCanThueInner />;
+export function QuyCanThueContent({ overrideUserId, overrideRole } = {}) {
+  return <QuyCanThueInner overrideUserId={overrideUserId} overrideRole={overrideRole} />;
 }
 
 export default function QuyCanThue() {
@@ -58,10 +58,10 @@ function formatTs(iso) {
   return `${dd}/${mm} ${hh}:${mn}`;
 }
 
-function QuyCanThueInner() {
+function QuyCanThueInner({ overrideUserId, overrideRole } = {}) {
   const { user } = useUser();
-  const userId = user?.id;
-  const role   = user?.publicMetadata?.role || 'staff';
+  const userId = overrideUserId || user?.id;
+  const role   = overrideRole   || user?.publicMetadata?.role || 'staff';
   const [items, setItems]           = useState([]);
   const [loading, setLoading]       = useState(true);
   const [saving, setSaving]         = useState(false);
