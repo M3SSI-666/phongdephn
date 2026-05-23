@@ -43,6 +43,15 @@ export default function QuyShophouse() {
   return <QuyShophouseInner />;
 }
 
+function formatTs(iso) {
+  const d = new Date(iso);
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mn = String(d.getMinutes()).padStart(2,'0');
+  return `${dd}/${mm} ${hh}:${mn}`;
+}
+
 function QuyShophouseInner({ overrideUserId, overrideRole, isViewAs = false } = {}) {
   const { user } = useUser();
   const userId = overrideUserId || user?.id;
@@ -50,6 +59,7 @@ function QuyShophouseInner({ overrideUserId, overrideRole, isViewAs = false } = 
   const [items, setItems]           = useState([]);
   const [loading, setLoading]       = useState(true);
   const [saving, setSaving]         = useState(false);
+  const [importLog, setImportLog]   = useState(() => { try { return JSON.parse(localStorage.getItem('importLog_shophouse') || '[]'); } catch { return []; } });
   const [error, setError]           = useState('');
   const [search, setSearch]         = useState('');
   const [modalOpen, setModalOpen]   = useState(false);
@@ -69,6 +79,8 @@ function QuyShophouseInner({ overrideUserId, overrideRole, isViewAs = false } = 
       .sh-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
       .sh-table-wrap::-webkit-scrollbar { height: 6px; }
       .sh-table-wrap::-webkit-scrollbar-thumb { background: ${C.textDim}; border-radius: 3px; }
+      @keyframes shRowPulse { 0%,100%{background:transparent} 30%{background:rgba(56,178,116,0.22)} }
+      .sh-row-highlight { animation: shRowPulse 2s ease !important; outline: 2px solid rgba(56,178,116,0.6) !important; outline-offset:-2px; border-radius:4px; }
       @media (max-width: 640px) {
         .sh-modal-content { width: 100% !important; height: 100% !important; max-height: 100% !important; border-radius: 0 !important; }
       }
@@ -134,6 +146,23 @@ function QuyShophouseInner({ overrideUserId, overrideRole, isViewAs = false } = 
   const closeModal = () => { setModalOpen(false); setEditItem(null); };
   const updateForm = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
 
+  function pushImportLog(maCan) {
+    const entry = { Ma_Can: maCan, ts: new Date().toISOString() };
+    setImportLog(prev => {
+      const next = [entry, ...prev].slice(0, 20);
+      localStorage.setItem('importLog_shophouse', JSON.stringify(next));
+      return next;
+    });
+  }
+
+  function scrollToRow(maCan) {
+    const el = document.getElementById(`sh-row-${maCan}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('sh-row-highlight');
+    setTimeout(() => el.classList.remove('sh-row-highlight'), 2000);
+  }
+
   const handleSave = async () => {
     if (!form.Ma_Can.trim()) return showToast('Vui lòng nhập Mã căn', 'error');
     try {
@@ -142,10 +171,12 @@ function QuyShophouseInner({ overrideUserId, overrideRole, isViewAs = false } = 
       payload.Owner_Id = userId || '';
       if (editItem) {
         await postQuyShophouse({ action: 'update', _rowIndex: editItem._rowIndex, STT: editItem.STT, Owner_Id: editItem.Owner_Id || userId || '', ...payload });
+        pushImportLog(payload.Ma_Can);
         showToast('Cập nhật thành công!');
       } else {
         const maxSTT = items.reduce((m, i) => Math.max(m, Number(i.STT) || 0), 0);
         await postQuyShophouse({ action: 'add', STT: maxSTT + 1, ...payload });
+        pushImportLog(payload.Ma_Can);
         showToast('Thêm Shophouse thành công!');
       }
       closeModal();
@@ -176,7 +207,27 @@ function QuyShophouseInner({ overrideUserId, overrideRole, isViewAs = false } = 
             {loading ? '...' : '↻'}
           </button>
         </div>
-        <div style={{ fontSize: 12, color: C.textMuted }}>{filtered.length} / {items.length} căn</div>
+        {/* Import Log — bên phải header */}
+        <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', flex:1, justifyContent:'flex-end' }}>
+          {importLog.length > 0 && (
+            <>
+              <span style={{ fontSize:10, color:'#8a9bb8', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.4px', whiteSpace:'nowrap' }}>📋</span>
+              {importLog.slice(0,3).map((e,i) => (
+                <span key={i} onClick={() => scrollToRow(e.Ma_Can)}
+                  style={{ background:'rgba(255,255,255,0.05)', border:'1px solid #2d3240', borderRadius:8, padding:'4px 10px', fontSize:11, whiteSpace:'nowrap', display:'flex', gap:5, alignItems:'center', cursor:'pointer', transition:'all 0.15s' }}
+                  onMouseEnter={ev => ev.currentTarget.style.borderColor='#38b274'}
+                  onMouseLeave={ev => ev.currentTarget.style.borderColor='#2d3240'}
+                  title={`Nhảy đến căn ${e.Ma_Can}`}
+                >
+                  <span style={{ color:'#38b274', fontWeight:700 }}>{e.Ma_Can}</span>
+                  <span style={{ color:'#555e7a' }}>·</span>
+                  <span style={{ color:'#8a9bb8', fontSize:10 }}>{formatTs(e.ts)}</span>
+                </span>
+              ))}
+            </>
+          )}
+          <span style={{ fontSize:12, color:C.textMuted, whiteSpace:'nowrap' }}>{filtered.length} / {items.length} căn</span>
+        </div>
       </div>
 
       {/* Search */}
@@ -209,7 +260,7 @@ function QuyShophouseInner({ overrideUserId, overrideRole, isViewAs = false } = 
                   {items.length === 0 ? 'Chưa có dữ liệu. Bấm "+ Thêm Shophouse" để bắt đầu.' : 'Không tìm thấy kết quả'}
                 </td></tr>
               ) : filtered.map((item) => (
-                <tr key={item._rowIndex} className="sh-row" style={st.tr}>
+                <tr key={item._rowIndex} id={`sh-row-${item.Ma_Can}`} className="sh-row" style={st.tr}>
                   <td style={{ ...st.td, textAlign: 'center', color: C.textDim, fontSize: 12 }}>{item.STT}</td>
                   <td style={{ ...st.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_PS}</td>
                   <td style={{ ...st.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_Cap_Nhat}</td>
