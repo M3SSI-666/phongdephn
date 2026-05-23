@@ -565,7 +565,7 @@ function getNhuCauBadgeStyle(val) {
   const v = (val || '').toLowerCase();
   const base = { display: 'inline-block', padding: '2px 10px', borderRadius: 12, fontSize: 11, fontWeight: 700 };
   if (v.includes('thu')) return { ...base, background: C.primary + '18', color: C.primaryDark };
-  if (v === 'mua') return { ...base, background: C.accent + '18', color: C.accent };
+  if (v === 'mua') return { ...base, background: 'rgba(0,210,210,0.15)', color: '#00d2d2' };
   if (v === 'homestay') return { ...base, background: '#E67E2218', color: '#E67E22' };
   return { fontSize: 12, color: C.textDim };
 }
