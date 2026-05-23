@@ -103,6 +103,8 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       .ct-table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
       .ct-table-wrap::-webkit-scrollbar { height:6px; }
       .ct-table-wrap::-webkit-scrollbar-thumb { background:${C.textDim}; border-radius:3px; }
+      @keyframes ctRowPulse { 0%,100%{background:transparent} 30%{background:rgba(56,178,116,0.22)} }
+      .ct-row-highlight { animation: ctRowPulse 2s ease !important; outline: 2px solid rgba(56,178,116,0.6) !important; outline-offset:-2px; border-radius:4px; }
       @media(max-width:640px){
         .ct-modal-content { width:100%!important; height:100%!important; max-height:100%!important; border-radius:0!important; }
       }
@@ -440,6 +442,14 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     );
   }
 
+  function scrollToRow(maCan) {
+    const el = document.getElementById(`ct-row-${maCan}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('ct-row-highlight');
+    setTimeout(() => el.classList.remove('ct-row-highlight'), 2000);
+  }
+
   return (
     <div style={{ fontFamily: F, color: '#e2e8f0' }}>
       {/* Header row */}
@@ -449,9 +459,6 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
           <button onClick={loadData} disabled={loading} style={st.reloadBtn} className="ct-btn" title="Tải lại">
             {loading ? '...' : '↻'}
           </button>
-        </div>
-        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-          <div style={{ fontSize:12, color:C.textMuted }}>{filtered.length} / {items.length} căn</div>
           <button
             title="Normalize Nội Thất trong Sheets (chạy 1 lần)"
             onClick={async () => {
@@ -464,25 +471,33 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
             style={{ background:'#2d3240', border:'1px solid #3a3f52', borderRadius:8, padding:'4px 10px', fontSize:11, color:'#8a9bb8', cursor:'pointer', fontFamily:F }}
           >🔧 Fix NT</button>
         </div>
-      </div>
-
-      {/* Import Log */}
-      {importLog.length > 0 && (
-        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12, flexWrap:'wrap' }}>
-          <span style={{ fontSize:11, color:'#8a9bb8', whiteSpace:'nowrap', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.4px' }}>📋 Import gần nhất:</span>
-          {importLog.slice(0,3).map((e,i) => (
-            <span key={i} style={{
-              background:'rgba(255,255,255,0.05)', border:'1px solid #2d3240',
-              borderRadius:8, padding:'4px 12px', fontSize:12, whiteSpace:'nowrap',
-              display:'flex', gap:6, alignItems:'center',
-            }}>
-              <span style={{ color:'#e2e8f0', fontWeight:700 }}>{e.Ma_Can}</span>
-              <span style={{ color:'#8a9bb8' }}>·</span>
-              <span style={{ color:'#8a9bb8' }}>{formatTs(e.ts)}</span>
-            </span>
-          ))}
+        {/* Import Log — bên phải header */}
+        <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', flex:1, justifyContent:'flex-end' }}>
+          {importLog.length > 0 && (
+            <>
+              <span style={{ fontSize:10, color:'#8a9bb8', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.4px', whiteSpace:'nowrap' }}>📋</span>
+              {importLog.slice(0,3).map((e,i) => (
+                <span key={i} onClick={() => scrollToRow(e.Ma_Can)}
+                  style={{
+                    background:'rgba(255,255,255,0.05)', border:'1px solid #2d3240',
+                    borderRadius:8, padding:'4px 10px', fontSize:11, whiteSpace:'nowrap',
+                    display:'flex', gap:5, alignItems:'center', cursor:'pointer',
+                    transition:'all 0.15s',
+                  }}
+                  onMouseEnter={ev => ev.currentTarget.style.borderColor='#38b274'}
+                  onMouseLeave={ev => ev.currentTarget.style.borderColor='#2d3240'}
+                  title={`Nhảy đến căn ${e.Ma_Can}`}
+                >
+                  <span style={{ color:'#38b274', fontWeight:700 }}>{e.Ma_Can}</span>
+                  <span style={{ color:'#555e7a' }}>·</span>
+                  <span style={{ color:'#8a9bb8', fontSize:10 }}>{formatTs(e.ts)}</span>
+                </span>
+              ))}
+            </>
+          )}
+          <span style={{ fontSize:12, color:C.textMuted, whiteSpace:'nowrap' }}>{filtered.length} / {items.length} căn</span>
         </div>
-      )}
+      </div>
 
       {/* AI Search */}
       <div style={{ marginBottom: aiFilter ? 8 : 16 }}>
@@ -549,7 +564,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                   </tr>
                   {/* Các căn trong tòa */}
                   {toaItems.map(item => (
-                    <tr key={item._rowIndex} className="ct-row" style={st.tr}>
+                    <tr key={item._rowIndex} id={`ct-row-${item.Ma_Can}`} className="ct-row" style={st.tr}>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', fontSize:12}}>{item.Ngay_Update}</td>
                       <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', background:item.Mau_Ma_Can||'transparent', color:'#fff', borderRadius: item.Mau_Ma_Can ? 6 : 0}}>{item.Ma_Can}</td>
                       <td style={{...st.td, textAlign:'center'}}>{item.Thiet_Ke}</td>
