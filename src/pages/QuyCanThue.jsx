@@ -459,17 +459,6 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
           <button onClick={loadData} disabled={loading} style={st.reloadBtn} className="ct-btn" title="Tải lại">
             {loading ? '...' : '↻'}
           </button>
-          <button
-            title="Normalize Nội Thất trong Sheets (chạy 1 lần)"
-            onClick={async () => {
-              if (!confirm('Normalize toàn bộ cột Nội Thất trong Sheets?')) return;
-              const r = await fetch('/api/migrate-noi-that', { method: 'POST' });
-              const d = await r.json();
-              alert(JSON.stringify(d.results, null, 2));
-              loadData();
-            }}
-            style={{ background:'#2d3240', border:'1px solid #3a3f52', borderRadius:8, padding:'4px 10px', fontSize:11, color:'#8a9bb8', cursor:'pointer', fontFamily:F }}
-          >🔧 Fix NT</button>
         </div>
         {/* Import Log — bên phải header */}
         <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', flex:1, justifyContent:'flex-end' }}>
