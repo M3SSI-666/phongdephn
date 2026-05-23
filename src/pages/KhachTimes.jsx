@@ -458,7 +458,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                 <label style={s.fieldLabel}>Nhu cầu *</label>
                 <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
                   {NHU_CAU_OPTIONS.map((val) => (
-                    <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14 }}>
+                    <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14, color: '#e2e8f0' }}>
                       <input type="radio" name="nhu_cau" checked={form.Nhu_Cau === val} onChange={() => updateForm('Nhu_Cau', val)} style={{ accentColor: C.primary }} />
                       {val}
                     </label>
@@ -483,7 +483,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                 <label style={s.fieldLabel}>Slot xe</label>
                 <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
                   {SLOT_XE_OPTIONS.map((val) => (
-                    <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14 }}>
+                    <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14, color: '#e2e8f0' }}>
                       <input type="radio" name="slot_xe" checked={form.Slot_Xe === val} onChange={() => updateForm('Slot_Xe', val)} style={{ accentColor: C.primary }} />
                       {val === 'Null' ? 'Không quan trọng' : val}
                     </label>
