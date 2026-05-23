@@ -41,8 +41,8 @@ const TABLE_HEADERS = [
 ];
 const COL_WIDTHS = [92, 100, 72, 66, 76, 85, 70, 90, 110, 130, 110, 80, 100, 220, 72];
 
-export function QuyCanThueContent({ overrideUserId, overrideRole } = {}) {
-  return <QuyCanThueInner overrideUserId={overrideUserId} overrideRole={overrideRole} />;
+export function QuyCanThueContent({ overrideUserId, overrideRole, isViewAs } = {}) {
+  return <QuyCanThueInner overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
 }
 
 export default function QuyCanThue() {
@@ -58,7 +58,7 @@ function formatTs(iso) {
   return `${dd}/${mm} ${hh}:${mn}`;
 }
 
-function QuyCanThueInner({ overrideUserId, overrideRole } = {}) {
+function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}) {
   const { user } = useUser();
   const userId = overrideUserId || user?.id;
   const role   = overrideRole   || user?.publicMetadata?.role || 'staff';
@@ -120,11 +120,11 @@ function QuyCanThueInner({ overrideUserId, overrideRole } = {}) {
   const loadData = useCallback(async () => {
     try {
       setLoading(true); setError('');
-      const data = await fetchQuyCanThue(userId, role);
+      const data = await fetchQuyCanThue(userId, role, isViewAs);
       setItems(Array.isArray(data) ? data : []);
     } catch(e) { setError(e.message); }
     finally { setLoading(false); }
-  }, [userId, role]);
+  }, [userId, role, isViewAs]);
 
   useEffect(() => { loadData(); }, [loadData]);
 

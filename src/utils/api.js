@@ -161,10 +161,11 @@ export async function postXlsxImport(sheets, mode = 'init') {
 }
 
 // ============ Quỹ Căn Thuê ============
-export async function fetchQuyCanThue(userId, role) {
+export async function fetchQuyCanThue(userId, role, isViewAs = false) {
   const params = new URLSearchParams({ t: Date.now() });
   if (userId) params.set('userId', userId);
   if (role)   params.set('role', role);
+  if (isViewAs) params.set('viewAs', '1');
   const res = await fetch(`/api/quycanthue?${params}`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Fetch quy can thue failed');
   return res.json();
@@ -184,10 +185,11 @@ export async function postQuyCanThue(payload) {
 }
 
 // ============ Quỹ Căn Bán ============
-export async function fetchQuyCanBan(userId, role) {
+export async function fetchQuyCanBan(userId, role, isViewAs = false) {
   const params = new URLSearchParams({ t: Date.now() });
   if (userId) params.set('userId', userId);
   if (role)   params.set('role', role);
+  if (isViewAs) params.set('viewAs', '1');
   const res = await fetch(`/api/quycanban?${params}`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Fetch quy can ban failed');
   return res.json();
@@ -227,10 +229,11 @@ export function parseBan(text)  { return callParseTC({ type: 'ban',  text }); }
 export function parseSearchQuery(query) { return callParseTC({ type: 'search', query }); }
 
 // ============ Quỹ Shophouse ============
-export async function fetchQuyShophouse(userId, role) {
+export async function fetchQuyShophouse(userId, role, isViewAs = false) {
   const params = new URLSearchParams({ t: Date.now() });
   if (userId) params.set('userId', userId);
   if (role)   params.set('role', role);
+  if (isViewAs) params.set('viewAs', '1');
   const res = await fetch(`/api/quyshophouse?${params}`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Fetch quy shophouse failed');
   return res.json();
@@ -250,10 +253,11 @@ export async function postQuyShophouse(payload) {
 }
 
 // ============ Quỹ Homestay ============
-export async function fetchQuyHomestay(userId, role) {
+export async function fetchQuyHomestay(userId, role, isViewAs = false) {
   const params = new URLSearchParams({ t: Date.now() });
   if (userId) params.set('userId', userId);
   if (role)   params.set('role', role);
+  if (isViewAs) params.set('viewAs', '1');
   const res = await fetch(`/api/quyhomestay?${params}`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Fetch quy homestay failed');
   return res.json();

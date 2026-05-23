@@ -35,15 +35,15 @@ const TABLE_HEADERS = [
   'TT', 'Tên chủ/QL', 'SĐT', 'Pass', 'Nội thất', 'Tiện nghi', 'Ảnh', 'Ghi chú', '',
 ];
 
-export function QuyHomestayContent({ overrideUserId, overrideRole } = {}) {
-  return <QuyHomestayInner overrideUserId={overrideUserId} overrideRole={overrideRole} />;
+export function QuyHomestayContent({ overrideUserId, overrideRole, isViewAs } = {}) {
+  return <QuyHomestayInner overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
 }
 
 export default function QuyHomestay() {
   return <QuyHomestayInner />;
 }
 
-function QuyHomestayInner({ overrideUserId, overrideRole } = {}) {
+function QuyHomestayInner({ overrideUserId, overrideRole, isViewAs = false } = {}) {
   const { user } = useUser();
   const userId = overrideUserId || user?.id;
   const role   = overrideRole   || user?.publicMetadata?.role || 'staff';
@@ -92,14 +92,14 @@ function QuyHomestayInner({ overrideUserId, overrideRole } = {}) {
     try {
       setLoading(true);
       setError('');
-      const data = await fetchQuyHomestay(userId, role);
+      const data = await fetchQuyHomestay(userId, role, isViewAs);
       setItems(Array.isArray(data) ? data : []);
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [userId, role]);
+  }, [userId, role, isViewAs]);
 
   useEffect(() => { loadData(); }, [loadData]);
 

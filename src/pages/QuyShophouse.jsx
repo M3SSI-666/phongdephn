@@ -35,15 +35,15 @@ const TABLE_HEADERS = [
   'Tầng', 'Giá', 'Phí MG', 'TT', 'Slot xe', 'Tên chủ', 'SĐT', 'Pass', 'Ghi chú', '',
 ];
 
-export function QuyShophouseContent({ overrideUserId, overrideRole } = {}) {
-  return <QuyShophouseInner overrideUserId={overrideUserId} overrideRole={overrideRole} />;
+export function QuyShophouseContent({ overrideUserId, overrideRole, isViewAs } = {}) {
+  return <QuyShophouseInner overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
 }
 
 export default function QuyShophouse() {
   return <QuyShophouseInner />;
 }
 
-function QuyShophouseInner({ overrideUserId, overrideRole } = {}) {
+function QuyShophouseInner({ overrideUserId, overrideRole, isViewAs = false } = {}) {
   const { user } = useUser();
   const userId = overrideUserId || user?.id;
   const role   = overrideRole   || user?.publicMetadata?.role || 'staff';
@@ -86,11 +86,11 @@ function QuyShophouseInner({ overrideUserId, overrideRole } = {}) {
   const loadData = useCallback(async () => {
     try {
       setLoading(true); setError('');
-      const data = await fetchQuyShophouse(userId, role);
+      const data = await fetchQuyShophouse(userId, role, isViewAs);
       setItems(Array.isArray(data) ? data : []);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
-  }, [userId, role]);
+  }, [userId, role, isViewAs]);
 
   useEffect(() => { loadData(); }, [loadData]);
 

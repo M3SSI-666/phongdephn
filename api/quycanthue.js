@@ -44,7 +44,7 @@ async function handleGet(req, res, sheetId, email, key) {
 
   const data = await response.json();
   const rows = data.values || [];
-  const { userId, role } = req.query;
+  const { userId, role, viewAs } = req.query;
 
   let items = rows.slice(1).map((row, i) => ({
     STT:           row[0]  || '',
@@ -68,7 +68,7 @@ async function handleGet(req, res, sheetId, email, key) {
   }));
 
   if (userId) {
-    items = items.filter(it => it.Owner_Id === userId || (role === 'admin' && !it.Owner_Id));
+    items = items.filter(it => it.Owner_Id === userId || (!viewAs && role === 'admin' && !it.Owner_Id));
   }
 
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');

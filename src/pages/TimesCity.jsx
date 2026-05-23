@@ -122,10 +122,10 @@ function TimesCityApp() {
       {/* Content */}
       <div style={s.content}>
         {activeTab === 'khach'     && isAdmin && !viewAsId && <KhachTimesContent />}
-        {activeTab === 'thue'      && <QuyCanThueContent overrideUserId={effectiveUserId} overrideRole={role} />}
-        {activeTab === 'ban'       && <QuyCanBanContent  overrideUserId={effectiveUserId} overrideRole={role} />}
-        {activeTab === 'shophouse' && <QuyShophouseContent overrideUserId={effectiveUserId} overrideRole={role} />}
-        {activeTab === 'homestay'  && <QuyHomestayContent overrideUserId={effectiveUserId} overrideRole={role} />}
+        {activeTab === 'thue'      && <QuyCanThueContent   overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}
+        {activeTab === 'ban'       && <QuyCanBanContent    overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}
+        {activeTab === 'shophouse' && <QuyShophouseContent overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}
+        {activeTab === 'homestay'  && <QuyHomestayContent  overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}
       </div>
     </div>
   );
