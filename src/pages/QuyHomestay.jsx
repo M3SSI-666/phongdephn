@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useUser } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
 import { fetchQuyHomestay, postQuyHomestay, uploadToCloudinary } from '../utils/api';
 
@@ -43,6 +44,9 @@ export default function QuyHomestay() {
 }
 
 function QuyHomestayInner() {
+  const { user } = useUser();
+  const userId = user?.id;
+  const role   = user?.publicMetadata?.role || 'staff';
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -88,20 +92,20 @@ function QuyHomestayInner() {
     try {
       setLoading(true);
       setError('');
-      const data = await fetchQuyHomestay();
+      const data = await fetchQuyHomestay(userId, role);
       setItems(Array.isArray(data) ? data : []);
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userId, role]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchQuyHomestay().then((data) => setItems(Array.isArray(data) ? data : [])).catch(() => {});
+      fetchQuyHomestay(userId, role).then((data) => setItems(Array.isArray(data) ? data : [])).catch(() => {});
     }, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -200,9 +204,10 @@ function QuyHomestayInner() {
         Hinh_Anh: form.Hinh_Anh.trim(),
         Ghi_Chu: form.Ghi_Chu.trim(),
         Mau_Ma_Can: form.Mau_Ma_Can || '',
+        Owner_Id: userId || '',
       };
       if (editItem) {
-        await postQuyHomestay({ action: 'update', _rowIndex: editItem._rowIndex, STT: editItem.STT, ...payload });
+        await postQuyHomestay({ action: 'update', _rowIndex: editItem._rowIndex, STT: editItem.STT, Owner_Id: editItem.Owner_Id || userId || '', ...payload });
         showToast('Cập nhật thành công!');
       } else {
         const maxSTT = items.reduce((m, i) => Math.max(m, Number(i.STT) || 0), 0);

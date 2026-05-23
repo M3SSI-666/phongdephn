@@ -227,8 +227,11 @@ export function parseBan(text)  { return callParseTC({ type: 'ban',  text }); }
 export function parseSearchQuery(query) { return callParseTC({ type: 'search', query }); }
 
 // ============ Quỹ Shophouse ============
-export async function fetchQuyShophouse() {
-  const res = await fetch(`/api/quyshophouse?t=${Date.now()}`, { cache: 'no-store' });
+export async function fetchQuyShophouse(userId, role) {
+  const params = new URLSearchParams({ t: Date.now() });
+  if (userId) params.set('userId', userId);
+  if (role)   params.set('role', role);
+  const res = await fetch(`/api/quyshophouse?${params}`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Fetch quy shophouse failed');
   return res.json();
 }
@@ -247,10 +250,11 @@ export async function postQuyShophouse(payload) {
 }
 
 // ============ Quỹ Homestay ============
-export async function fetchQuyHomestay() {
-  const res = await fetch(`/api/quyhomestay?t=${Date.now()}`, {
-    cache: 'no-store',
-  });
+export async function fetchQuyHomestay(userId, role) {
+  const params = new URLSearchParams({ t: Date.now() });
+  if (userId) params.set('userId', userId);
+  if (role)   params.set('role', role);
+  const res = await fetch(`/api/quyhomestay?${params}`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Fetch quy homestay failed');
   return res.json();
 }

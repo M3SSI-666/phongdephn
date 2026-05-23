@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useUser } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
 import { fetchQuyShophouse, postQuyShophouse } from '../utils/api';
 
@@ -43,6 +44,9 @@ export default function QuyShophouse() {
 }
 
 function QuyShophouseInner() {
+  const { user } = useUser();
+  const userId = user?.id;
+  const role   = user?.publicMetadata?.role || 'staff';
   const [items, setItems]           = useState([]);
   const [loading, setLoading]       = useState(true);
   const [saving, setSaving]         = useState(false);
@@ -82,17 +86,17 @@ function QuyShophouseInner() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true); setError('');
-      const data = await fetchQuyShophouse();
+      const data = await fetchQuyShophouse(userId, role);
       setItems(Array.isArray(data) ? data : []);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
-  }, []);
+  }, [userId, role]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchQuyShophouse().then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {});
+      fetchQuyShophouse(userId, role).then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {});
     }, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -135,8 +139,9 @@ function QuyShophouseInner() {
     try {
       setSaving(true);
       const payload = Object.fromEntries(Object.entries(form).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v]));
+      payload.Owner_Id = userId || '';
       if (editItem) {
-        await postQuyShophouse({ action: 'update', _rowIndex: editItem._rowIndex, STT: editItem.STT, ...payload });
+        await postQuyShophouse({ action: 'update', _rowIndex: editItem._rowIndex, STT: editItem.STT, Owner_Id: editItem.Owner_Id || userId || '', ...payload });
         showToast('Cập nhật thành công!');
       } else {
         const maxSTT = items.reduce((m, i) => Math.max(m, Number(i.STT) || 0), 0);

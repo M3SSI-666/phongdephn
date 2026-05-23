@@ -30,10 +30,12 @@ function TimesCityApp() {
   const navigate = useNavigate();
   const { user } = useUser();
   const { signOut } = useClerk();
-  const [activeTab, setActiveTab] = useState('khach');
+  const [activeTab, setActiveTab] = useState('thue');
 
   const role = user?.publicMetadata?.role || 'staff';
   const isAdmin = role === 'admin';
+
+  const visibleTabs = isAdmin ? TABS : TABS.filter(t => t.key !== 'khach');
 
   useEffect(() => {
     const style = document.createElement('style');
@@ -84,7 +86,7 @@ function TimesCityApp() {
       {/* Main Tabs */}
       <div style={s.tabsContainer}>
         <div className="tc-tabs-row" style={s.tabsRow}>
-          {TABS.map((tab) => (
+          {visibleTabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
@@ -99,7 +101,7 @@ function TimesCityApp() {
 
       {/* Content */}
       <div style={s.content}>
-        {activeTab === 'khach'     && <KhachTimesContent />}
+        {activeTab === 'khach'     && isAdmin && <KhachTimesContent />}
         {activeTab === 'thue'      && <QuyCanThueContent />}
         {activeTab === 'ban'       && <QuyCanBanContent />}
         {activeTab === 'shophouse' && <QuyShophouseContent />}
