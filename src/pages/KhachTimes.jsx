@@ -365,10 +365,10 @@ function KhachTimesInner({ showHeader }) {
                   {[
                     { h: 'STT', w: 40 }, { h: 'Ngày PS', w: 80 }, { h: 'Tên (Zalo)', w: 110 },
                     { h: 'SĐT', w: 100 }, { h: 'Nhu cầu', w: 80 }, { h: 'PN', w: 44 },
-                    { h: 'Nội thất', w: 80 }, { h: 'Slot', w: 50 }, { h: 'Thời hạn', w: 90 },
-                    { h: 'Ngày vào', w: 80 }, { h: 'DT', w: 60 }, { h: 'TC', w: 80 },
-                    { h: 'Tòa', w: 70 }, { h: 'Căn tư vấn', w: 220 }, { h: 'Trạng thái', w: 120 },
-                    { h: 'Thu về', w: 100 }, { h: 'Ghi chú', w: 180 }, { h: '', w: 64 },
+                    { h: 'Nội thất', w: 110 }, { h: 'Slot', w: 50 }, { h: 'Thời hạn', w: 90 },
+                    { h: 'Ngày vào', w: 80 }, { h: 'Tài chính', w: 90 },
+                    { h: 'Căn tư vấn', w: 230 }, { h: 'Trạng thái', w: 120 },
+                    { h: 'Thu về', w: 90 }, { h: 'Ghi chú', w: 220 }, { h: '', w: 64 },
                   ].map(({ h, w }, idx) => (
                     <th key={h || `act_${idx}`} style={{ ...s.th, width: w, minWidth: w }}>{h}</th>
                   ))}
@@ -376,25 +376,23 @@ function KhachTimesInner({ showHeader }) {
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={18} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
+                  <tr><td colSpan={16} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
                 ) : (
                   filtered.map((item) => (
                     <tr key={item._rowIndex} className="kt-row" style={s.tr}>
                       <td style={{ ...s.td, textAlign: 'center', color: C.textDim, fontSize: 12 }}>{item.STT}</td>
                       <td style={{ ...s.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_PS}</td>
                       <td style={{ ...s.td, ...s.tdName, fontWeight: 600, whiteSpace: 'pre-line' }}>{item.Ten_Zalo}</td>
-                      <td style={{ ...s.td, whiteSpace: 'nowrap' }}>{item.SDT}</td>
-                      <td style={s.td}>
+                      <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap' }}>{item.SDT}</td>
+                      <td style={{ ...s.td, textAlign: 'center' }}>
                         <span style={getNhuCauBadgeStyle(item.Nhu_Cau)}>{item.Nhu_Cau || '-'}</span>
                       </td>
                       <td style={{ ...s.td, textAlign: 'center' }}>{item.Phong_Ngu}</td>
-                      <td style={{ ...s.td, whiteSpace: 'pre-line', fontSize: 12 }}>{item.Noi_That}</td>
+                      <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Noi_That}</td>
                       <td style={{ ...s.td, textAlign: 'center' }}>{item.Slot_Xe || '-'}</td>
-                      <td style={{ ...s.td, whiteSpace: 'pre-line' }}>{item.Thoi_Han_Thue}</td>
-                      <td style={{ ...s.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_Vao}</td>
-                      <td style={{ ...s.td, whiteSpace: 'pre-line' }}>{item.Dien_Tich}</td>
-                      <td style={{ ...s.td, textAlign: 'right', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Tai_Chinh}</td>
-                      <td style={{ ...s.td, whiteSpace: 'pre-line' }}>{item.Toa}</td>
+                      <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Thoi_Han_Thue}</td>
+                      <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_Vao}</td>
+                      <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Tai_Chinh}</td>
                       <td style={{ ...s.td, whiteSpace: 'pre-line', fontSize: 12 }}>{item.Can_Tu_Van}</td>
                       {/* Trạng thái — inline dropdown */}
                       <td style={{ ...s.td, padding: '4px 4px' }}>
@@ -407,18 +405,9 @@ function KhachTimesInner({ showHeader }) {
                           {TRANG_THAI_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                         </select>
                       </td>
-                      {/* Thu về — inline editable */}
-                      <td style={{ ...s.td, padding: '4px 6px' }}>
-                        <input
-                          type="text"
-                          defaultValue={item.Thu_Ve || ''}
-                          onBlur={(e) => { if (e.target.value !== (item.Thu_Ve || '')) inlineUpdate(item, 'Thu_Ve', e.target.value); }}
-                          placeholder="VD: 5tr"
-                          style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid #3a3f52', color: '#38b274', fontWeight: 700, fontSize: 12, fontFamily: F, outline: 'none', padding: '2px 4px', borderRadius: 0 }}
-                          onFocus={e => e.target.style.borderBottomColor = '#38b274'}
-                        />
-                      </td>
-                      <td style={{ ...s.td, maxWidth: 180, whiteSpace: 'pre-line', color: C.textMuted, fontSize: 12 }}>{item.Ghi_Chu}</td>
+                      {/* Thu về */}
+                      <td style={{ ...s.td, textAlign: 'center', fontWeight: 700, color: '#38b274', fontSize: 12 }}>{item.Thu_Ve}</td>
+                      <td style={{ ...s.td, whiteSpace: 'pre-line', color: C.textMuted, fontSize: 12 }}>{item.Ghi_Chu}</td>
                       <td style={{ ...s.td, whiteSpace: 'nowrap', borderRight: 'none' }}>
                         <button onClick={() => openEdit(item)} style={s.actionBtn} title="Sửa">&#9998;</button>
                         <button onClick={() => setDeleteTarget(item)} style={{ ...s.actionBtn, ...s.deleteBtn }} title="Xoá">&#128465;</button>
