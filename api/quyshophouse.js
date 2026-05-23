@@ -71,7 +71,7 @@ async function handleGet(req, res, sheetId, email, key) {
   }));
 
   if (userId) {
-    items = items.filter(it => it.Owner_Id === userId);
+    items = items.filter(it => it.Owner_Id === userId || (role === 'admin' && !it.Owner_Id));
   }
 
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
