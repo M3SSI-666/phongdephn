@@ -1,118 +1,235 @@
-const TABLE = 'khach_times';
+import crypto from 'crypto';
 
-function sbHeaders() {
-  return {
-    'apikey': process.env.SUPABASE_SERVICE_KEY,
-    'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-    'Content-Type': 'application/json',
-  };
-}
-
-function buildRecord(p) {
-  const today = new Date().toLocaleDateString('vi-VN');
-  return {
-    ngay_ps:       p.Ngay_PS       || today,
-    ten_zalo:      p.Ten_Zalo      || '',
-    sdt:           p.SDT           || '',
-    nhu_cau:       p.Nhu_Cau       || '',
-    phong_ngu:     p.Phong_Ngu     || '',
-    noi_that:      p.Noi_That      || '',
-    slot_xe:       p.Slot_Xe       || '',
-    thoi_han_thue: p.Thoi_Han_Thue || '',
-    ngay_vao:      p.Ngay_Vao      || '',
-    dien_tich:     p.Dien_Tich     || '',
-    tai_chinh:     p.Tai_Chinh     || '',
-    toa:           p.Toa           || '',
-    can_tu_van:    p.Can_Tu_Van    || '',
-    trang_thai:    p.Trang_Thai    || '',
-    ghi_chu:       p.Ghi_Chu       || '',
-    owner_id:      p.Owner_Id      || '',
-  };
-}
+const SHEET_NAME = 'Khach_Times';
+// 16 columns: STT, Ngay_PS, Ten_Zalo, SDT, Nhu_Cau, Phong_Ngu, Noi_That, Slot_Xe, Thoi_Han_Thue, Ngay_Vao, Dien_Tich, Tai_Chinh, Toa, Can_Tu_Van, Trang_Thai, Ghi_Chu
+const COLUMNS = 'A:P';
 
 export default async function handler(req, res) {
-  const BASE = process.env.SUPABASE_URL;
-  const KEY  = process.env.SUPABASE_SERVICE_KEY;
-  if (!BASE || !KEY) return res.status(500).json({ error: 'Supabase not configured' });
-
   try {
-    if (req.method === 'GET') {
-      const { userId, role } = req.query;
-      const isAdmin = role === 'admin';
+    const SHEET_ID = process.env.GOOGLE_SHEETS_ID;
+    const SERVICE_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+    const rawKey = process.env.GOOGLE_PRIVATE_KEY || '';
+    const PRIVATE_KEY = rawKey
+      .replace(/^["']|["']$/g, '')
+      .replace(/\\n/g, '\n')
+      .replace(/\\r/g, '')
+      .trim();
 
-      let url = `${BASE}/rest/v1/${TABLE}?select=*&order=id.asc`;
-      if (!isAdmin && userId) url += `&owner_id=eq.${encodeURIComponent(userId)}`;
-
-      const r = await fetch(url, { headers: sbHeaders() });
-      if (!r.ok) return res.status(500).json({ error: await r.text() });
-
-      const rows = await r.json();
-      const items = rows.map(row => ({
-        STT:          String(row.id),
-        Ngay_PS:      row.ngay_ps       || '',
-        Ten_Zalo:     row.ten_zalo      || '',
-        SDT:          row.sdt           || '',
-        Nhu_Cau:      row.nhu_cau       || '',
-        Phong_Ngu:    row.phong_ngu     || '',
-        Noi_That:     row.noi_that      || '',
-        Slot_Xe:      row.slot_xe       || '',
-        Thoi_Han_Thue:row.thoi_han_thue || '',
-        Ngay_Vao:     row.ngay_vao      || '',
-        Dien_Tich:    row.dien_tich     || '',
-        Tai_Chinh:    row.tai_chinh     || '',
-        Toa:          row.toa           || '',
-        Can_Tu_Van:   row.can_tu_van    || '',
-        Trang_Thai:   row.trang_thai    || '',
-        Ghi_Chu:      row.ghi_chu       || '',
-        Owner_Id:     row.owner_id      || '',
-        _rowIndex:    row.id,
-      }));
-
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      return res.status(200).json(items);
+    if (!SHEET_ID || !SERVICE_EMAIL || !PRIVATE_KEY) {
+      return res.status(500).json({ error: 'Google Sheets not configured' });
     }
 
+    if (req.method === 'GET') {
+      return handleGet(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
+    }
     if (req.method === 'POST') {
-      const p = req.body;
-      if (!p?.action) return res.status(400).json({ error: 'Missing action' });
-
-      if (p.action === 'add') {
-        const r = await fetch(`${BASE}/rest/v1/${TABLE}`, {
-          method: 'POST',
-          headers: { ...sbHeaders(), 'Prefer': 'return=minimal' },
-          body: JSON.stringify(buildRecord(p)),
-        });
-        if (!r.ok) return res.status(500).json({ error: await r.text() });
-        return res.status(200).json({ success: true });
-      }
-
-      if (p.action === 'update') {
-        if (!p._rowIndex) return res.status(400).json({ error: 'Missing _rowIndex' });
-        const r = await fetch(`${BASE}/rest/v1/${TABLE}?id=eq.${p._rowIndex}`, {
-          method: 'PATCH',
-          headers: { ...sbHeaders(), 'Prefer': 'return=minimal' },
-          body: JSON.stringify(buildRecord(p)),
-        });
-        if (!r.ok) return res.status(500).json({ error: await r.text() });
-        return res.status(200).json({ success: true });
-      }
-
-      if (p.action === 'delete') {
-        if (!p._rowIndex) return res.status(400).json({ error: 'Missing _rowIndex' });
-        const r = await fetch(`${BASE}/rest/v1/${TABLE}?id=eq.${p._rowIndex}`, {
-          method: 'DELETE',
-          headers: { ...sbHeaders(), 'Prefer': 'return=minimal' },
-        });
-        if (!r.ok) return res.status(500).json({ error: await r.text() });
-        return res.status(200).json({ success: true });
-      }
-
-      return res.status(400).json({ error: `Unknown action: ${p.action}` });
+      return handlePost(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
-    console.error(`[KhachTimes] ${err.message}`);
+    console.error(`[KhachTimes] Exception: ${err.message}`);
     return res.status(500).json({ error: err.message });
   }
+}
+
+// ============ GET - Read all rows ============
+async function handleGet(req, res, sheetId, email, key) {
+  const token = await getAccessToken(email, key);
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!${COLUMNS}`;
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    return res.status(500).json({ error: 'sheets_read', detail: errText });
+  }
+
+  const data = await response.json();
+  const rows = data.values || [];
+
+  // Skip header row (row 0), map to objects
+  const items = rows.slice(1).map((row, i) => ({
+    STT: row[0] || '',
+    Ngay_PS: row[1] || '',
+    Ten_Zalo: row[2] || '',
+    SDT: row[3] || '',
+    Nhu_Cau: row[4] || '',
+    Phong_Ngu: row[5] || '',
+    Noi_That: row[6] || '',
+    Slot_Xe: row[7] || '',
+    Thoi_Han_Thue: row[8] || '',
+    Ngay_Vao: row[9] || '',
+    Dien_Tich: row[10] || '',
+    Tai_Chinh: row[11] || '',
+    Toa: row[12] || '',
+    Can_Tu_Van: row[13] || '',
+    Trang_Thai: row[14] || '',
+    Ghi_Chu: row[15] || '',
+    _rowIndex: i + 2,
+  }));
+
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  return res.status(200).json(items);
+}
+
+// ============ POST - Add / Update / Delete ============
+async function handlePost(req, res, sheetId, email, key) {
+  const payload = req.body;
+  if (!payload || !payload.action) {
+    return res.status(400).json({ error: 'Missing action' });
+  }
+
+  const token = await getAccessToken(email, key, true);
+
+  function buildRow(p) {
+    return [
+      p.STT, p.Ngay_PS, p.Ten_Zalo, p.SDT,
+      p.Nhu_Cau, p.Phong_Ngu, p.Noi_That, p.Slot_Xe,
+      p.Thoi_Han_Thue, p.Ngay_Vao, p.Dien_Tich, p.Tai_Chinh,
+      p.Toa, p.Can_Tu_Van, p.Trang_Thai, p.Ghi_Chu,
+    ];
+  }
+
+  if (payload.action === 'add') {
+    const row = buildRow(payload);
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!${COLUMNS}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ values: [row] }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      return res.status(500).json({ error: 'sheets_append', detail: errText });
+    }
+
+    return res.status(200).json({ success: true });
+  }
+
+  if (payload.action === 'update') {
+    if (!payload._rowIndex) {
+      return res.status(400).json({ error: 'Missing _rowIndex' });
+    }
+
+    const row = buildRow(payload);
+    const range = `${SHEET_NAME}!A${payload._rowIndex}:P${payload._rowIndex}`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?valueInputOption=USER_ENTERED`;
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ values: [row] }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      return res.status(500).json({ error: 'sheets_update', detail: errText });
+    }
+
+    return res.status(200).json({ success: true });
+  }
+
+  if (payload.action === 'delete') {
+    if (!payload._rowIndex) {
+      return res.status(400).json({ error: 'Missing _rowIndex' });
+    }
+
+    const batchUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`;
+    const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties`;
+    const metaRes = await fetch(metaUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!metaRes.ok) {
+      return res.status(500).json({ error: 'sheets_meta_fail' });
+    }
+
+    const metaData = await metaRes.json();
+    const targetSheet = metaData.sheets.find(
+      (s) => s.properties.title === SHEET_NAME
+    );
+
+    if (!targetSheet) {
+      return res.status(404).json({ error: 'Sheet Khach_Times not found' });
+    }
+
+    const gid = targetSheet.properties.sheetId;
+    const response = await fetch(batchUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId: gid,
+                dimension: 'ROWS',
+                startIndex: payload._rowIndex - 1,
+                endIndex: payload._rowIndex,
+              },
+            },
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      return res.status(500).json({ error: 'sheets_delete', detail: errText });
+    }
+
+    return res.status(200).json({ success: true });
+  }
+
+  return res.status(400).json({ error: `Unknown action: ${payload.action}` });
+}
+
+// ============ Auth ============
+function getAccessToken(email, privateKey, writable = false) {
+  const header = Buffer.from(
+    JSON.stringify({ alg: 'RS256', typ: 'JWT' })
+  ).toString('base64url');
+  const now = Math.floor(Date.now() / 1000);
+  const scope = writable
+    ? 'https://www.googleapis.com/auth/spreadsheets'
+    : 'https://www.googleapis.com/auth/spreadsheets.readonly';
+
+  const claimSet = Buffer.from(
+    JSON.stringify({
+      iss: email,
+      scope,
+      aud: 'https://oauth2.googleapis.com/token',
+      exp: now + 3600,
+      iat: now,
+    })
+  ).toString('base64url');
+
+  const signInput = `${header}.${claimSet}`;
+  const signer = crypto.createSign('RSA-SHA256');
+  signer.update(signInput);
+  const signature = signer.sign(privateKey, 'base64url');
+  const jwt = `${signInput}.${signature}`;
+
+  return fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`,
+  })
+    .then((r) => r.json())
+    .then((data) => {
+      if (!data.access_token) throw new Error('token_fail: ' + JSON.stringify(data));
+      return data.access_token;
+    });
 }
