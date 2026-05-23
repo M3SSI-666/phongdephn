@@ -10,7 +10,7 @@ const TRANG_THAI_OPTIONS = [
   { value: 'Miss', label: 'Miss', bg: '#F8D7DA', text: '#721C24' },
   { value: 'Tư vấn, gửi căn', label: 'Tư vấn, gửi căn', bg: '#E0F0FF', text: '#1A6FA8' },
   { value: 'Dẫn khách', label: 'Dẫn khách', bg: '#FFF0DB', text: '#B45309' },
-  { value: 'Làm việc sâu', label: 'Làm việc sâu', bg: '#C6F6D5', text: '#276749' },
+  { value: 'Đã cọc', label: 'Đã cọc', bg: '#C6F6D5', text: '#276749' },
   { value: 'Done', label: 'Done ✓', bg: '#3182CE', text: '#fff' },
 ];
 
@@ -28,7 +28,7 @@ const EMPTY_FORM = {
   Ngay_PS: '', Ten_Zalo: '', SDT: '',
   Nhu_Cau: 'Thuê', Phong_Ngu: '', Noi_That: '', Slot_Xe: '',
   Thoi_Han_Thue: '', Ngay_Vao: '', Dien_Tich: '', Tai_Chinh: '',
-  Toa: '', Can_Tu_Van: '', Trang_Thai: '', Thu_Ve: '', Ghi_Chu: '',
+  Toa: '', Can_Tu_Van: '', Trang_Thai: '', Coc: '', Chu_Can: '', Thu_Ve: '', Ghi_Chu: '',
 };
 
 export function KhachTimesContent() {
@@ -136,6 +136,8 @@ function KhachTimesInner({ showHeader }) {
         Toa: item.Toa || '',
         Can_Tu_Van: item.Can_Tu_Van || '',
         Trang_Thai: item.Trang_Thai || '',
+        Coc: item.Coc || '',
+        Chu_Can: item.Chu_Can || '',
         Thu_Ve: item.Thu_Ve || '',
         Ghi_Chu: item.Ghi_Chu || '',
         [field]: value,
@@ -217,6 +219,8 @@ function KhachTimesInner({ showHeader }) {
       Toa: item.Toa || '',
       Can_Tu_Van: item.Can_Tu_Van || '',
       Trang_Thai: item.Trang_Thai || '',
+      Coc: item.Coc || '',
+      Chu_Can: item.Chu_Can || '',
       Thu_Ve: item.Thu_Ve || '',
       Ghi_Chu: item.Ghi_Chu || '',
     });
@@ -249,6 +253,8 @@ function KhachTimesInner({ showHeader }) {
         Toa: form.Toa.trim(),
         Can_Tu_Van: form.Can_Tu_Van.trim(),
         Trang_Thai: form.Trang_Thai,
+        Coc: form.Coc.trim(),
+        Chu_Can: form.Chu_Can.trim(),
         Thu_Ve: form.Thu_Ve.trim(),
         Ghi_Chu: form.Ghi_Chu.trim(),
       };
@@ -366,8 +372,9 @@ function KhachTimesInner({ showHeader }) {
                     { h: 'STT', w: 40 }, { h: 'Ngày PS', w: 80 }, { h: 'Tên (Zalo)', w: 110 },
                     { h: 'SĐT', w: 100 }, { h: 'Nhu cầu', w: 80 }, { h: 'PN', w: 44 },
                     { h: 'Nội thất', w: 110 }, { h: 'Slot', w: 50 }, { h: 'Thời hạn', w: 90 },
-                    { h: 'Ngày vào', w: 80 }, { h: 'Tài chính', w: 90 },
-                    { h: 'Căn tư vấn', w: 230 }, { h: 'Trạng thái', w: 120 },
+                    { h: 'Ngày vào', w: 66 }, { h: 'Tài chính', w: 90 },
+                    { h: 'Căn tư vấn', w: 160 }, { h: 'Trạng thái', w: 120 },
+                    { h: 'Cọc', w: 80 }, { h: 'Chủ căn', w: 100 },
                     { h: 'Thu về', w: 90 }, { h: 'Ghi chú', w: 220 }, { h: '', w: 64 },
                   ].map(({ h, w }, idx) => (
                     <th key={h || `act_${idx}`} style={{ ...s.th, width: w, minWidth: w }}>{h}</th>
@@ -376,7 +383,7 @@ function KhachTimesInner({ showHeader }) {
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={16} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
+                  <tr><td colSpan={18} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
                 ) : (
                   filtered.map((item) => (
                     <tr key={item._rowIndex} className="kt-row" style={s.tr}>
@@ -405,6 +412,10 @@ function KhachTimesInner({ showHeader }) {
                           {TRANG_THAI_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                         </select>
                       </td>
+                      {/* Cọc */}
+                      <td style={{ ...s.td, textAlign: 'center', fontSize: 12 }}>{item.Coc}</td>
+                      {/* Chủ căn */}
+                      <td style={{ ...s.td, textAlign: 'center', fontSize: 12 }}>{item.Chu_Can}</td>
                       {/* Thu về */}
                       <td style={{ ...s.td, textAlign: 'center', fontWeight: 700, color: '#38b274', fontSize: 12 }}>{item.Thu_Ve}</td>
                       <td style={{ ...s.td, whiteSpace: 'pre-line', color: C.textMuted, fontSize: 12 }}>{item.Ghi_Chu}</td>
@@ -501,6 +512,14 @@ function KhachTimesInner({ showHeader }) {
                 </select>
               </div>
 
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <FormField label="Cọc" value={form.Coc} onChange={(v) => updateForm('Coc', v)} placeholder="VD: 50tr, 100tr..." />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <FormField label="Chủ căn" value={form.Chu_Can} onChange={(v) => updateForm('Chu_Can', v)} placeholder="VD: Anh Nam 0363..." />
+                </div>
+              </div>
               <FormField label="Thu về (lợi nhuận)" value={form.Thu_Ve} onChange={(v) => updateForm('Thu_Ve', v)} placeholder="VD: 5tr, 10tr, 2.5tr..." />
 
               <div style={s.fieldWrap}>
