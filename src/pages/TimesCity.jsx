@@ -18,7 +18,7 @@ const TABS = [
   { key: 'homestay',  label: 'Quỹ Homestay' },
 ];
 
-const ROLE_LABEL = { admin:'Admin', staff:'Nhân viên', viewer:'Chỉ xem', pending:'Chờ duyệt' };
+const ROLE_LABEL = { admin:'Admin', staff:'User', viewer:'Chỉ xem', pending:'Chờ duyệt' };
 const ROLE_COLOR = { admin:'#9F7AEA', staff:'#38b274', viewer:'#63b3ed', pending:'#F6AD55' };
 
 export default function TimesCity() {
