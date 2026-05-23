@@ -277,10 +277,12 @@ export async function postQuyHomestay(payload) {
 }
 
 // ============ Khach Times City ============
-export async function fetchKhachTimes() {
-  const res = await fetch(`/api/khachtimes?t=${Date.now()}`, {
-    cache: 'no-store',
-  });
+export async function fetchKhachTimes(userId, role, isViewAs = false) {
+  const params = new URLSearchParams({ t: Date.now() });
+  if (userId) params.set('userId', userId);
+  if (role)   params.set('role', role);
+  if (isViewAs) params.set('viewAs', '1');
+  const res = await fetch(`/api/khachtimes?${params}`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Fetch khach times failed');
   return res.json();
 }

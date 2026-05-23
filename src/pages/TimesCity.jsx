@@ -43,7 +43,7 @@ function TimesCityApp() {
   // userId thực sự dùng để fetch: nếu admin đang viewAs thì dùng id nhân viên, không thì dùng id của mình
   const effectiveUserId = viewAsId || user?.id;
 
-  const visibleTabs = isAdmin ? TABS : TABS.filter(t => t.key !== 'khach');
+  const visibleTabs = TABS;
 
   useEffect(() => {
     const style = document.createElement('style');
@@ -121,7 +121,7 @@ function TimesCityApp() {
 
       {/* Content */}
       <div style={s.content}>
-        {activeTab === 'khach'     && isAdmin && !viewAsId && <KhachTimesContent />}
+        {activeTab === 'khach'     && <KhachTimesContent overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}
         {activeTab === 'thue'      && <QuyCanThueContent   overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}
         {activeTab === 'ban'       && <QuyCanBanContent    overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}
         {activeTab === 'shophouse' && <QuyShophouseContent overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}

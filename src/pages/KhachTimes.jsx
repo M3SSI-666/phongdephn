@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
 import { fetchKhachTimes, postKhachTimes } from '../utils/api';
 
@@ -31,16 +32,19 @@ const EMPTY_FORM = {
   Toa: '', Can_Tu_Van: '', Trang_Thai: '', Coc: '', Chu_Can: '', Thu_Ve: '', Ghi_Chu: '',
 };
 
-export function KhachTimesContent() {
-  return <KhachTimesInner showHeader={false} />;
+export function KhachTimesContent({ overrideUserId, overrideRole, isViewAs } = {}) {
+  return <KhachTimesInner showHeader={false} overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
 }
 
 export default function KhachTimes() {
   return <KhachTimesInner showHeader={true} />;
 }
 
-function KhachTimesInner({ showHeader }) {
+function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = false }) {
   const navigate = useNavigate();
+  const { user } = useUser();
+  const userId = overrideUserId || user?.id;
+  const role   = overrideRole   || user?.publicMetadata?.role || 'staff';
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -93,7 +97,7 @@ function KhachTimesInner({ showHeader }) {
     try {
       setLoading(true);
       setError('');
-      const data = await fetchKhachTimes();
+      const data = await fetchKhachTimes(userId, role, isViewAs);
       const arr = Array.isArray(data) ? data : [];
       setItems(arr);
     } catch (e) {
@@ -101,13 +105,13 @@ function KhachTimesInner({ showHeader }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userId, role, isViewAs]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchKhachTimes().then((data) => {
+      fetchKhachTimes(userId, role).then((data) => {
         const arr = Array.isArray(data) ? data : [];
         setItems(arr);
       }).catch(() => {});
@@ -140,6 +144,7 @@ function KhachTimesInner({ showHeader }) {
         Chu_Can: item.Chu_Can || '',
         Thu_Ve: item.Thu_Ve || '',
         Ghi_Chu: item.Ghi_Chu || '',
+        Owner_Id: item.Owner_Id || userId || '',
         [field]: value,
       };
       // Update local state immediately
@@ -257,6 +262,7 @@ function KhachTimesInner({ showHeader }) {
         Chu_Can: form.Chu_Can.trim(),
         Thu_Ve: form.Thu_Ve.trim(),
         Ghi_Chu: form.Ghi_Chu.trim(),
+        Owner_Id: userId || '',
       };
 
       if (editItem) {
