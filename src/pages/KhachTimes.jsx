@@ -52,7 +52,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
 
   const [search, setSearch] = useState('');
   const [filterLoai, setFilterLoai] = useState('all');
-  const [filterTrangThai, setFilterTrangThai] = useState('all');
+  const [filterTrangThai, setFilterTrangThai] = useState([]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -171,8 +171,8 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         return true;
       });
     }
-    if (filterTrangThai !== 'all') {
-      list = list.filter((it) => (it.Trang_Thai || '') === filterTrangThai);
+    if (filterTrangThai.length > 0) {
+      list = list.filter((it) => filterTrangThai.includes(it.Trang_Thai || ''));
     }
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -363,12 +363,37 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
             <option value="Mua">Mua</option>
             <option value="Homestay">Homestay</option>
           </select>
-          <select value={filterTrangThai} onChange={(e) => setFilterTrangThai(e.target.value)} style={s.filterSelect}>
-            <option value="all">Trạng thái</option>
-            {TRANG_THAI_OPTIONS.filter(o => o.value).map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            {TRANG_THAI_OPTIONS.filter(o => o.value).map(o => {
+              const active = filterTrangThai.includes(o.value);
+              return (
+                <button
+                  key={o.value}
+                  onClick={() => setFilterTrangThai(prev =>
+                    prev.includes(o.value) ? prev.filter(v => v !== o.value) : [...prev, o.value]
+                  )}
+                  style={{
+                    padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+                    cursor: 'pointer', fontFamily: F, transition: 'all 0.15s',
+                    border: `1.5px solid ${active ? o.text : '#3a3f52'}`,
+                    background: active ? o.bg : 'transparent',
+                    color: active ? o.text : '#8a9bb8',
+                    opacity: active ? 1 : 0.7,
+                  }}
+                >
+                  {o.label}
+                </button>
+              );
+            })}
+            {filterTrangThai.length > 0 && (
+              <button
+                onClick={() => setFilterTrangThai([])}
+                style={{ padding: '5px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: F, background: 'none', border: '1.5px solid #3a3f52', color: '#8a9bb8' }}
+              >
+                ✕ Bỏ lọc
+              </button>
+            )}
+          </div>
           <div style={s.resultCount}>{filtered.length} / {items.length} khách</div>
         </div>
 
