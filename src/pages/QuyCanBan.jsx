@@ -145,7 +145,10 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false } = {})
     if (f.Huong_BC) parts.push('Hướng ' + f.Huong_BC);
     if (f.Noi_That) parts.push(f.Noi_That);
     if (f.Toa) parts.push('Tòa ' + f.Toa);
-    if (f.Khu) parts.push('Khu ' + f.Khu);
+    if (f.Toa_List) {
+      const isParkAll = f.Toa_List.length === [...KHU_TOA.ParkHill, ...KHU_TOA.ParkPremium].length;
+      parts.push(isParkAll ? 'Khu Park Hill + Premium' : 'Khu ' + (f.Khu || ''));
+    } else if (f.Khu) parts.push('Khu ' + f.Khu);
     return parts.join(' · ');
   }
 
