@@ -237,7 +237,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     ParkPremium:  ['P09','P10','P11','P12'],
   };
 
-  function normalizeFilter(f) {
+  function normalizeFilter(f, originalQuery = '') {
     const r = { ...f };
     if (r.Slot_Xe != null) {
       const s = r.Slot_Xe.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -245,13 +245,13 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     }
     if (r.Thiet_Ke != null) r.Thiet_Ke = r.Thiet_Ke.toUpperCase().replace(/\s+/g, '');
     if (r.Toa != null) r.Toa = r.Toa.toUpperCase().replace(/^([A-Z]+)(\d)$/, '$10$2');
-    // Expand Khu → Toa_List
+    // Expand Khu → Toa_List — kiểm tra query gốc để phân biệt "Park" chung vs "Park Hill"/"Park Premium"
     if (r.Khu != null) {
-      const khu = r.Khu.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '');
-      const isPark = khu.includes('park');
-      const isHill = khu.includes('hill');
-      const isPremium = khu.includes('premium') || khu.includes('g4');
-      if (isPark && !isHill && !isPremium) {
+      const qNorm = originalQuery.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '');
+      const userSaidHill    = qNorm.includes('hill') || qNorm.includes('parkhill');
+      const userSaidPremium = qNorm.includes('premium') || qNorm.includes('g4');
+      const userSaidPark    = qNorm.includes('park');
+      if (userSaidPark && !userSaidHill && !userSaidPremium) {
         // "Park" chung → gộp cả ParkHill + ParkPremium
         r.Toa_List = [...KHU_TOA.ParkHill, ...KHU_TOA.ParkPremium];
       } else {
@@ -282,7 +282,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     setAiSearching(true);
     try {
       const raw = await parseSearchQuery(aiQuery);
-      const f = normalizeFilter(raw);
+      const f = normalizeFilter(raw, aiQuery);
       const hasAny = Object.values(f).some(v => v != null);
       if (!hasAny) return showToast('Không nhận ra tiêu chí, thử mô tả rõ hơn', 'error');
       setAiFilter(f);
