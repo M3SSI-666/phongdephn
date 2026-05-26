@@ -135,6 +135,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false } = {})
   }
 
   function buildFilterSummary(f) {
+    if (f._exactMaCan) return `Mã căn: ${f._exactMaCan}`;
     const parts = [];
     if (f.Thiet_Ke) parts.push(f.Thiet_Ke);
     if (f.Slot_Xe) parts.push('Slot: ' + f.Slot_Xe);
@@ -151,6 +152,9 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false } = {})
   const filtered = useMemo(() => {
     let list = [...items];
     if (aiFilter) {
+      if (aiFilter._exactMaCan) {
+        return list.filter(it => (it.Ma_Can||'').toUpperCase().replace(/\s+/g,'') === aiFilter._exactMaCan);
+      }
       if (aiFilter.Thiet_Ke) list = list.filter(it => (it.Thiet_Ke||'').toUpperCase() === aiFilter.Thiet_Ke.toUpperCase());
       if (aiFilter.Slot_Xe)  list = list.filter(it => (it.Slot_Xe||'Không') === aiFilter.Slot_Xe);
       if (aiFilter.Gia_Max != null) list = list.filter(it => { const g = parseGiaValue(it.Gia); return g == null || g <= aiFilter.Gia_Max; });
@@ -238,6 +242,20 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false } = {})
 
   async function handleAiSearch() {
     if (!aiQuery.trim()) return;
+
+    const q = aiQuery.trim().toUpperCase().replace(/\s+/g, '');
+    const looksLikeFullCode = /^[A-Z]{1,2}\d{1,2}[\dA-Z\-]{2,}/.test(q);
+    if (looksLikeFullCode) {
+      const exactMatch = items.some(it => (it.Ma_Can||'').toUpperCase().replace(/\s+/g,'') === q);
+      if (exactMatch) {
+        setAiFilter({ _exactMaCan: q });
+      } else {
+        setAiFilter({ _exactMaCan: '__NO_MATCH__' });
+        showToast(`Không tìm thấy căn ${q}`, 'error');
+      }
+      return;
+    }
+
     setAiSearching(true);
     try {
       const raw = await parseSearchQuery(aiQuery);
