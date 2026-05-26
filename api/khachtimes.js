@@ -107,7 +107,7 @@ async function handlePost(req, res, sheetId, email, key) {
 
   if (payload.action === 'add') {
     const row = buildRow(payload);
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!${COLUMNS}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!A1:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -122,7 +122,13 @@ async function handlePost(req, res, sheetId, email, key) {
       return res.status(500).json({ error: 'sheets_append', detail: errText });
     }
 
-    return res.status(200).json({ success: true });
+    const appendData = await response.json();
+    // Extract the actual row index from the updated range (e.g. "Khach_Times!A11:T11")
+    const updatedRange = appendData.updates?.updatedRange || '';
+    const rowMatch = updatedRange.match(/!A(\d+)/);
+    const rowIndex = rowMatch ? parseInt(rowMatch[1]) : null;
+
+    return res.status(200).json({ success: true, rowIndex });
   }
 
   if (payload.action === 'update') {

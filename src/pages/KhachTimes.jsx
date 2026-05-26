@@ -272,18 +272,25 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
           STT: editItem.STT,
           ...payload,
         });
+        setItems(prev => prev.map(it =>
+          it._rowIndex === editItem._rowIndex ? { ...it, ...payload } : it
+        ));
         showToast('Cập nhật thành công!');
+        closeModal();
+        setTimeout(() => loadData(), 500);
       } else {
         const maxSTT = items.reduce((m, i) => Math.max(m, Number(i.STT) || 0), 0);
-        await postKhachTimes({
+        const result = await postKhachTimes({
           action: 'add',
           STT: maxSTT + 1,
           ...payload,
         });
+        // Use the actual rowIndex returned by the server for accurate edit/delete
+        const realRowIndex = result?.rowIndex || Date.now();
+        setItems(prev => [...prev, { ...payload, STT: maxSTT + 1, _rowIndex: realRowIndex }]);
         showToast('Thêm khách thành công!');
+        closeModal();
       }
-      closeModal();
-      await loadData();
     } catch (e) {
       showToast(e.message, 'error');
     } finally {
