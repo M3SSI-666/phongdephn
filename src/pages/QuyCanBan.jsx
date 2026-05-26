@@ -234,8 +234,16 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false } = {})
     if (r.Thiet_Ke != null) r.Thiet_Ke = r.Thiet_Ke.toUpperCase().replace(/\s+/g, '');
     if (r.Toa != null) r.Toa = r.Toa.toUpperCase().replace(/^([A-Z]+)(\d)$/, '$10$2');
     if (r.Khu != null) {
-      const key = Object.keys(KHU_TOA).find(k => k.toLowerCase() === r.Khu.toLowerCase());
-      r.Toa_List = key ? KHU_TOA[key] : null;
+      const khu = r.Khu.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '');
+      const isPark = khu.includes('park');
+      const isHill = khu.includes('hill');
+      const isPremium = khu.includes('premium') || khu.includes('g4');
+      if (isPark && !isHill && !isPremium) {
+        r.Toa_List = [...KHU_TOA.ParkHill, ...KHU_TOA.ParkPremium];
+      } else {
+        const key = Object.keys(KHU_TOA).find(k => k.toLowerCase() === r.Khu.toLowerCase());
+        r.Toa_List = key ? KHU_TOA[key] : null;
+      }
     }
     return r;
   }
