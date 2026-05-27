@@ -30,7 +30,7 @@ const EMPTY_FORM = {
 function normalizeNoiThat(val) {
   const s = (val || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
   if (!s) return '';
-  if (s.includes('full') || s.includes('day du') || s.includes('du do')) return 'Full đồ';
+  if (s.includes('full') || s.includes('day du') || s.includes('du do') || s.includes('co đo') || s.includes('đu đo') || s.includes('đay đu')) return 'Full đồ';
   if (s.includes('khong') || s.includes('trong') || s.includes('tho')) return 'Không đồ';
   return 'Đồ cơ bản';
 }

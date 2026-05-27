@@ -35,8 +35,8 @@ Rules:
   • No fee info → Gia=price only, Phi_MG=""
   Examples: "15tr pmg 1/2"→Gia="15 tr",Phi_MG="1/2" | "14tr tv"→Gia="14 tr",Phi_MG="Thu về" | "23tr phí đủ"→Gia="23 tr",Phi_MG="Phí đủ"
 - Noi_That: ONLY one of exactly 3 values based on "Hiện trạng:" line:
-  • "Full đồ" — full furniture: "full đồ", "full nội thất", "đầy đủ đồ", "full"
-  • "Đồ cơ bản" — basic/some furniture: "cơ bản", "có đồ", "một số đồ", "cơ bản"
+  • "Full đồ" — full furniture: "full đồ", "full nội thất", "đầy đủ đồ", "full", "có đồ", "đủ đồ"
+  • "Đồ cơ bản" — basic/some furniture: "cơ bản", "một số đồ", "đồ cơ bản"
   • "Không đồ" — empty: "không đồ", "trống", "không nội thất", "thô"
   Default "Đồ cơ bản" if unclear.
 - Ghi_Chu_NT: extra notes from "Hiện trạng:" after removing furniture level and slot/parking info (e.g. "nhà sửa đẹp", "mới sơn", "view đẹp"). Empty string if none.
@@ -73,8 +73,8 @@ Rules:
   • Otherwise → Phi="Thu về", Gia=price only
   Examples: "9ty650tv"→Gia="9.65 tỷ",Phi="Thu về" | "5.5ty bao phí"→Gia="5.5 tỷ",Phi="Bao phí" | "4.2 tỷ"→Gia="4.2 tỷ",Phi="Thu về" | "22ty"→Gia="22 tỷ",Phi="Thu về"
 - Noi_That: ONLY one of exactly 3 values based on "Hiện trạng:" line:
-  • "Full đồ" — full furniture: "full đồ", "full nội thất", "đầy đủ đồ", "full"
-  • "Đồ cơ bản" — basic/some furniture: "cơ bản", "có đồ", "một số đồ"
+  • "Full đồ" — full furniture: "full đồ", "full nội thất", "đầy đủ đồ", "full", "có đồ", "đủ đồ"
+  • "Đồ cơ bản" — basic/some furniture: "cơ bản", "một số đồ", "đồ cơ bản"
   • "Không đồ" — empty: "không đồ", "trống", "không nội thất", "thô"
   Default "Đồ cơ bản" if unclear.
 - Ghi_Chu_NT: extra notes from "Hiện trạng:" after removing furniture level and slot/parking info (e.g. "nhà sửa đẹp", "mới sơn", "view đẹp"). Empty string if none.
