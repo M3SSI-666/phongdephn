@@ -224,8 +224,16 @@ async function callParseTC(body, retry = true) {
   throw new Error(err.error || `Parse failed (${res.status})`);
 }
 
-export function parseThue(text) { return callParseTC({ type: 'thue', text }); }
-export function parseBan(text)  { return callParseTC({ type: 'ban',  text }); }
+function fixNoiThat(result, text) {
+  if (result?.Noi_That === 'Đồ cơ bản') {
+    const t = (text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    // "co do" without "co ban" => Full đồ
+    if (t.includes('co do') && !t.includes('co ban')) result.Noi_That = 'Full đồ';
+  }
+  return result;
+}
+export function parseThue(text) { return callParseTC({ type: 'thue', text }).then(r => fixNoiThat(r, text)); }
+export function parseBan(text)  { return callParseTC({ type: 'ban',  text }).then(r => fixNoiThat(r, text)); }
 export function parseSearchQuery(query) { return callParseTC({ type: 'search', query }); }
 
 // ============ Quỹ Shophouse ============
