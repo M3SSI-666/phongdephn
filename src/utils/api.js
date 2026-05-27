@@ -226,7 +226,7 @@ async function callParseTC(body, retry = true) {
 
 function fixNoiThat(result, text) {
   if (result?.Noi_That === 'Đồ cơ bản') {
-    const t = (text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const t = (text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
     // "co do" without "co ban" => Full đồ
     if (t.includes('co do') && !t.includes('co ban')) result.Noi_That = 'Full đồ';
   }
