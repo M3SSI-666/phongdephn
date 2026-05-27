@@ -360,8 +360,8 @@ function NguonHangInner({ showHeader, fixedMode }) {
       <td style={{ ...st.td, fontWeight: 600, whiteSpace: 'pre-line' }}>{item.Ten_Chu}</td>
       <td style={{ ...st.td, whiteSpace: 'nowrap' }}>{item.SDT_Chu}</td>
       <td style={{ ...st.td, whiteSpace: 'pre-line', fontSize: 12 }}>{item.Pass}</td>
-      <td style={{ ...st.td, maxWidth: 180, whiteSpace: 'pre-line', fontSize: 12, color: C.textMuted }}>{item.Ghi_Chu}</td>
-      <td style={{ ...st.td, whiteSpace: 'nowrap', borderRight: 'none' }}>
+      <td style={{ ...st.td, minWidth: 250, whiteSpace: 'pre-line', fontSize: 12, color: C.textMuted }}>{item.Ghi_Chu}</td>
+      <td style={{ ...st.td, width: 52, minWidth: 52, maxWidth: 52, whiteSpace: 'nowrap', borderRight: 'none' }}>
         <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>
         <button onClick={() => setDeleteTarget(item)} style={{ ...st.actionBtn, color: C.error }} title="Xoá">&#128465;</button>
       </td>
