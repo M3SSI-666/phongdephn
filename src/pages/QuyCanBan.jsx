@@ -574,7 +574,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false } = {})
                       <td style={{...st.td, textAlign:'center'}}>{item.Huong_BC}</td>
                       <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap'}}>{item.Gia}</td>
                       <td style={{...st.td, textAlign:'center', fontSize:12, color:'#a0aec0'}}>
-                        {(() => { const g = parseGiaValue(item.Gia); const dt = parseFloat((item.Dien_Tich||'').replace(/[^\d.]/g,'')); return (g && dt) ? Math.round(g * 1000 / dt) : ''; })()}
+                        {(() => { const g = parseGiaValue(item.Gia); const dt = parseFloat((item.Dien_Tich||'').replace(/[^\d.]/g,'')); return (g && dt) ? Math.round(g / dt) : ''; })()}
                       </td>
                       <td style={{...st.td, textAlign:'center', fontSize:12}}>
                         <span style={{
