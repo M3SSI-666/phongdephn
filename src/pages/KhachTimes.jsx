@@ -412,7 +412,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
               <thead>
                 <tr>
                   {[
-                    { h: 'STT', w: 40 }, { h: 'Ngày PS', w: 80 }, { h: 'Tên (Zalo)', w: 110 },
+                    { h: 'Ngày PS', w: 80 }, { h: 'Tên (Zalo)', w: 110 },
                     { h: 'SĐT', w: 100 }, { h: 'Nhu cầu', w: 80 }, { h: 'PN', w: 44 },
                     { h: 'Nội thất', w: 110 }, { h: 'Slot', w: 50 }, { h: 'Thời hạn', w: 90 },
                     { h: 'Ngày vào', w: 66 }, { h: 'Tài chính', w: 90 },
@@ -426,11 +426,10 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={18} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
+                  <tr><td colSpan={17} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
                 ) : (
                   filtered.map((item) => (
                     <tr key={item._rowIndex} className="kt-row" style={s.tr}>
-                      <td style={{ ...s.td, textAlign: 'center', color: C.textDim, fontSize: 12 }}>{item.STT}</td>
                       <td style={{ ...s.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_PS}</td>
                       <td style={{ ...s.td, ...s.tdName, fontWeight: 600, whiteSpace: 'pre-line' }}>{item.Ten_Zalo}</td>
                       <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap' }}>{item.SDT}</td>
