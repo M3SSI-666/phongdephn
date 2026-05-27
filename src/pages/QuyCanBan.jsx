@@ -34,7 +34,7 @@ const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
   'Hướng BC', 'Giá', 'Tr/m²', 'Phí', 'Nội Thất', 'SDT', 'Tên Chủ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
 ];
-const COL_WIDTHS = [92, 100, 72, 66, 76, 80, 72, 80, 110, 110, 100, 80, 100, 280, 52];
+const COL_WIDTHS = [92, 100, 72, 66, 76, 80, 72, 80, 110, 110, 100, 80, 100, 360, 44];
 
 export function QuyCanBanContent({ overrideUserId, overrideRole, isViewAs } = {}) {
   return <QuyCanBanInner overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
@@ -594,9 +594,9 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false } = {})
                       ><ThumbCell value={item.Hinh_Anh} /></td>
                       <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Nguon}</td>
                       <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8'}}>{item.Ghi_Chu}</td>
-                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none'}}>
-                        <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>
-                        <button onClick={() => setDeleteTarget(item)} style={{...st.actionBtn, color:C.error}} title="Xoá">&#128465;</button>
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none', padding:'4px 2px'}}>
+                        <button onClick={() => openEdit(item)} style={{...st.actionBtn, padding:'2px 3px'}} title="Sửa">&#9998;</button>
+                        <button onClick={() => setDeleteTarget(item)} style={{...st.actionBtn, color:C.error, padding:'2px 3px'}} title="Xoá">&#128465;</button>
                       </td>
                     </tr>
                   ))}
