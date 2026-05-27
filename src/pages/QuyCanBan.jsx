@@ -32,9 +32,9 @@ function normalizeNoiThat(val) {
 
 const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
-  'Hướng BC', 'Hướng Cửa', 'Giá', 'Phí', 'Nội Thất', 'SDT', 'Tên Chủ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
+  'Hướng BC', 'Giá', 'Phí', 'Nội Thất', 'SDT', 'Tên Chủ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
 ];
-const COL_WIDTHS = [92, 100, 72, 66, 76, 80, 80, 90, 80, 110, 110, 100, 80, 100, 200, 72];
+const COL_WIDTHS = [92, 100, 72, 66, 76, 80, 90, 80, 110, 110, 100, 80, 100, 200, 72];
 
 export function QuyCanBanContent({ overrideUserId, overrideRole, isViewAs } = {}) {
   return <QuyCanBanInner overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
@@ -572,7 +572,6 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false } = {})
                         }}>{item.Slot_Xe || 'Không'}</span>
                       </td>
                       <td style={{...st.td, textAlign:'center'}}>{item.Huong_BC}</td>
-                      <td style={{...st.td, textAlign:'center'}}>{item.Huong_Cua}</td>
                       <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap'}}>{item.Gia}</td>
                       <td style={{...st.td, textAlign:'center', fontSize:12}}>
                         <span style={{
@@ -670,7 +669,6 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false } = {})
                 <FormField label="Thiết Kế" value={form.Thiet_Ke} onChange={v => set('Thiet_Ke', v)} placeholder="VD: 3PN, 2PN, Studio" />
                 <FormField label="Diện Tích" value={form.Dien_Tich} onChange={v => set('Dien_Tich', v)} placeholder="VD: 106m²" />
                 <FormField label="Hướng Ban Công" value={form.Huong_BC} onChange={v => set('Huong_BC', v)} placeholder="VD: Nam, Đông Nam" />
-                <FormField label="Hướng Cửa" value={form.Huong_Cua} onChange={v => set('Huong_Cua', v)} placeholder="VD: Đông, Tây Bắc" />
 
                 {/* Slot xe */}
                 <div>
