@@ -543,7 +543,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false } = {})
           <table style={st.table}>
             <thead>
               <tr>
-                {TABLE_HEADERS.map((h,i) => <th key={h||`h${i}`} style={{...st.th, width:COL_WIDTHS[i], minWidth:COL_WIDTHS[i]}}>{h}</th>)}
+                {TABLE_HEADERS.map((h,i) => <th key={h||`h${i}`} style={{...st.th, width:COL_WIDTHS[i], minWidth:COL_WIDTHS[i], maxWidth:COL_WIDTHS[i]}}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -1061,7 +1061,7 @@ const st = {
   errorBox:    { background:'#FEF2F2', color:C.error, padding:'12px 16px', borderRadius:10, fontSize:13, marginBottom:16 },
   loadingBox:  { textAlign:'center', padding:40, color:'#8a9bb8', fontSize:14 },
   tableWrap:   { background:'#1a1d27', borderRadius:12, border:'1px solid #2d3240', boxShadow:'0 4px 24px rgba(0,0,0,0.4)' },
-  table:       { width:'100%', borderCollapse:'collapse', fontSize:13 },
+  table:       { width:'100%', borderCollapse:'collapse', fontSize:13, tableLayout:'fixed' },
   th:          { textAlign:'center', padding:'10px 8px', fontWeight:700, fontSize:11, textTransform:'uppercase', color:'#8a9bb8', borderBottom:'2px solid #2d3240', borderRight:D, whiteSpace:'nowrap', background:'#13151e' },
   tr:          { borderBottom:'1.5px solid #2d3240', transition:'background 0.12s' },
   td:          { padding:'8px 8px', verticalAlign:'middle', fontSize:13, borderRight:D, color:'#e2e8f0' },
