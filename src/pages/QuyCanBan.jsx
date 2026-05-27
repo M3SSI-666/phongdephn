@@ -163,7 +163,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false } = {})
       if (aiFilter.Gia_Max != null) list = list.filter(it => { const g = parseGiaValue(it.Gia); return g == null || g <= aiFilter.Gia_Max; });
       if (aiFilter.Gia_Min != null) list = list.filter(it => { const g = parseGiaValue(it.Gia); return g == null || g >= aiFilter.Gia_Min; });
       if (aiFilter.Huong_BC) list = list.filter(it => (it.Huong_BC||'').toLowerCase().includes(aiFilter.Huong_BC.toLowerCase()));
-      if (aiFilter.Noi_That) list = list.filter(it => (it.Noi_That||'').toLowerCase().includes(aiFilter.Noi_That.toLowerCase()));
+      if (aiFilter.Noi_That) { const target = normalizeNoiThat(aiFilter.Noi_That); list = list.filter(it => normalizeNoiThat(it.Noi_That) === target); }
       if (aiFilter.Toa_List) list = list.filter(it => aiFilter.Toa_List.some(t => (it.Ma_Can||'').toUpperCase().startsWith(t)));
       else if (aiFilter.Toa) list = list.filter(it => (it.Ma_Can||'').toUpperCase().startsWith(aiFilter.Toa.toUpperCase()));
     }
