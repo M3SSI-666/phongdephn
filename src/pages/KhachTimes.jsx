@@ -186,7 +186,12 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         (it.Ghi_Chu || '').toLowerCase().includes(q)
       );
     }
-    list.sort((a, b) => Number(b.STT || 0) - Number(a.STT || 0));
+    list.sort((a, b) => {
+      const parseDate = s => { const p = (s||'').split('/'); return p.length===3 ? new Date(p[2],p[1]-1,p[0]) : new Date(0); };
+      const da = parseDate(a.Ngay_PS), db = parseDate(b.Ngay_PS);
+      if (db - da !== 0) return db - da;
+      return Number(b.STT || 0) - Number(a.STT || 0);
+    });
     return list;
   }, [items, filterLoai, filterTrangThai, search]);
 
