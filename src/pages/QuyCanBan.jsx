@@ -34,7 +34,7 @@ const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
   'Hướng BC', 'Giá', 'Tr/m²', 'Phí', 'Nội Thất', 'SDT', 'Tên Chủ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
 ];
-const COL_WIDTHS = [92, 100, 72, 66, 76, 80, 72, 80, 110, 110, 100, 80, 100, 80, 320, 44];
+const COL_WIDTHS = [92, 100, 72, 66, 76, 80, 72, 80, 110, 110, 100, 110, 100, 80, 320, 44];
 
 export function QuyCanBanContent({ overrideUserId, overrideRole, isViewAs } = {}) {
   return <QuyCanBanInner overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
@@ -573,7 +573,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false } = {})
                       </td>
                       <td style={{...st.td, textAlign:'center'}}>{item.Huong_BC}</td>
                       <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap'}}>{item.Gia}</td>
-                      <td style={{...st.td, textAlign:'center', fontSize:12, color:'#a0aec0'}}>
+                      <td style={{...st.td, textAlign:'center', fontSize:12, color:'#38b274', fontWeight:700}}>
                         {(() => { const g = parseGiaValue(item.Gia); const dt = parseFloat((item.Dien_Tich||'').replace(/[^\d.]/g,'')); return (g && dt) ? Math.round(g / dt) : ''; })()}
                       </td>
                       <td style={{...st.td, textAlign:'center', fontSize:12}}>
