@@ -101,7 +101,7 @@ Rules:
 - Gia_Max: max budget in triệu. Convert: "19tr"→19, "dưới 20 triệu"→20, "tài chính 19"→19, "4 tỷ"→4000, "tối đa 25tr"→25, "khoảng 20tr"→20. null if not mentioned.
 - Gia_Min: min price in triệu. "từ 15tr"→15, "trên 18 triệu"→18. null if not mentioned.
 - Huong_BC: "Bắc"|"Nam"|"Đông"|"Tây"|"Đông Nam"|"Đông Bắc"|"Tây Nam"|"Tây Bắc"|null.
-- Noi_That: furniture keywords to search. null if not mentioned.
+- Noi_That: ONLY one of exactly 3 values or null. "Full đồ" if: "full đồ","full","đầy đủ","có đồ","đủ đồ". "Đồ cơ bản" if: "cơ bản","một số đồ","đồ cơ bản". "Không đồ" if: "không đồ","ko đồ","không có đồ","trống","thô". null if not mentioned.
 - Toa: specific building code ONLY if user mentions a specific tower like "tòa T04","tòa P01","T18". Normalize: pad single digit "p1"→"P01","t4"→"T04". null if not mentioned or if a zone (Khu) is mentioned instead.
 - Khu: "Times" | "ParkHill" | "ParkPremium" | null. Detect zone mentions: "khu times"/"times"→"Times", "park hill"/"parkhill"/"khu park"→"ParkHill", "park premium"/"g4"/"premium"→"ParkPremium". If user mentions a specific Toa, set Khu=null. null if not mentioned.
 
