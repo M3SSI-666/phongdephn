@@ -186,7 +186,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         (it.Ghi_Chu || '').toLowerCase().includes(q)
       );
     }
-    list.sort((a, b) => Number(a.STT || 0) - Number(b.STT || 0));
+    list.sort((a, b) => Number(b.STT || 0) - Number(a.STT || 0));
     return list;
   }, [items, filterLoai, filterTrangThai, search]);
 
