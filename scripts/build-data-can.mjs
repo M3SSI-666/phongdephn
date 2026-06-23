@@ -19,12 +19,24 @@ function normCode(v) {
   return String(v ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
-// Normalize phone: keep digits only, add leading 0 if missing (Excel drops it)
-function normPhone(v) {
-  if (v == null || v === '') return '';
-  let s = String(v).replace(/[^\d]/g, '');
+// Normalize a single phone: digits only, add leading 0 if missing (Excel drops it)
+function normOnePhone(v) {
+  let s = String(v ?? '').replace(/[^\d]/g, '');
   if (s && !s.startsWith('0')) s = '0' + s;
   return s;
+}
+
+// A cell may contain multiple phones separated by ; , / whitespace etc.
+// Return an array of normalized, de-duplicated phone numbers.
+function normPhones(v) {
+  if (v == null || v === '') return [];
+  const parts = String(v).split(/[;,/\n\r]+|\s{2,}/);
+  const out = [];
+  for (const p of parts) {
+    const n = normOnePhone(p);
+    if (n && !out.includes(n)) out.push(n);
+  }
+  return out;
 }
 
 function clean(v) {
@@ -47,9 +59,9 @@ for (const sheetName of wb.SheetNames) {
     const code = normCode(row[0]);
     if (!code) continue;
     const ten = clean(row[1]);
-    const sdt = normPhone(row[2]);
+    const sdt = normPhones(row[2]);
     const ghiChu = clean(row[3]);
-    if (!ten && !sdt && !ghiChu) continue;
+    if (!ten && sdt.length === 0 && !ghiChu) continue;
     if (!lookup[code]) lookup[code] = [];
     lookup[code].push({ ten, sdt, ghiChu });
     totalRows++;

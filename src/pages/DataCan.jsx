@@ -64,8 +64,12 @@ export function DataCanContent() {
                       </div>
                       <div style={s.itemRow}>
                         <span style={s.label}>SĐT</span>
-                        <span style={{ ...s.value, ...s.phone }} onClick={() => copyPhone(r.sdt)} title="Bấm để copy">
-                          {r.sdt || '—'}
+                        <span style={s.phoneList}>
+                          {(r.sdt && r.sdt.length > 0) ? r.sdt.map((p, j) => (
+                            <span key={j} style={{ ...s.value, ...s.phone }} onClick={() => copyPhone(p)} title="Bấm để copy">
+                              {p}
+                            </span>
+                          )) : <span style={s.value}>—</span>}
                         </span>
                       </div>
                       {r.ghiChu && (
@@ -103,5 +107,6 @@ const s = {
   itemRow:    { display: 'flex', alignItems: 'baseline', gap: 12, padding: '4px 0' },
   label:      { fontSize: 12, color: '#8a9bb8', width: 64, flexShrink: 0 },
   value:      { fontSize: 15, color: '#e2e8f0', fontWeight: 600 },
+  phoneList:  { display: 'flex', flexDirection: 'column', gap: 4 },
   phone:      { color: '#4ADE80', cursor: 'pointer', letterSpacing: 0.5 },
 };
