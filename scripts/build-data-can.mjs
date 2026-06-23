@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import * as XLSX from 'xlsx';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const SRC_XLSX = 'C:/Users/PC/OneDrive/Desktop/zalo_auto 2/Data.xlsx';
+const SRC_XLSX = resolve(__dirname, 'Data.xlsx');
 const OUT_JSON = resolve(__dirname, '../src/data/dataCan.json');
 
 // Normalize mã căn: uppercase + strip everything that is not A-Z or 0-9
