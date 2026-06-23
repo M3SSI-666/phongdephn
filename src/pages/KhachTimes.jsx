@@ -179,6 +179,9 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   // Chỉ cho kéo-thả khi xem danh sách đầy đủ của 1 tab (không tìm kiếm, không lọc trạng thái).
   const canDrag = !search.trim() && filterTrangThai.length === 0;
 
+  // Tab Khách bán: ẩn cột/trường "Thời hạn" và "Ngày vào" vì không cần thiết.
+  const isBanTab = activeSubTab === 'ban';
+
   const filtered = useMemo(() => {
     let list = [...items];
     list = list.filter((it) => {
@@ -490,8 +493,9 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                   {[
                     { h: 'Ngày PS', w: 80 }, { h: 'Tên (Zalo)', w: 110 },
                     { h: 'SĐT', w: 100 }, { h: 'Nhu cầu', w: 80 }, { h: 'PN', w: 44 },
-                    { h: 'Nội thất', w: 110 }, { h: 'Slot', w: 50 }, { h: 'Thời hạn', w: 90 },
-                    { h: 'Ngày vào', w: 66 }, { h: 'Tài chính', w: 90 },
+                    { h: 'Nội thất', w: 110 }, { h: 'Slot', w: 50 },
+                    ...(isBanTab ? [] : [{ h: 'Thời hạn', w: 90 }, { h: 'Ngày vào', w: 66 }]),
+                    { h: 'Tài chính', w: 90 },
                     { h: 'Căn tư vấn', w: 160 }, { h: 'Trạng thái', w: 120 },
                     { h: 'Cọc', w: 80 }, { h: 'Chủ căn', w: 100 },
                     { h: 'Thu về', w: 90 }, { h: 'Ghi chú', w: 220 }, { h: '', w: 64 },
@@ -502,7 +506,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={18} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
+                  <tr><td colSpan={isBanTab ? 16 : 18} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
                 ) : (
                   filtered.map((item) => (
                     <tr
@@ -535,8 +539,12 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                       <td style={{ ...s.td, textAlign: 'center' }}>{item.Phong_Ngu}</td>
                       <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Noi_That}</td>
                       <td style={{ ...s.td, textAlign: 'center' }}>{item.Slot_Xe || '-'}</td>
-                      <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Thoi_Han_Thue}</td>
-                      <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_Vao}</td>
+                      {!isBanTab && (
+                        <>
+                          <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Thoi_Han_Thue}</td>
+                          <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_Vao}</td>
+                        </>
+                      )}
                       <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Tai_Chinh}</td>
                       <td style={{ ...s.td, whiteSpace: 'pre-line', fontSize: 12 }}>{item.Can_Tu_Van}</td>
                       {/* Trạng thái — inline dropdown */}
@@ -623,11 +631,15 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                 </div>
               </div>
 
-              <div style={s.fieldWrap}>
-                <label style={s.fieldLabel}>Thời hạn thuê</label>
-                <textarea value={form.Thoi_Han_Thue} onChange={(e) => updateForm('Thoi_Han_Thue', e.target.value)} placeholder="VD: 1 năm, 2 năm, dài hạn..." style={{ ...s.fieldInput, height: 56, resize: 'vertical' }} />
-              </div>
-              <FormField label="Ngày vào" value={form.Ngay_Vao} onChange={(v) => updateForm('Ngay_Vao', v)} placeholder="VD: 15/04/2025, Tháng 5..." />
+              {form.Nhu_Cau !== 'Mua' && (
+                <>
+                  <div style={s.fieldWrap}>
+                    <label style={s.fieldLabel}>Thời hạn thuê</label>
+                    <textarea value={form.Thoi_Han_Thue} onChange={(e) => updateForm('Thoi_Han_Thue', e.target.value)} placeholder="VD: 1 năm, 2 năm, dài hạn..." style={{ ...s.fieldInput, height: 56, resize: 'vertical' }} />
+                  </div>
+                  <FormField label="Ngày vào" value={form.Ngay_Vao} onChange={(v) => updateForm('Ngay_Vao', v)} placeholder="VD: 15/04/2025, Tháng 5..." />
+                </>
+              )}
               <FormField label="Diện tích" value={form.Dien_Tich} onChange={(v) => updateForm('Dien_Tich', v)} placeholder="VD: 75m2, 90m2..." />
               <div style={s.fieldWrap}>
                 <label style={s.fieldLabel}>Tài chính</label>
