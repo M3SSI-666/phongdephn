@@ -4,7 +4,7 @@ import { useUser, useClerk } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
 import { KhachTimesContent } from './KhachTimes';
 import { QuyCanThueContent } from './QuyCanThue';
-import { QuyCanBanContent } from './QuyCanBan';
+import { QuyCanBanContent, QuyDapThongContent } from './QuyCanBan';
 import { QuyShophouseContent } from './QuyShophouse';
 import { QuyHomestayContent } from './QuyHomestay';
 
@@ -14,6 +14,7 @@ const TABS = [
   { key: 'khach',     label: 'Khách hàng' },
   { key: 'thue',      label: 'Quỹ Căn Thuê' },
   { key: 'ban',       label: 'Quỹ Căn Bán' },
+  { key: 'dapthong',  label: 'Quỹ Đập Thông' },
   { key: 'shophouse', label: 'Quỹ Shophouse' },
   { key: 'homestay',  label: 'Quỹ Homestay' },
 ];
@@ -124,6 +125,7 @@ function TimesCityApp() {
         {activeTab === 'khach'     && <KhachTimesContent overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}
         {activeTab === 'thue'      && <QuyCanThueContent   overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}
         {activeTab === 'ban'       && <QuyCanBanContent    overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}
+        {activeTab === 'dapthong'  && <QuyDapThongContent  overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}
         {activeTab === 'shophouse' && <QuyShophouseContent overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}
         {activeTab === 'homestay'  && <QuyHomestayContent  overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}
       </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
-import { fetchQuyCanBan, postQuyCanBan, parseBan, uploadToCloudinary, parseSearchQuery } from '../utils/api';
+import { fetchQuyCanBan, postQuyCanBan, fetchQuyDapThong, postQuyDapThong, parseBan, uploadToCloudinary, parseSearchQuery } from '../utils/api';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -44,6 +44,20 @@ export default function QuyCanBan() {
   return <QuyCanBanInner />;
 }
 
+// Tái sử dụng toàn bộ giao diện Quỹ Căn Bán cho Quỹ Đập Thông (cùng cấu trúc bảng),
+// chỉ khác nguồn dữ liệu (API quydapthong).
+export function QuyDapThongContent({ overrideUserId, overrideRole, isViewAs } = {}) {
+  return (
+    <QuyCanBanInner
+      overrideUserId={overrideUserId}
+      overrideRole={overrideRole}
+      isViewAs={isViewAs}
+      fetchFn={fetchQuyDapThong}
+      postFn={postQuyDapThong}
+    />
+  );
+}
+
 function formatTs(iso) {
   const d = new Date(iso);
   const dd = String(d.getDate()).padStart(2,'0');
@@ -53,7 +67,7 @@ function formatTs(iso) {
   return `${dd}/${mm} ${hh}:${mn}`;
 }
 
-function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false } = {}) {
+function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchFn = fetchQuyCanBan, postFn = postQuyCanBan } = {}) {
   const { user } = useUser();
   const userId = overrideUserId || user?.id;
   const role   = overrideRole   || user?.publicMetadata?.role || 'staff';
@@ -114,18 +128,18 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false } = {})
   const loadData = useCallback(async () => {
     try {
       setLoading(true); setError('');
-      const data = await fetchQuyCanBan(userId, role, isViewAs);
+      const data = await fetchFn(userId, role, isViewAs);
       setItems(Array.isArray(data) ? data : []);
     } catch(e) { setError(e.message); }
     finally { setLoading(false); }
-  }, [userId, role, isViewAs]);
+  }, [userId, role, isViewAs, fetchFn]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
   useEffect(() => {
-    const iv = setInterval(() => fetchQuyCanBan(userId, role).then(d => setItems(Array.isArray(d)?d:[])).catch(()=>{}), 30000);
+    const iv = setInterval(() => fetchFn(userId, role).then(d => setItems(Array.isArray(d)?d:[])).catch(()=>{}), 30000);
     return () => clearInterval(iv);
-  }, []);
+  }, [fetchFn, userId, role]);
 
   function parseGiaValue(gia) {
     const s = (gia||'').toLowerCase().replace(/\s+/g,'');
@@ -376,7 +390,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false } = {})
       const payload = Object.fromEntries(Object.entries(form).map(([k,v]) => [k, typeof v==='string' ? v.trim() : v]));
       payload.Owner_Id = userId || '';
       if (modalMode === 'edit') {
-        await postQuyCanBan({ action: 'update', _rowIndex: editItem._rowIndex, Owner_Id: editItem.Owner_Id || userId || '', ...payload });
+        await postFn({ action: 'update', _rowIndex: editItem._rowIndex, Owner_Id: editItem.Owner_Id || userId || '', ...payload });
         pushImportLog(payload.Ma_Can);
         showToast('Cập nhật thành công!');
         closeModal();
@@ -388,7 +402,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false } = {})
           setDupTarget({ existing, payload });
           return;
         }
-        await postQuyCanBan({ action: 'add', ...payload });
+        await postFn({ action: 'add', ...payload });
         pushImportLog(payload.Ma_Can);
         showToast('Thêm căn thành công!');
         closeModal();
@@ -404,7 +418,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false } = {})
       setSaving(true);
       const { existing, payload } = dupTarget;
       const mergedHinh = payload.Hinh_Anh || existing.Hinh_Anh || '';
-      await postQuyCanBan({ action: 'update', _rowIndex: existing._rowIndex, Owner_Id: existing.Owner_Id || userId || '', ...payload, Hinh_Anh: mergedHinh });
+      await postFn({ action: 'update', _rowIndex: existing._rowIndex, Owner_Id: existing.Owner_Id || userId || '', ...payload, Hinh_Anh: mergedHinh });
       pushImportLog(payload.Ma_Can);
       showToast('Đã cập nhật căn ' + payload.Ma_Can + '!');
       setDupTarget(null);
@@ -418,7 +432,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false } = {})
     if (!deleteTarget) return;
     try {
       setSaving(true);
-      await postQuyCanBan({ action: 'delete', _rowIndex: deleteTarget._rowIndex });
+      await postFn({ action: 'delete', _rowIndex: deleteTarget._rowIndex });
       showToast('Đã xoá!');
       setDeleteTarget(null);
       await loadData();

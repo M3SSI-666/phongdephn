@@ -208,6 +208,30 @@ export async function postQuyCanBan(payload) {
   return res.json();
 }
 
+// ============ Quỹ Đập Thông ============
+export async function fetchQuyDapThong(userId, role, isViewAs = false) {
+  const params = new URLSearchParams({ t: Date.now() });
+  if (userId) params.set('userId', userId);
+  if (role)   params.set('role', role);
+  if (isViewAs) params.set('viewAs', '1');
+  const res = await fetch(`/api/quydapthong?${params}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Fetch quy dap thong failed');
+  return res.json();
+}
+
+export async function postQuyDapThong(payload) {
+  const res = await fetch('/api/quydapthong', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Action failed (${res.status})`);
+  }
+  return res.json();
+}
+
 // ============ Parse Times City (unified: thue|ban|search) ============
 async function callParseTC(body, retry = true) {
   const res = await fetch('/api/parse-tc', {
