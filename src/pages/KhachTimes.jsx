@@ -158,6 +158,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         Thu_Ve: item.Thu_Ve || '',
         Ghi_Chu: item.Ghi_Chu || '',
         Owner_Id: item.Owner_Id || userId || '',
+        Thu_Tu: item.Thu_Tu || '',
         [field]: value,
       };
       // Update local state immediately
@@ -171,6 +172,12 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
       loadData();
     }
   }, [showToast, loadData]);
+
+  // ── Kéo-thả sắp xếp ──
+  const [dragRowIndex, setDragRowIndex] = useState(null); // _rowIndex của hàng đang kéo
+  const [dragOverIndex, setDragOverIndex] = useState(null); // _rowIndex của hàng đang được rê tới
+  // Chỉ cho kéo-thả khi xem danh sách đầy đủ của 1 tab (không tìm kiếm, không lọc trạng thái).
+  const canDrag = !search.trim() && filterTrangThai.length === 0;
 
   const filtered = useMemo(() => {
     let list = [...items];
@@ -198,6 +205,15 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
       );
     }
     list.sort((a, b) => {
+      // Ưu tiên thứ tự thủ công (Thu_Tu) — số nhỏ lên đầu.
+      const ta = a.Thu_Tu !== '' && a.Thu_Tu != null ? Number(a.Thu_Tu) : null;
+      const tb = b.Thu_Tu !== '' && b.Thu_Tu != null ? Number(b.Thu_Tu) : null;
+      const va = ta != null && !Number.isNaN(ta);
+      const vb = tb != null && !Number.isNaN(tb);
+      if (va && vb) return ta - tb;
+      if (va) return -1;   // có thứ tự → lên trước
+      if (vb) return 1;
+      // Cả hai chưa có thứ tự → giữ logic cũ: ngày mới nhất lên đầu.
       const parseDate = s => { const p = (s||'').split('/'); return p.length===3 ? new Date(p[2],p[1]-1,p[0]) : new Date(0); };
       const da = parseDate(a.Ngay_PS), db = parseDate(b.Ngay_PS);
       if (db - da !== 0) return db - da;
@@ -205,6 +221,38 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     });
     return list;
   }, [items, filterLoai, filterTrangThai, search]);
+
+  // Lưu thứ tự mới: gán Thu_Tu = 1..n cho các hàng trong tab hiện tại, lưu lên Sheets.
+  const persistOrder = useCallback(async (orderedList) => {
+    const orders = orderedList.map((it, idx) => ({ _rowIndex: it._rowIndex, Thu_Tu: idx + 1 }));
+    setItems(prev => prev.map(it => {
+      const found = orders.find(o => o._rowIndex === it._rowIndex);
+      return found ? { ...it, Thu_Tu: found.Thu_Tu } : it;
+    }));
+    try {
+      await postKhachTimes({ action: 'reorder', orders });
+      showToast('Đã lưu thứ tự!');
+    } catch (e) {
+      showToast('Lỗi lưu thứ tự: ' + e.message, 'error');
+      loadData();
+    }
+  }, [showToast, loadData]);
+
+  const handleDrop = useCallback((targetRowIndex) => {
+    setDragOverIndex(null);
+    if (dragRowIndex == null || dragRowIndex === targetRowIndex) {
+      setDragRowIndex(null);
+      return;
+    }
+    const order = [...filtered];
+    const from = order.findIndex(it => it._rowIndex === dragRowIndex);
+    const to = order.findIndex(it => it._rowIndex === targetRowIndex);
+    setDragRowIndex(null);
+    if (from === -1 || to === -1) return;
+    const [moved] = order.splice(from, 1);
+    order.splice(to, 0, moved);
+    persistOrder(order);
+  }, [dragRowIndex, filtered, persistOrder]);
 
   const stats = useMemo(() => {
     const total = items.length;
@@ -286,6 +334,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
           action: 'update',
           _rowIndex: editItem._rowIndex,
           STT: editItem.STT,
+          Thu_Tu: editItem.Thu_Tu || '', // giữ nguyên thứ tự khi sửa
           ...payload,
         });
         setItems(prev => prev.map(it =>
@@ -296,14 +345,21 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         setTimeout(() => loadData(), 500);
       } else {
         const maxSTT = items.reduce((m, i) => Math.max(m, Number(i.STT) || 0), 0);
+        // Khách mới luôn ở đầu bảng: gán Thu_Tu nhỏ hơn mọi giá trị hiện có.
+        const minThuTu = items.reduce((m, i) => {
+          const v = Number(i.Thu_Tu);
+          return (i.Thu_Tu !== '' && i.Thu_Tu != null && !Number.isNaN(v)) ? Math.min(m, v) : m;
+        }, 0);
+        const newThuTu = minThuTu - 1;
+        const addPayload = { ...payload, Thu_Tu: newThuTu };
         const result = await postKhachTimes({
           action: 'add',
           STT: maxSTT + 1,
-          ...payload,
+          ...addPayload,
         });
         // Use the actual rowIndex returned by the server for accurate edit/delete
         const realRowIndex = result?.rowIndex || Date.now();
-        setItems(prev => [...prev, { ...payload, STT: maxSTT + 1, _rowIndex: realRowIndex }]);
+        setItems(prev => [...prev, { ...addPayload, STT: maxSTT + 1, _rowIndex: realRowIndex }]);
         showToast('Thêm khách thành công!');
         closeModal();
       }
@@ -430,6 +486,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
             <table style={s.table}>
               <thead>
                 <tr>
+                  <th style={{ ...s.th, width: 30, minWidth: 30, padding: '10px 2px' }} title={canDrag ? 'Kéo để sắp xếp' : 'Bỏ lọc/tìm kiếm để kéo sắp xếp'}></th>
                   {[
                     { h: 'Ngày PS', w: 80 }, { h: 'Tên (Zalo)', w: 110 },
                     { h: 'SĐT', w: 100 }, { h: 'Nhu cầu', w: 80 }, { h: 'PN', w: 44 },
@@ -445,10 +502,30 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={17} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
+                  <tr><td colSpan={18} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
                 ) : (
                   filtered.map((item) => (
-                    <tr key={item._rowIndex} className="kt-row" style={s.tr}>
+                    <tr
+                      key={item._rowIndex}
+                      className="kt-row"
+                      style={{
+                        ...s.tr,
+                        ...(dragRowIndex === item._rowIndex ? { opacity: 0.4 } : {}),
+                        ...(dragOverIndex === item._rowIndex && dragRowIndex !== item._rowIndex
+                          ? { boxShadow: `inset 0 2px 0 0 ${C.primary}` } : {}),
+                      }}
+                      onDragOver={canDrag ? (e) => { e.preventDefault(); if (dragOverIndex !== item._rowIndex) setDragOverIndex(item._rowIndex); } : undefined}
+                      onDrop={canDrag ? (e) => { e.preventDefault(); handleDrop(item._rowIndex); } : undefined}
+                    >
+                      <td
+                        style={{ ...s.td, textAlign: 'center', padding: '8px 2px', cursor: canDrag ? 'grab' : 'not-allowed', color: canDrag ? '#8a9bb8' : '#3a3f52', userSelect: 'none' }}
+                        draggable={canDrag}
+                        onDragStart={canDrag ? (e) => { setDragRowIndex(item._rowIndex); e.dataTransfer.effectAllowed = 'move'; } : undefined}
+                        onDragEnd={() => { setDragRowIndex(null); setDragOverIndex(null); }}
+                        title={canDrag ? 'Kéo để đổi thứ tự' : 'Bỏ tìm kiếm/lọc để kéo sắp xếp'}
+                      >
+                        &#9776;
+                      </td>
                       <td style={{ ...s.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_PS}</td>
                       <td style={{ ...s.td, ...s.tdName, fontWeight: 600, whiteSpace: 'pre-line' }}>{item.Ten_Zalo}</td>
                       <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap' }}>{item.SDT}</td>

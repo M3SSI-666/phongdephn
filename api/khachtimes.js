@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 
 const SHEET_NAME = 'Khach_Times';
-// 20 columns: STT, Ngay_PS, Ten_Zalo, SDT, Nhu_Cau, Phong_Ngu, Noi_That, Slot_Xe, Thoi_Han_Thue, Ngay_Vao, Dien_Tich, Tai_Chinh, Toa, Can_Tu_Van, Trang_Thai, Thu_Ve, Ghi_Chu, Coc, Chu_Can, Owner_Id
-const COLUMNS = 'A:T';
+// 21 columns: STT, Ngay_PS, Ten_Zalo, SDT, Nhu_Cau, Phong_Ngu, Noi_That, Slot_Xe, Thoi_Han_Thue, Ngay_Vao, Dien_Tich, Tai_Chinh, Toa, Can_Tu_Van, Trang_Thai, Thu_Ve, Ghi_Chu, Coc, Chu_Can, Owner_Id, Thu_Tu
+const COLUMNS = 'A:U';
 
 export default async function handler(req, res) {
   try {
@@ -71,6 +71,7 @@ async function handleGet(req, res, sheetId, email, key) {
     Coc: row[17] || '',
     Chu_Can: row[18] || '',
     Owner_Id: row[19] || '',
+    Thu_Tu: row[20] || '',
     _rowIndex: i + 2,
   }));
 
@@ -101,7 +102,7 @@ async function handlePost(req, res, sheetId, email, key) {
       p.STT, p.Ngay_PS, p.Ten_Zalo, p.SDT,
       p.Nhu_Cau, p.Phong_Ngu, p.Noi_That, p.Slot_Xe,
       p.Thoi_Han_Thue, p.Ngay_Vao, p.Dien_Tich, p.Tai_Chinh,
-      p.Toa, p.Can_Tu_Van, p.Trang_Thai, p.Thu_Ve || '', p.Ghi_Chu, p.Coc || '', p.Chu_Can || '', p.Owner_Id || '',
+      p.Toa, p.Can_Tu_Van, p.Trang_Thai, p.Thu_Ve || '', p.Ghi_Chu, p.Coc || '', p.Chu_Can || '', p.Owner_Id || '', p.Thu_Tu || '',
     ];
   }
 
@@ -137,7 +138,7 @@ async function handlePost(req, res, sheetId, email, key) {
     }
 
     const row = buildRow(payload);
-    const range = `${SHEET_NAME}!A${payload._rowIndex}:T${payload._rowIndex}`;
+    const range = `${SHEET_NAME}!A${payload._rowIndex}:U${payload._rowIndex}`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?valueInputOption=USER_ENTERED`;
     const response = await fetch(url, {
       method: 'PUT',
@@ -151,6 +152,36 @@ async function handlePost(req, res, sheetId, email, key) {
     if (!response.ok) {
       const errText = await response.text();
       return res.status(500).json({ error: 'sheets_update', detail: errText });
+    }
+
+    return res.status(200).json({ success: true });
+  }
+
+  if (payload.action === 'reorder') {
+    // payload.orders: [{ _rowIndex: number, Thu_Tu: number|string }, ...]
+    const orders = Array.isArray(payload.orders) ? payload.orders : [];
+    if (orders.length === 0) {
+      return res.status(400).json({ error: 'Missing orders' });
+    }
+
+    const valueRanges = orders.map((o) => ({
+      range: `${SHEET_NAME}!U${o._rowIndex}:U${o._rowIndex}`,
+      values: [[String(o.Thu_Tu)]],
+    }));
+
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchUpdate`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: valueRanges }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      return res.status(500).json({ error: 'sheets_reorder', detail: errText });
     }
 
     return res.status(200).json({ success: true });
