@@ -7,6 +7,7 @@ import { QuyCanThueContent } from './QuyCanThue';
 import { QuyCanBanContent, QuyDapThongContent } from './QuyCanBan';
 import { QuyShophouseContent } from './QuyShophouse';
 import { QuyHomestayContent } from './QuyHomestay';
+import { DataCanContent } from './DataCan';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -17,6 +18,7 @@ const TABS = [
   { key: 'dapthong',  label: 'Quỹ Đập Thông' },
   { key: 'shophouse', label: 'Quỹ Shophouse' },
   { key: 'homestay',  label: 'Quỹ Homestay' },
+  { key: 'data',      label: 'Data', adminOnly: true },
 ];
 
 const ROLE_LABEL = { admin:'Admin', staff:'User', viewer:'Chỉ xem', pending:'Chờ duyệt' };
@@ -44,7 +46,7 @@ function TimesCityApp() {
   // userId thực sự dùng để fetch: nếu admin đang viewAs thì dùng id nhân viên, không thì dùng id của mình
   const effectiveUserId = viewAsId || user?.id;
 
-  const visibleTabs = TABS;
+  const visibleTabs = TABS.filter((t) => !t.adminOnly || isAdmin);
 
   useEffect(() => {
     const style = document.createElement('style');
@@ -128,6 +130,7 @@ function TimesCityApp() {
         {activeTab === 'dapthong'  && <QuyDapThongContent  overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}
         {activeTab === 'shophouse' && <QuyShophouseContent overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}
         {activeTab === 'homestay'  && <QuyHomestayContent  overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}
+        {activeTab === 'data' && isAdmin && <DataCanContent />}
       </div>
     </div>
   );
