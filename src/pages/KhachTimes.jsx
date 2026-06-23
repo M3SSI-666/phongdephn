@@ -18,6 +18,14 @@ const TRANG_THAI_OPTIONS = [
 const NHU_CAU_OPTIONS = ['Thuê', 'Mua', 'Homestay'];
 const SLOT_XE_OPTIONS = ['Có', 'Không', 'Null'];
 
+// Tab con trong tab Khách hàng. `filter` là giá trị dùng cho filterLoai,
+// `nhuCau` là giá trị Nhu_Cau tự điền vào form khi thêm khách ở tab đó.
+const SUB_TABS = [
+  { key: 'ban',      label: 'Khách bán',      filter: 'Mua',      nhuCau: 'Mua' },
+  { key: 'thue',     label: 'Khách thuê',     filter: 'Thuê',     nhuCau: 'Thuê' },
+  { key: 'homestay', label: 'Khách Homestay', filter: 'Homestay', nhuCau: 'Homestay' },
+];
+
 function getTodayStr() {
   const d = new Date();
   const dd = d.getDate().toString().padStart(2, '0');
@@ -51,8 +59,11 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   const [error, setError] = useState('');
 
   const [search, setSearch] = useState('');
-  const [filterLoai, setFilterLoai] = useState('all');
+  const [activeSubTab, setActiveSubTab] = useState('ban'); // mặc định mở tab Khách bán
   const [filterTrangThai, setFilterTrangThai] = useState([]);
+
+  const currentSubTab = SUB_TABS.find(t => t.key === activeSubTab) || SUB_TABS[0];
+  const filterLoai = currentSubTab.filter;
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -73,6 +84,8 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
       .kt-table-wrap::-webkit-scrollbar-thumb { background: ${C.textDim}; border-radius: 3px; }
       .kt-row:hover { background: rgba(255,255,255,0.06) !important; }
       .kt-btn:active { transform: scale(0.97); }
+      .kt-subtab:active { transform: scale(0.97); }
+      .kt-subtab:hover { opacity: 0.88; }
       .kt-inline-select { border: none; background: transparent; font-family: ${F}; font-size: 12px; font-weight: 600; cursor: pointer; outline: none; padding: 3px 2px; border-radius: 6px; width: 100%; }
       .kt-inline-select:hover { background: rgba(255,255,255,0.08); }
       .kt-inline-select:focus { box-shadow: 0 0 0 2px ${C.primary}40; }
@@ -161,16 +174,14 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
 
   const filtered = useMemo(() => {
     let list = [...items];
-    if (filterLoai !== 'all') {
-      list = list.filter((it) => {
-        const nc = (it.Nhu_Cau || '').toLowerCase();
-        const fv = filterLoai.toLowerCase();
-        if (fv === 'homestay') return nc === 'homestay';
-        if (fv === 'thuê' || fv === 'thue') return nc.includes('thu');
-        if (fv === 'mua') return nc === 'mua';
-        return true;
-      });
-    }
+    list = list.filter((it) => {
+      const nc = (it.Nhu_Cau || '').toLowerCase();
+      const fv = filterLoai.toLowerCase();
+      if (fv === 'homestay') return nc === 'homestay';
+      if (fv === 'thuê' || fv === 'thue') return nc.includes('thu') && nc !== 'homestay';
+      if (fv === 'mua') return nc === 'mua';
+      return true;
+    });
     if (filterTrangThai.length > 0) {
       list = list.filter((it) => filterTrangThai.includes(it.Trang_Thai || ''));
     }
@@ -208,7 +219,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
 
   const openAdd = () => {
     setEditItem(null);
-    setForm({ ...EMPTY_FORM, Ngay_PS: getTodayStr() });
+    setForm({ ...EMPTY_FORM, Ngay_PS: getTodayStr(), Nhu_Cau: currentSubTab.nhuCau });
     setModalOpen(true);
   };
 
@@ -355,6 +366,20 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
           </div>
         </div>
 
+        {/* Sub-tabs: Khách bán / Khách thuê / Khách Homestay */}
+        <div className="kt-subtabs-row" style={s.subTabsRow}>
+          {SUB_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveSubTab(tab.key)}
+              className="kt-subtab"
+              style={{ ...s.subTab, ...(activeSubTab === tab.key ? s.subTabActive : {}) }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         {/* Search + Filter */}
         <div className="kt-filter-row" style={s.filterRow}>
           <div style={s.searchWrap}>
@@ -362,12 +387,6 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
             <input type="text" placeholder="Tìm theo tên, SĐT, toà, căn tư vấn..." value={search} onChange={(e) => setSearch(e.target.value)} style={s.searchInput} />
             {search && <button onClick={() => setSearch('')} style={s.clearBtn}>&times;</button>}
           </div>
-          <select value={filterLoai} onChange={(e) => setFilterLoai(e.target.value)} style={s.filterSelect}>
-            <option value="all">Nhu cầu</option>
-            <option value="Thuê">Thuê</option>
-            <option value="Mua">Mua</option>
-            <option value="Homestay">Homestay</option>
-          </select>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
             {TRANG_THAI_OPTIONS.filter(o => o.value).map(o => {
               const active = filterTrangThai.includes(o.value);
@@ -655,12 +674,14 @@ const s = {
   addBtn: { background: C.gradient, color: '#fff', border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: F, boxShadow: C.shadowGreen, transition: 'all 0.15s ease', whiteSpace: 'nowrap' },
   reloadBtn: { background: '#22263a', border: '1.5px solid #3a3f52', borderRadius: 10, width: 40, height: 40, fontSize: 20, color: C.primary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, transition: 'all 0.15s', fontFamily: F },
   statsRow: { display: 'flex', gap: 10, flexWrap: 'wrap' },
+  subTabsRow: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
+  subTab: { padding: '8px 18px', borderRadius: 10, fontSize: 13, fontWeight: 700, background: '#1e2130', color: '#8a9bb8', border: '1.5px solid #3a3f52', cursor: 'pointer', fontFamily: F, transition: 'all 0.15s' },
+  subTabActive: { background: C.gradient, color: '#fff', border: '1.5px solid transparent', boxShadow: C.shadowGreen },
   filterRow: { display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 },
   searchWrap: { flex: 1, position: 'relative', minWidth: 200 },
   searchIcon: { position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14, opacity: 0.5 },
   searchInput: { width: '100%', padding: '10px 36px', border: '1.5px solid #3a3f52', borderRadius: 10, fontSize: 13, fontFamily: F, outline: 'none', background: '#1e2130', color: '#e2e8f0', boxSizing: 'border-box', transition: 'border-color 0.15s' },
   clearBtn: { position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', fontSize: 18, color: '#8a9bb8', cursor: 'pointer', padding: '0 4px' },
-  filterSelect: { padding: '10px 14px', border: '1.5px solid #3a3f52', borderRadius: 10, fontSize: 13, fontFamily: F, background: '#1e2130', color: '#e2e8f0', cursor: 'pointer', outline: 'none', minWidth: 100 },
   resultCount: { fontSize: 12, color: '#8a9bb8', whiteSpace: 'nowrap' },
   errorBox: { background: '#2d1515', color: '#fc8181', padding: '12px 16px', borderRadius: 10, fontSize: 13, marginBottom: 16 },
   loadingBox: { textAlign: 'center', padding: 40, color: '#8a9bb8', fontSize: 14 },
