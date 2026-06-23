@@ -181,6 +181,8 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
 
   // Tab Khách bán: ẩn cột/trường "Thời hạn" và "Ngày vào" vì không cần thiết.
   const isBanTab = activeSubTab === 'ban';
+  // Tab Khách Homestay: ẩn cột/trường "Nội thất" và "Slot".
+  const isHomestayTab = activeSubTab === 'homestay';
 
   const filtered = useMemo(() => {
     let list = [...items];
@@ -494,7 +496,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                     { h: 'Ngày PS', w: 80 }, { h: 'Tên (Zalo)', w: 110 },
                     { h: 'SĐT', w: 100 }, { h: 'Nhu cầu', w: 80 }, { h: 'PN', w: 44 },
                     ...(isBanTab ? [{ h: 'Diện tích', w: 80 }] : []),
-                    { h: 'Nội thất', w: 110 }, { h: 'Slot', w: 50 },
+                    ...(isHomestayTab ? [] : [{ h: 'Nội thất', w: 110 }, { h: 'Slot', w: 50 }]),
                     ...(isBanTab ? [] : [{ h: 'Thời hạn', w: 90 }, { h: 'Ngày vào', w: 66 }]),
                     { h: 'Tài chính', w: 90 },
                     { h: 'Căn tư vấn', w: 160 }, { h: 'Trạng thái', w: 120 },
@@ -507,7 +509,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={isBanTab ? 17 : 18} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
+                  <tr><td colSpan={isBanTab ? 17 : (isHomestayTab ? 16 : 18)} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
                 ) : (
                   filtered.map((item) => (
                     <tr
@@ -541,8 +543,12 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                       {isBanTab && (
                         <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap', fontSize: 12 }}>{item.Dien_Tich}</td>
                       )}
-                      <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Noi_That}</td>
-                      <td style={{ ...s.td, textAlign: 'center' }}>{item.Slot_Xe || '-'}</td>
+                      {!isHomestayTab && (
+                        <>
+                          <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Noi_That}</td>
+                          <td style={{ ...s.td, textAlign: 'center' }}>{item.Slot_Xe || '-'}</td>
+                        </>
+                      )}
                       {!isBanTab && (
                         <>
                           <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Thoi_Han_Thue}</td>
@@ -618,22 +624,26 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                 </select>
               </div>
 
-              <div style={s.fieldWrap}>
-                <label style={s.fieldLabel}>Nội thất</label>
-                <textarea value={form.Noi_That} onChange={(e) => updateForm('Noi_That', e.target.value)} placeholder="VD: Full nội thất, cơ bản, nguyên bản..." style={{ ...s.fieldInput, height: 56, resize: 'vertical' }} />
-              </div>
+              {form.Nhu_Cau !== 'Homestay' && (
+                <>
+                  <div style={s.fieldWrap}>
+                    <label style={s.fieldLabel}>Nội thất</label>
+                    <textarea value={form.Noi_That} onChange={(e) => updateForm('Noi_That', e.target.value)} placeholder="VD: Full nội thất, cơ bản, nguyên bản..." style={{ ...s.fieldInput, height: 56, resize: 'vertical' }} />
+                  </div>
 
-              <div style={s.fieldWrap}>
-                <label style={s.fieldLabel}>Slot xe</label>
-                <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
-                  {SLOT_XE_OPTIONS.map((val) => (
-                    <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14, color: '#e2e8f0' }}>
-                      <input type="radio" name="slot_xe" checked={form.Slot_Xe === val} onChange={() => updateForm('Slot_Xe', val)} style={{ accentColor: C.primary }} />
-                      {val === 'Null' ? 'Không quan trọng' : val}
-                    </label>
-                  ))}
-                </div>
-              </div>
+                  <div style={s.fieldWrap}>
+                    <label style={s.fieldLabel}>Slot xe</label>
+                    <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+                      {SLOT_XE_OPTIONS.map((val) => (
+                        <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14, color: '#e2e8f0' }}>
+                          <input type="radio" name="slot_xe" checked={form.Slot_Xe === val} onChange={() => updateForm('Slot_Xe', val)} style={{ accentColor: C.primary }} />
+                          {val === 'Null' ? 'Không quan trọng' : val}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
 
               {form.Nhu_Cau !== 'Mua' && (
                 <>
