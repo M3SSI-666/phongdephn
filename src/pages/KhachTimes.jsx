@@ -498,7 +498,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                   {[
                     { h: 'Ngày PS', w: 80 }, { h: 'Tên (Zalo)', w: 110 },
                     { h: 'SĐT', w: 100 }, { h: 'Nhu cầu', w: 80 }, { h: 'PN', w: 44 },
-                    ...(isBanTab ? [{ h: 'Diện tích', w: 80 }] : []),
+                    ...(isHomestayTab ? [] : [{ h: 'Diện tích', w: 80 }]),
                     ...(isHomestayTab ? [] : [{ h: 'Nội thất', w: 110 }, { h: 'Slot', w: 50 }]),
                     ...(isBanTab ? [] : (isHomestayTab
                       ? [{ h: 'Thời hạn', w: 90 }, { h: 'Check In', w: 66 }, { h: 'Check Out', w: 66 }]
@@ -514,7 +514,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={isBanTab ? 17 : (isHomestayTab ? 17 : 18)} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
+                  <tr><td colSpan={isBanTab ? 17 : (isHomestayTab ? 17 : 19)} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
                 ) : (
                   filtered.map((item) => (
                     <tr
@@ -545,7 +545,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                         <span style={getNhuCauBadgeStyle(item.Nhu_Cau)}>{item.Nhu_Cau || '-'}</span>
                       </td>
                       <td style={{ ...s.td, textAlign: 'center' }}>{item.Phong_Ngu}</td>
-                      {isBanTab && (
+                      {!isHomestayTab && (
                         <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap', fontSize: 12 }}>{item.Dien_Tich}</td>
                       )}
                       {!isHomestayTab && (
