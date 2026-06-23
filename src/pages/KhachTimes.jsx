@@ -665,7 +665,9 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                   )}
                 </>
               )}
-              <FormField label="Diện tích" value={form.Dien_Tich} onChange={(v) => updateForm('Dien_Tich', v)} placeholder="VD: 75m2, 90m2..." />
+              {form.Nhu_Cau !== 'Homestay' && (
+                <FormField label="Diện tích" value={form.Dien_Tich} onChange={(v) => updateForm('Dien_Tich', v)} placeholder="VD: 75m2, 90m2..." />
+              )}
               <div style={s.fieldWrap}>
                 <label style={s.fieldLabel}>Tài chính</label>
                 <textarea value={form.Tai_Chinh} onChange={(e) => updateForm('Tai_Chinh', e.target.value)} placeholder="VD: 11 / 11.5 / 2000" style={{ ...s.fieldInput, height: 56, resize: 'vertical' }} />
