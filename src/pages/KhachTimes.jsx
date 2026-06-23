@@ -36,7 +36,7 @@ function getTodayStr() {
 const EMPTY_FORM = {
   Ngay_PS: '', Ten_Zalo: '', SDT: '',
   Nhu_Cau: 'Thuê', Phong_Ngu: '', Noi_That: '', Slot_Xe: '',
-  Thoi_Han_Thue: '', Ngay_Vao: '', Dien_Tich: '', Tai_Chinh: '',
+  Thoi_Han_Thue: '', Ngay_Vao: '', Check_Out: '', Dien_Tich: '', Tai_Chinh: '',
   Toa: '', Can_Tu_Van: '', Trang_Thai: '', Coc: '', Chu_Can: '', Thu_Ve: '', Ghi_Chu: '',
 };
 
@@ -159,6 +159,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         Ghi_Chu: item.Ghi_Chu || '',
         Owner_Id: item.Owner_Id || userId || '',
         Thu_Tu: item.Thu_Tu || '',
+        Check_Out: item.Check_Out || '',
         [field]: value,
       };
       // Update local state immediately
@@ -288,6 +289,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
       Slot_Xe: item.Slot_Xe || '',
       Thoi_Han_Thue: item.Thoi_Han_Thue || '',
       Ngay_Vao: item.Ngay_Vao || '',
+      Check_Out: item.Check_Out || '',
       Dien_Tich: item.Dien_Tich || '',
       Tai_Chinh: item.Tai_Chinh || '',
       Toa: item.Toa || '',
@@ -322,6 +324,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         Slot_Xe: form.Slot_Xe,
         Thoi_Han_Thue: form.Thoi_Han_Thue.trim(),
         Ngay_Vao: form.Ngay_Vao.trim(),
+        Check_Out: form.Check_Out.trim(),
         Dien_Tich: form.Dien_Tich.trim(),
         Tai_Chinh: form.Tai_Chinh.trim(),
         Toa: form.Toa.trim(),
@@ -497,7 +500,9 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                     { h: 'SĐT', w: 100 }, { h: 'Nhu cầu', w: 80 }, { h: 'PN', w: 44 },
                     ...(isBanTab ? [{ h: 'Diện tích', w: 80 }] : []),
                     ...(isHomestayTab ? [] : [{ h: 'Nội thất', w: 110 }, { h: 'Slot', w: 50 }]),
-                    ...(isBanTab ? [] : [{ h: 'Thời hạn', w: 90 }, { h: 'Ngày vào', w: 66 }]),
+                    ...(isBanTab ? [] : (isHomestayTab
+                      ? [{ h: 'Thời hạn', w: 90 }, { h: 'Check In', w: 66 }, { h: 'Check Out', w: 66 }]
+                      : [{ h: 'Thời hạn', w: 90 }, { h: 'Ngày vào', w: 66 }])),
                     { h: 'Tài chính', w: 90 },
                     { h: 'Căn tư vấn', w: 160 }, { h: 'Trạng thái', w: 120 },
                     { h: 'Cọc', w: 80 }, { h: 'Chủ căn', w: 100 },
@@ -509,7 +514,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={isBanTab ? 17 : (isHomestayTab ? 16 : 18)} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
+                  <tr><td colSpan={isBanTab ? 17 : (isHomestayTab ? 17 : 18)} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
                 ) : (
                   filtered.map((item) => (
                     <tr
@@ -553,6 +558,9 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                         <>
                           <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Thoi_Han_Thue}</td>
                           <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_Vao}</td>
+                          {isHomestayTab && (
+                            <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap', fontSize: 12 }}>{item.Check_Out}</td>
+                          )}
                         </>
                       )}
                       <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Tai_Chinh}</td>
@@ -651,7 +659,10 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                     <label style={s.fieldLabel}>Thời hạn thuê</label>
                     <textarea value={form.Thoi_Han_Thue} onChange={(e) => updateForm('Thoi_Han_Thue', e.target.value)} placeholder="VD: 1 năm, 2 năm, dài hạn..." style={{ ...s.fieldInput, height: 56, resize: 'vertical' }} />
                   </div>
-                  <FormField label="Ngày vào" value={form.Ngay_Vao} onChange={(v) => updateForm('Ngay_Vao', v)} placeholder="VD: 15/04/2025, Tháng 5..." />
+                  <FormField label={form.Nhu_Cau === 'Homestay' ? 'Check In' : 'Ngày vào'} value={form.Ngay_Vao} onChange={(v) => updateForm('Ngay_Vao', v)} placeholder="VD: 15/04/2025, Tháng 5..." />
+                  {form.Nhu_Cau === 'Homestay' && (
+                    <FormField label="Check Out" value={form.Check_Out} onChange={(v) => updateForm('Check_Out', v)} placeholder="VD: 20/04/2025, Tháng 6..." />
+                  )}
                 </>
               )}
               <FormField label="Diện tích" value={form.Dien_Tich} onChange={(v) => updateForm('Dien_Tich', v)} placeholder="VD: 75m2, 90m2..." />
