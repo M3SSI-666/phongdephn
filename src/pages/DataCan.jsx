@@ -3,42 +3,79 @@ import dataCan from '../data/dataCan.json';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
-// Normalize input the same way as the build script:
-// uppercase + strip everything that is not A-Z or 0-9
+// Normalize mã căn: uppercase + strip everything that is not A-Z or 0-9
 function normCode(v) {
   return String(v ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
+// Normalize phone: digits only, add leading 0 if missing
+function normPhone(v) {
+  let s = String(v ?? '').replace(/[^\d]/g, '');
+  if (s && !s.startsWith('0')) s = '0' + s;
+  return s;
+}
+
 export function DataCanContent() {
+  const [mode, setMode] = useState('code'); // 'code' = tìm theo mã căn, 'phone' = tìm theo SĐT
   const [input, setInput] = useState('');
   const [result, setResult] = useState(null); // null = chưa tìm, [] = không thấy, [...] = kết quả
-  const [searchedCode, setSearchedCode] = useState('');
+  const [searchedTerm, setSearchedTerm] = useState('');
 
   function handleSearch() {
-    const code = normCode(input);
-    setSearchedCode(code);
-    if (!code) { setResult(null); return; }
-    setResult(dataCan[code] || []);
+    if (mode === 'code') {
+      const code = normCode(input);
+      setSearchedTerm(code);
+      if (!code) { setResult(null); return; }
+      setResult(dataCan.byCode[code] || []);
+    } else {
+      const phone = normPhone(input);
+      setSearchedTerm(phone);
+      if (!phone) { setResult(null); return; }
+      setResult(dataCan.byPhone[phone] || []);
+    }
   }
 
-  function copyPhone(sdt) {
-    if (!sdt) return;
-    navigator.clipboard?.writeText(sdt);
+  function switchMode(m) {
+    if (m === mode) return;
+    setMode(m);
+    setInput('');
+    setResult(null);
+    setSearchedTerm('');
   }
+
+  function copy(txt) {
+    if (!txt) return;
+    navigator.clipboard?.writeText(txt);
+  }
+
+  const isCode = mode === 'code';
 
   return (
     <div style={s.wrap}>
       <div style={s.card}>
         <div style={s.title}>Tra cứu thông tin chủ căn</div>
-        <div style={s.sub}>Nhập mã căn để tìm tên chủ nhà và số điện thoại</div>
+        <div style={s.sub}>
+          {isCode ? 'Nhập mã căn để tìm tên chủ nhà và số điện thoại' : 'Nhập số điện thoại để tìm chủ nhà và mã căn'}
+        </div>
+
+        {/* Toggle chế độ */}
+        <div style={s.modeRow}>
+          <button style={{ ...s.modeBtn, ...(isCode ? s.modeBtnActive : {}) }} onClick={() => switchMode('code')}>
+            Theo mã căn
+          </button>
+          <button style={{ ...s.modeBtn, ...(!isCode ? s.modeBtnActive : {}) }} onClick={() => switchMode('phone')}>
+            Theo số điện thoại
+          </button>
+        </div>
 
         <div style={s.searchRow}>
           <input
-            style={s.input}
+            style={{ ...s.input, ...(isCode ? { textTransform: 'uppercase' } : {}) }}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
-            placeholder="Ví dụ: T010301, P010201..."
+            placeholder={isCode ? 'Ví dụ: T010301, P010201...' : 'Ví dụ: 0987654321'}
+            inputMode={isCode ? 'text' : 'numeric'}
             autoFocus
           />
           <button style={s.btn} onClick={handleSearch}>Tìm</button>
@@ -48,11 +85,13 @@ export function DataCanContent() {
         {result !== null && (
           <div style={{ marginTop: 18 }}>
             {result.length === 0 ? (
-              <div style={s.notFound}>Không tìm thấy mã căn <strong>{searchedCode}</strong></div>
-            ) : (
+              <div style={s.notFound}>
+                Không tìm thấy {isCode ? 'mã căn' : 'số điện thoại'} <strong>{searchedTerm}</strong>
+              </div>
+            ) : isCode ? (
               <>
                 <div style={s.resultHead}>
-                  Mã căn <span style={s.code}>{searchedCode}</span>
+                  Mã căn <span style={s.code}>{searchedTerm}</span>
                   {result.length > 1 && <span style={s.multi}>{result.length} chủ</span>}
                 </div>
                 <div style={s.list}>
@@ -66,7 +105,7 @@ export function DataCanContent() {
                         <span style={s.label}>SĐT</span>
                         <span style={s.phoneList}>
                           {(r.sdt && r.sdt.length > 0) ? r.sdt.map((p, j) => (
-                            <span key={j} style={{ ...s.value, ...s.phone }} onClick={() => copyPhone(p)} title="Bấm để copy">
+                            <span key={j} style={{ ...s.value, ...s.phone }} onClick={() => copy(p)} title="Bấm để copy">
                               {p}
                             </span>
                           )) : <span style={s.value}>—</span>}
@@ -82,6 +121,27 @@ export function DataCanContent() {
                   ))}
                 </div>
               </>
+            ) : (
+              <>
+                <div style={s.resultHead}>
+                  SĐT <span style={s.code}>{searchedTerm}</span>
+                  {result.length > 1 && <span style={s.multi}>{result.length} căn</span>}
+                </div>
+                <div style={s.list}>
+                  {result.map((r, i) => (
+                    <div key={i} style={s.item}>
+                      <div style={s.itemRow}>
+                        <span style={s.label}>Mã căn</span>
+                        <span style={{ ...s.value, ...s.phone }} onClick={() => copy(r.code)} title="Bấm để copy">{r.code}</span>
+                      </div>
+                      <div style={s.itemRow}>
+                        <span style={s.label}>Chủ nhà</span>
+                        <span style={s.value}>{r.ten || '—'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -91,22 +151,25 @@ export function DataCanContent() {
 }
 
 const s = {
-  wrap:       { fontFamily: F, maxWidth: 560, margin: '0 auto' },
-  card:       { background: '#13151e', border: '1px solid #2d3240', borderRadius: 16, padding: '24px 20px' },
-  title:      { fontSize: 18, fontWeight: 800, color: '#22C55E' },
-  sub:        { fontSize: 13, color: '#8a9bb8', marginTop: 4, marginBottom: 18 },
-  searchRow:  { display: 'flex', gap: 10 },
-  input:      { flex: 1, padding: '12px 14px', borderRadius: 10, border: '1.5px solid #3a3f52', background: '#0f1117', color: '#e2e8f0', fontSize: 15, fontFamily: F, outline: 'none', textTransform: 'uppercase' },
-  btn:        { padding: '12px 26px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #22C55E, #16A34A)', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: F },
-  notFound:   { padding: '16px', borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid #EF4444', color: '#fca5a5', fontSize: 14, textAlign: 'center' },
-  resultHead: { fontSize: 14, color: '#8a9bb8', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 },
-  code:       { color: '#22C55E', fontWeight: 800, fontSize: 16 },
-  multi:      { fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'rgba(246,173,85,0.18)', color: '#F6AD55' },
-  list:       { display: 'flex', flexDirection: 'column', gap: 10 },
-  item:       { background: '#1a1d27', border: '1px solid #2d3240', borderRadius: 12, padding: '14px 16px' },
-  itemRow:    { display: 'flex', alignItems: 'baseline', gap: 12, padding: '4px 0' },
-  label:      { fontSize: 12, color: '#8a9bb8', width: 64, flexShrink: 0 },
-  value:      { fontSize: 15, color: '#e2e8f0', fontWeight: 600 },
-  phoneList:  { display: 'flex', flexDirection: 'column', gap: 4 },
-  phone:      { color: '#4ADE80', cursor: 'pointer', letterSpacing: 0.5 },
+  wrap:        { fontFamily: F, maxWidth: 560, margin: '0 auto' },
+  card:        { background: '#13151e', border: '1px solid #2d3240', borderRadius: 16, padding: '24px 20px' },
+  title:       { fontSize: 18, fontWeight: 800, color: '#22C55E' },
+  sub:         { fontSize: 13, color: '#8a9bb8', marginTop: 4, marginBottom: 14 },
+  modeRow:     { display: 'flex', gap: 8, marginBottom: 14 },
+  modeBtn:     { flex: 1, padding: '8px 12px', borderRadius: 8, border: '1.5px solid #3a3f52', background: 'transparent', color: '#8a9bb8', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: F },
+  modeBtnActive:{ background: 'rgba(34,197,94,0.15)', border: '1.5px solid #22C55E', color: '#4ADE80' },
+  searchRow:   { display: 'flex', gap: 10 },
+  input:       { flex: 1, padding: '12px 14px', borderRadius: 10, border: '1.5px solid #3a3f52', background: '#0f1117', color: '#e2e8f0', fontSize: 15, fontFamily: F, outline: 'none' },
+  btn:         { padding: '12px 26px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #22C55E, #16A34A)', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: F },
+  notFound:    { padding: '16px', borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid #EF4444', color: '#fca5a5', fontSize: 14, textAlign: 'center' },
+  resultHead:  { fontSize: 14, color: '#8a9bb8', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 },
+  code:        { color: '#22C55E', fontWeight: 800, fontSize: 16 },
+  multi:       { fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'rgba(246,173,85,0.18)', color: '#F6AD55' },
+  list:        { display: 'flex', flexDirection: 'column', gap: 10 },
+  item:        { background: '#1a1d27', border: '1px solid #2d3240', borderRadius: 12, padding: '14px 16px' },
+  itemRow:     { display: 'flex', alignItems: 'baseline', gap: 12, padding: '4px 0' },
+  label:       { fontSize: 12, color: '#8a9bb8', width: 64, flexShrink: 0 },
+  value:       { fontSize: 15, color: '#e2e8f0', fontWeight: 600 },
+  phoneList:   { display: 'flex', flexDirection: 'column', gap: 4 },
+  phone:       { color: '#4ADE80', cursor: 'pointer', letterSpacing: 0.5 },
 };

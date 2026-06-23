@@ -1,5 +1,9 @@
 // Build script: convert Data.xlsx (23 sheets, one per Times City building)
-// into a static lookup JSON: { "<MA_CAN>": [{ ten, sdt, ghiChu }, ...] }
+// into a static lookup JSON:
+//   {
+//     byCode:  { "<MA_CAN>": [{ ten, sdt, ghiChu }, ...] },
+//     byPhone: { "<SDT>":    [{ code, ten }, ...] }
+//   }
 //
 // Run:  node scripts/build-data-can.mjs
 //
@@ -46,7 +50,8 @@ function clean(v) {
 const buf = await readFile(SRC_XLSX);
 const wb = XLSX.read(buf, { type: 'buffer' });
 
-const lookup = {};
+const byCode = {};
+const byPhone = {};
 let totalRows = 0;
 let totalCells = 0;
 
@@ -62,20 +67,31 @@ for (const sheetName of wb.SheetNames) {
     const sdt = normPhones(row[2]);
     const ghiChu = clean(row[3]);
     if (!ten && sdt.length === 0 && !ghiChu) continue;
-    if (!lookup[code]) lookup[code] = [];
-    lookup[code].push({ ten, sdt, ghiChu });
+
+    if (!byCode[code]) byCode[code] = [];
+    byCode[code].push({ ten, sdt, ghiChu });
+
+    // Reverse index: phone -> [{ code, ten }] (skip duplicate code+ten pairs)
+    for (const p of sdt) {
+      if (!byPhone[p]) byPhone[p] = [];
+      if (!byPhone[p].some((e) => e.code === code && e.ten === ten)) {
+        byPhone[p].push({ code, ten });
+      }
+    }
     totalRows++;
   }
   totalCells++;
 }
 
 await mkdir(dirname(OUT_JSON), { recursive: true });
-await writeFile(OUT_JSON, JSON.stringify(lookup), 'utf8');
+await writeFile(OUT_JSON, JSON.stringify({ byCode, byPhone }), 'utf8');
 
-const uniqueCodes = Object.keys(lookup).length;
-const multiOwner = Object.values(lookup).filter((a) => a.length > 1).length;
+const uniqueCodes = Object.keys(byCode).length;
+const multiOwner = Object.values(byCode).filter((a) => a.length > 1).length;
+const uniquePhones = Object.keys(byPhone).length;
 console.log(`Sheets processed: ${totalCells}`);
 console.log(`Data rows: ${totalRows}`);
 console.log(`Unique codes: ${uniqueCodes}`);
 console.log(`Multi-owner codes: ${multiOwner}`);
+console.log(`Unique phones: ${uniquePhones}`);
 console.log(`Written: ${OUT_JSON}`);
