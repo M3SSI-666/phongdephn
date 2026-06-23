@@ -493,6 +493,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                   {[
                     { h: 'Ngày PS', w: 80 }, { h: 'Tên (Zalo)', w: 110 },
                     { h: 'SĐT', w: 100 }, { h: 'Nhu cầu', w: 80 }, { h: 'PN', w: 44 },
+                    ...(isBanTab ? [{ h: 'Diện tích', w: 80 }] : []),
                     { h: 'Nội thất', w: 110 }, { h: 'Slot', w: 50 },
                     ...(isBanTab ? [] : [{ h: 'Thời hạn', w: 90 }, { h: 'Ngày vào', w: 66 }]),
                     { h: 'Tài chính', w: 90 },
@@ -506,7 +507,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={isBanTab ? 16 : 18} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
+                  <tr><td colSpan={isBanTab ? 17 : 18} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
                 ) : (
                   filtered.map((item) => (
                     <tr
@@ -537,6 +538,9 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                         <span style={getNhuCauBadgeStyle(item.Nhu_Cau)}>{item.Nhu_Cau || '-'}</span>
                       </td>
                       <td style={{ ...s.td, textAlign: 'center' }}>{item.Phong_Ngu}</td>
+                      {isBanTab && (
+                        <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap', fontSize: 12 }}>{item.Dien_Tich}</td>
+                      )}
                       <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Noi_That}</td>
                       <td style={{ ...s.td, textAlign: 'center' }}>{item.Slot_Xe || '-'}</td>
                       {!isBanTab && (
