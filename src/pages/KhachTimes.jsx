@@ -36,7 +36,7 @@ function getTodayStr() {
 const EMPTY_FORM = {
   Ngay_PS: '', Ten_Zalo: '', SDT: '',
   Nhu_Cau: 'Thuê', Phong_Ngu: '', Noi_That: '', Slot_Xe: '',
-  Thoi_Han_Thue: '', Ngay_Vao: '', Check_Out: '', Dien_Tich: '', Tai_Chinh: '',
+  Thoi_Han_Thue: '', Ngay_Vao: '', Check_Out: '', Dien_Tich: '', Tang: '', Ban_Cong: '', Cua: '', Tai_Chinh: '',
   Toa: '', Can_Tu_Van: '', Trang_Thai: '', Coc: '', Chu_Can: '', Thu_Ve: '', Ghi_Chu: '',
 };
 
@@ -160,6 +160,9 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         Owner_Id: item.Owner_Id || userId || '',
         Thu_Tu: item.Thu_Tu || '',
         Check_Out: item.Check_Out || '',
+        Tang: item.Tang || '',
+        Ban_Cong: item.Ban_Cong || '',
+        Cua: item.Cua || '',
         [field]: value,
       };
       // Update local state immediately
@@ -291,6 +294,9 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
       Ngay_Vao: item.Ngay_Vao || '',
       Check_Out: item.Check_Out || '',
       Dien_Tich: item.Dien_Tich || '',
+      Tang: item.Tang || '',
+      Ban_Cong: item.Ban_Cong || '',
+      Cua: item.Cua || '',
       Tai_Chinh: item.Tai_Chinh || '',
       Toa: item.Toa || '',
       Can_Tu_Van: item.Can_Tu_Van || '',
@@ -326,6 +332,9 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         Ngay_Vao: form.Ngay_Vao.trim(),
         Check_Out: form.Check_Out.trim(),
         Dien_Tich: form.Dien_Tich.trim(),
+        Tang: form.Tang.trim(),
+        Ban_Cong: form.Ban_Cong.trim(),
+        Cua: form.Cua.trim(),
         Tai_Chinh: form.Tai_Chinh.trim(),
         Toa: form.Toa.trim(),
         Can_Tu_Van: form.Can_Tu_Van.trim(),
@@ -499,6 +508,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                     { h: 'Ngày PS', w: 80 }, { h: 'Tên (Zalo)', w: 110 },
                     { h: 'SĐT', w: 100 }, { h: 'Nhu cầu', w: 80 }, { h: 'PN', w: 44 },
                     ...(isHomestayTab ? [] : [{ h: 'Diện tích', w: 80 }]),
+                    ...(isBanTab ? [{ h: 'Tầng', w: 60 }, { h: 'Ban công', w: 70 }, { h: 'Cửa', w: 70 }] : []),
                     ...(isHomestayTab ? [] : [{ h: 'Nội thất', w: 110 }, { h: 'Slot', w: 50 }]),
                     ...(isBanTab ? [] : (isHomestayTab
                       ? [{ h: 'Thời hạn', w: 90 }, { h: 'Check In', w: 66 }, { h: 'Check Out', w: 66 }]
@@ -514,7 +524,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={isBanTab ? 17 : (isHomestayTab ? 17 : 19)} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
+                  <tr><td colSpan={isBanTab ? 20 : (isHomestayTab ? 17 : 19)} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
                 ) : (
                   filtered.map((item) => (
                     <tr
@@ -547,6 +557,13 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                       <td style={{ ...s.td, textAlign: 'center' }}>{item.Phong_Ngu}</td>
                       {!isHomestayTab && (
                         <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap', fontSize: 12 }}>{item.Dien_Tich}</td>
+                      )}
+                      {isBanTab && (
+                        <>
+                          <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap', fontSize: 12 }}>{item.Tang}</td>
+                          <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ban_Cong}</td>
+                          <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap', fontSize: 12 }}>{item.Cua}</td>
+                        </>
                       )}
                       {!isHomestayTab && (
                         <>
@@ -667,6 +684,13 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
               )}
               {form.Nhu_Cau !== 'Homestay' && (
                 <FormField label="Diện tích" value={form.Dien_Tich} onChange={(v) => updateForm('Dien_Tich', v)} placeholder="VD: 75m2, 90m2..." />
+              )}
+              {form.Nhu_Cau === 'Mua' && (
+                <>
+                  <FormField label="Tầng" value={form.Tang} onChange={(v) => updateForm('Tang', v)} placeholder="VD: 12, tầng cao, tầng trung..." />
+                  <FormField label="Ban công" value={form.Ban_Cong} onChange={(v) => updateForm('Ban_Cong', v)} placeholder="VD: Đông Nam, hướng hồ..." />
+                  <FormField label="Cửa" value={form.Cua} onChange={(v) => updateForm('Cua', v)} placeholder="VD: Đông, Tây Bắc..." />
+                </>
               )}
               <div style={s.fieldWrap}>
                 <label style={s.fieldLabel}>Tài chính</label>
