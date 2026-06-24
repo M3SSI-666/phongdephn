@@ -646,6 +646,8 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                 <select value={form.Phong_Ngu} onChange={(e) => updateForm('Phong_Ngu', e.target.value)} style={s.fieldInput}>
                   <option value="">-- Chọn --</option>
                   {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={`${n}`}>{n}</option>)}
+                  <option value="Đập thông">Đập thông</option>
+                  <option value="Shophouse">Shophouse</option>
                 </select>
               </div>
 
