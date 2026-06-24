@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
-import { fetchKhachTimes, postKhachTimes } from '../utils/api';
+import { fetchKhachTimes, postKhachTimes, parseSearchQuery } from '../utils/api';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -40,6 +40,106 @@ const EMPTY_FORM = {
   Toa: '', Can_Tu_Van: '', Trang_Thai: '', Coc: '', Chu_Can: '', Thu_Ve: '', Ghi_Chu: '',
 };
 
+// ── Khớp tiêu chí AI với dữ liệu khách (so khớp RỘNG để không bỏ sót khách) ──
+// Gộp toàn bộ cột free-text của 1 khách thành 1 chuỗi để dò chữ.
+function khachText(it) {
+  return [
+    it.Phong_Ngu, it.Noi_That, it.Toa, it.Can_Tu_Van,
+    it.Tai_Chinh, it.Ghi_Chu, it.Thoi_Han_Thue, it.Dien_Tich, it.Tang,
+  ].map((v) => String(v ?? '').toLowerCase()).join(' | ');
+}
+
+// Lấy số phòng ngủ từ "3PN"/"3 ngủ"/"3n" → "3"
+function bedNum(thietKe) {
+  const m = String(thietKe ?? '').match(/(\d)/);
+  return m ? m[1] : null;
+}
+
+// Dò 1 con số (triệu) bất kỳ trong chuỗi tài chính của khách. "20 tỷ"→20000, "19tr"→19, "1.2 tỷ"→1200
+function parseTaiChinhToTrieu(str) {
+  const s = String(str ?? '').toLowerCase();
+  const out = [];
+  // bắt cụm số + đơn vị
+  const re = /(\d+(?:[.,]\d+)?)\s*(tỷ|ty|tỉ|tr|triệu|trieu)?/g;
+  let m;
+  while ((m = re.exec(s)) !== null) {
+    let num = parseFloat(m[1].replace(',', '.'));
+    if (Number.isNaN(num)) continue;
+    const unit = m[2] || '';
+    if (/tỷ|ty|tỉ/.test(unit)) num *= 1000;     // tỷ → triệu
+    else if (!unit && num >= 100) num = num;     // số trần lớn coi như triệu
+    out.push(num);
+  }
+  return out;
+}
+
+// Trả về true nếu khách `it` khớp với tiêu chí AI `f`.
+// Mỗi tiêu chí khớp lỏng: nếu cột khách trống thì KHÔNG loại (ưu tiên không bỏ sót).
+function matchAiKhach(it, f) {
+  const text = khachText(it);
+
+  // Số phòng ngủ
+  const bn = bedNum(f.Thiet_Ke);
+  if (bn) {
+    const pn = String(it.Phong_Ngu ?? '').toLowerCase();
+    if (pn) {
+      const ok = pn.includes(bn) || pn.includes(`${bn}n`) || pn.includes(`${bn} ng`)
+        || pn.includes('đập thông') || pn.includes('shophouse');
+      if (!ok) return false;
+    }
+  }
+
+  // Hướng ban công
+  if (f.Huong_BC) {
+    const h = String(f.Huong_BC).toLowerCase();
+    if (!text.includes(h)) {
+      // thử rút gọn: "đông nam" cũng khớp nếu chứa cả "đông" và "nam"
+      const parts = h.split(/\s+/);
+      const all = parts.every((p) => text.includes(p));
+      if (!all) return false;
+    }
+  }
+
+  // Nội thất
+  if (f.Noi_That) {
+    const nt = String(f.Noi_That).toLowerCase();
+    const ntCell = String(it.Noi_That ?? '').toLowerCase();
+    const hay = ntCell || text;
+    let ok = hay.includes(nt);
+    if (!ok) {
+      if (nt.includes('không')) ok = /không\s*đồ|trống|empty/.test(hay);
+      else if (nt.includes('full')) ok = /full|đầy đủ|đủ đồ/.test(hay);
+      else if (nt.includes('cơ bản')) ok = /cơ bản|basic/.test(hay);
+    }
+    // Nếu khách không ghi nội thất thì không loại
+    if (ntCell && !ok) return false;
+  }
+
+  // Toà
+  if (f.Toa) {
+    const toa = String(f.Toa).toLowerCase().replace(/^0+/, '');
+    const toaCell = (String(it.Toa ?? '') + ' ' + String(it.Can_Tu_Van ?? '')).toLowerCase();
+    if (toaCell.trim() && !toaCell.includes(toa) && !toaCell.includes(String(f.Toa).toLowerCase())) {
+      return false;
+    }
+  }
+
+  // Ngân sách: nếu khách có ghi tài chính, kiểm tra nằm trong khoảng.
+  if (f.Gia_Min != null || f.Gia_Max != null) {
+    const nums = parseTaiChinhToTrieu(it.Tai_Chinh);
+    if (nums.length > 0) {
+      const hit = nums.some((n) => {
+        if (f.Gia_Min != null && n < f.Gia_Min * 0.8) return false;  // nới 20%
+        if (f.Gia_Max != null && n > f.Gia_Max * 1.2) return false;
+        return true;
+      });
+      if (!hit) return false;
+    }
+  }
+
+  return true;
+}
+
 export function KhachTimesContent({ overrideUserId, overrideRole, isViewAs } = {}) {
   return <KhachTimesInner showHeader={false} overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
 }
@@ -59,6 +159,8 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   const [error, setError] = useState('');
 
   const [search, setSearch] = useState('');
+  const [aiFilter, setAiFilter] = useState(null);   // tiêu chí AI đã nhận dạng (null = chưa dùng AI)
+  const [aiSearching, setAiSearching] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState('ban'); // mặc định mở tab Khách bán
   const [filterTrangThai, setFilterTrangThai] = useState([]);
 
@@ -181,7 +283,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   const [dragRowIndex, setDragRowIndex] = useState(null); // _rowIndex của hàng đang kéo
   const [dragOverIndex, setDragOverIndex] = useState(null); // _rowIndex của hàng đang được rê tới
   // Chỉ cho kéo-thả khi xem danh sách đầy đủ của 1 tab (không tìm kiếm, không lọc trạng thái).
-  const canDrag = !search.trim() && filterTrangThai.length === 0;
+  const canDrag = !search.trim() && !aiFilter && filterTrangThai.length === 0;
 
   // Tab Khách bán: ẩn cột/trường "Thời hạn" và "Ngày vào" vì không cần thiết.
   const isBanTab = activeSubTab === 'ban';
@@ -201,7 +303,10 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     if (filterTrangThai.length > 0) {
       list = list.filter((it) => filterTrangThai.includes(it.Trang_Thai || ''));
     }
-    if (search.trim()) {
+    if (aiFilter) {
+      // Tìm kiếm thông minh: khớp tiêu chí AI đã nhận dạng.
+      list = list.filter((it) => matchAiKhach(it, aiFilter));
+    } else if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter((it) =>
         (it.Ten_Zalo || '').toLowerCase().includes(q) ||
@@ -229,7 +334,36 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
       return Number(b.STT || 0) - Number(a.STT || 0);
     });
     return list;
-  }, [items, filterLoai, filterTrangThai, search]);
+  }, [items, filterLoai, filterTrangThai, search, aiFilter]);
+
+  // Tìm kiếm thông minh: gửi câu chữ tự nhiên cho AI nhận dạng tiêu chí, rồi lọc khách.
+  const handleAiSearch = useCallback(async () => {
+    const q = search.trim();
+    if (!q) { showToast('Nhập nội dung cần tìm', 'error'); return; }
+    setAiSearching(true);
+    try {
+      const f = await parseSearchQuery(q);
+      // Bỏ các tiêu chí null để biết AI có nhận được gì không.
+      const hasAny = ['Thiet_Ke', 'Huong_BC', 'Noi_That', 'Toa', 'Gia_Min', 'Gia_Max']
+        .some((k) => f && f[k] != null);
+      if (!hasAny) {
+        showToast('Không nhận dạng được tiêu chí, dùng tìm thường', 'error');
+        setAiFilter(null);
+      } else {
+        setAiFilter(f);
+      }
+    } catch (e) {
+      showToast('Lỗi AI: ' + e.message, 'error');
+    } finally {
+      setAiSearching(false);
+    }
+  }, [search, showToast]);
+
+  // Xoá ô tìm + tắt chế độ AI.
+  const clearSearch = useCallback(() => {
+    setSearch('');
+    setAiFilter(null);
+  }, []);
 
   // Lưu thứ tự mới: gán Thu_Tu = 1..n cho các hàng trong tab hiện tại, lưu lên Sheets.
   const persistOrder = useCallback(async (orderedList) => {
@@ -457,9 +591,29 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         <div className="kt-filter-row" style={s.filterRow}>
           <div style={s.searchWrap}>
             <span style={s.searchIcon}>&#128269;</span>
-            <input type="text" placeholder="Tìm theo tên, SĐT, toà, căn tư vấn..." value={search} onChange={(e) => setSearch(e.target.value)} style={s.searchInput} />
-            {search && <button onClick={() => setSearch('')} style={s.clearBtn}>&times;</button>}
+            <input
+              type="text"
+              placeholder="Tìm thường, hoặc gõ AI: 3n không đồ hướng bắc, 20 tỷ..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); if (aiFilter) setAiFilter(null); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleAiSearch(); }}
+              style={{ ...s.searchInput, ...(aiFilter ? { borderColor: C.primary, paddingRight: 64 } : {}) }}
+            />
+            {(search || aiFilter) && <button onClick={clearSearch} style={s.clearBtn}>&times;</button>}
           </div>
+          <button
+            onClick={handleAiSearch}
+            disabled={aiSearching}
+            style={{
+              padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700,
+              cursor: aiSearching ? 'wait' : 'pointer', fontFamily: F, whiteSpace: 'nowrap',
+              border: 'none', background: C.gradient, color: '#fff',
+              opacity: aiSearching ? 0.6 : 1, boxShadow: C.shadowGreen,
+            }}
+            title="Tìm kiếm thông minh bằng AI"
+          >
+            {aiSearching ? '⏳ Đang tìm...' : '✨ Tìm AI'}
+          </button>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
             {TRANG_THAI_OPTIONS.filter(o => o.value).map(o => {
               const active = filterTrangThai.includes(o.value);
@@ -493,6 +647,35 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
           </div>
           <div style={s.resultCount}>{filtered.length} / {items.length} khách</div>
         </div>
+
+        {/* Tiêu chí AI đã nhận dạng */}
+        {aiFilter && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 16, marginTop: -4 }}>
+            <span style={{ fontSize: 12, color: '#4ADE80', fontWeight: 700 }}>✨ AI nhận dạng:</span>
+            {[
+              aiFilter.Thiet_Ke && { label: aiFilter.Thiet_Ke },
+              aiFilter.Huong_BC && { label: 'Hướng ' + aiFilter.Huong_BC },
+              aiFilter.Noi_That && { label: aiFilter.Noi_That },
+              aiFilter.Toa && { label: 'Toà ' + aiFilter.Toa },
+              (aiFilter.Gia_Min != null || aiFilter.Gia_Max != null) && {
+                label: 'Tài chính ' + (
+                  aiFilter.Gia_Min != null && aiFilter.Gia_Max != null
+                    ? `${aiFilter.Gia_Min}–${aiFilter.Gia_Max} tr`
+                    : aiFilter.Gia_Max != null ? `≤ ${aiFilter.Gia_Max} tr` : `≥ ${aiFilter.Gia_Min} tr`
+                ),
+              },
+            ].filter(Boolean).map((b, i) => (
+              <span key={i} style={{
+                fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 8,
+                background: 'rgba(34,197,94,0.15)', border: '1px solid #22C55E', color: '#4ADE80',
+              }}>{b.label}</span>
+            ))}
+            <button
+              onClick={clearSearch}
+              style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 8, cursor: 'pointer', fontFamily: F, background: 'none', border: '1px solid #3a3f52', color: '#8a9bb8' }}
+            >✕ Xoá lọc AI</button>
+          </div>
+        )}
 
         {error && <div style={s.errorBox}>{error}</div>}
         {loading && <div style={s.loadingBox}>Đang tải dữ liệu...</div>}
