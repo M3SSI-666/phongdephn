@@ -696,8 +696,10 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                     ...(isBanTab ? [] : (isHomestayTab
                       ? [{ h: 'Thời hạn', w: 90 }, { h: 'Check In', w: 66 }, { h: 'Check Out', w: 66 }]
                       : [{ h: 'Thời hạn', w: 90 }, { h: 'Ngày vào', w: 66 }])),
-                    { h: 'Tài chính', w: 90 },
-                    { h: 'Căn tư vấn', w: 160 }, { h: 'Trạng thái', w: 120 },
+                    ...(isHomestayTab
+                      ? [{ h: 'Căn Lock', w: 160 }, { h: 'Tổng tiền', w: 90 }]
+                      : [{ h: 'Tài chính', w: 90 }, { h: 'Căn tư vấn', w: 160 }]),
+                    { h: 'Trạng thái', w: 120 },
                     { h: 'Cọc', w: 80 }, { h: 'Chủ căn', w: 100 },
                     { h: 'Thu về', w: 90 }, { h: 'Ghi chú', w: 220 }, { h: '', w: 64 },
                   ].map(({ h, w }, idx) => (
@@ -763,8 +765,17 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                           )}
                         </>
                       )}
-                      <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Tai_Chinh}</td>
-                      <td style={{ ...s.td, whiteSpace: 'pre-line', fontSize: 12 }}>{item.Can_Tu_Van}</td>
+                      {isHomestayTab ? (
+                        <>
+                          <td style={{ ...s.td, whiteSpace: 'pre-line', fontSize: 12 }}>{item.Can_Tu_Van}</td>
+                          <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Tai_Chinh}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Tai_Chinh}</td>
+                          <td style={{ ...s.td, whiteSpace: 'pre-line', fontSize: 12 }}>{item.Can_Tu_Van}</td>
+                        </>
+                      )}
                       {/* Trạng thái — inline dropdown */}
                       <td style={{ ...s.td, padding: '4px 4px' }}>
                         <select
@@ -878,7 +889,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                 </>
               )}
               <div style={s.fieldWrap}>
-                <label style={s.fieldLabel}>Tài chính</label>
+                <label style={s.fieldLabel}>{isHomestayTab ? 'Tổng tiền' : 'Tài chính'}</label>
                 <textarea value={form.Tai_Chinh} onChange={(e) => updateForm('Tai_Chinh', e.target.value)} placeholder="VD: 11 / 11.5 / 2000" style={{ ...s.fieldInput, height: 56, resize: 'vertical' }} />
               </div>
               <div style={s.fieldWrap}>
@@ -887,7 +898,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
               </div>
 
               <div style={s.fieldWrap}>
-                <label style={s.fieldLabel}>Căn tư vấn</label>
+                <label style={s.fieldLabel}>{isHomestayTab ? 'Căn Lock' : 'Căn tư vấn'}</label>
                 <textarea value={form.Can_Tu_Van} onChange={(e) => updateForm('Can_Tu_Van', e.target.value)} placeholder="VD: Park 1 - 07.12&#10;Park 5 - 03.08" style={{ ...s.fieldInput, height: 72, resize: 'vertical' }} />
               </div>
 
