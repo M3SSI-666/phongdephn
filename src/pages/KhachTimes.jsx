@@ -700,7 +700,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                       ? [{ h: 'Thời hạn', w: 90 }, { h: 'Check In', w: 66 }, { h: 'Check Out', w: 66 }]
                       : [{ h: 'Thời hạn', w: 90 }, { h: 'Ngày vào', w: 66 }])),
                     ...(isHomestayTab
-                      ? [{ h: 'Căn Lock', w: 160 }, { h: 'Trạng thái', w: 120 }, { h: 'Tổng tiền', w: 90 }]
+                      ? [{ h: 'Căn Lock', w: 130 }, { h: 'Trạng thái', w: 120 }, { h: 'Tổng tiền', w: 120 }]
                       : [{ h: 'Tài chính', w: 90 }, { h: 'Căn tư vấn', w: 160 }, { h: 'Trạng thái', w: 120 }]),
                     { h: 'Khách cọc', w: 80 }, { h: 'Cọc Host', w: 80 }, { h: 'Host', w: 100 },
                     { h: 'Thu về', w: 90 }, { h: 'Ghi chú', w: 220 }, { h: '', w: 64 },
