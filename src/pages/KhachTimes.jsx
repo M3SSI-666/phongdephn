@@ -37,7 +37,7 @@ const EMPTY_FORM = {
   Ngay_PS: '', Ten_Zalo: '', SDT: '',
   Nhu_Cau: 'Thuê', Phong_Ngu: '', Noi_That: '', Slot_Xe: '',
   Thoi_Han_Thue: '', Ngay_Vao: '', Check_Out: '', Dien_Tich: '', Tang: '', Ban_Cong: '', Cua: '', Tai_Chinh: '',
-  Toa: '', Can_Tu_Van: '', Trang_Thai: '', Coc: '', Chu_Can: '', Thu_Ve: '', Ghi_Chu: '',
+  Toa: '', Can_Tu_Van: '', Trang_Thai: '', Coc: '', Coc_Host: '', Chu_Can: '', Thu_Ve: '', Ghi_Chu: '',
 };
 
 // ── Khớp tiêu chí AI với dữ liệu khách (so khớp RỘNG để không bỏ sót khách) ──
@@ -256,6 +256,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         Can_Tu_Van: item.Can_Tu_Van || '',
         Trang_Thai: item.Trang_Thai || '',
         Coc: item.Coc || '',
+        Coc_Host: item.Coc_Host || '',
         Chu_Can: item.Chu_Can || '',
         Thu_Ve: item.Thu_Ve || '',
         Ghi_Chu: item.Ghi_Chu || '',
@@ -436,6 +437,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
       Can_Tu_Van: item.Can_Tu_Van || '',
       Trang_Thai: item.Trang_Thai || '',
       Coc: item.Coc || '',
+      Coc_Host: item.Coc_Host || '',
       Chu_Can: item.Chu_Can || '',
       Thu_Ve: item.Thu_Ve || '',
       Ghi_Chu: item.Ghi_Chu || '',
@@ -474,6 +476,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         Can_Tu_Van: form.Can_Tu_Van.trim(),
         Trang_Thai: form.Trang_Thai,
         Coc: form.Coc.trim(),
+        Coc_Host: form.Coc_Host.trim(),
         Chu_Can: form.Chu_Can.trim(),
         Thu_Ve: form.Thu_Ve.trim(),
         Ghi_Chu: form.Ghi_Chu.trim(),
@@ -699,7 +702,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                     ...(isHomestayTab
                       ? [{ h: 'Căn Lock', w: 160 }, { h: 'Trạng thái', w: 120 }, { h: 'Tổng tiền', w: 90 }]
                       : [{ h: 'Tài chính', w: 90 }, { h: 'Căn tư vấn', w: 160 }, { h: 'Trạng thái', w: 120 }]),
-                    { h: 'Cọc', w: 80 }, { h: 'Chủ căn', w: 100 },
+                    { h: 'Khách cọc', w: 80 }, { h: 'Cọc Host', w: 80 }, { h: 'Host', w: 100 },
                     { h: 'Thu về', w: 90 }, { h: 'Ghi chú', w: 220 }, { h: '', w: 64 },
                   ].map(({ h, w }, idx) => (
                     <th key={h || `act_${idx}`} style={{ ...s.th, width: w, minWidth: w }}>{h}</th>
@@ -708,7 +711,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={isBanTab ? 20 : (isHomestayTab ? 17 : 19)} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
+                  <tr><td colSpan={isBanTab ? 21 : (isHomestayTab ? 18 : 20)} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
                 ) : (
                   filtered.map((item) => (
                     <tr
@@ -797,9 +800,11 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                           </td>
                         </>
                       )}
-                      {/* Cọc */}
+                      {/* Khách cọc */}
                       <td style={{ ...s.td, textAlign: 'center', fontSize: 12 }}>{item.Coc}</td>
-                      {/* Chủ căn */}
+                      {/* Cọc Host */}
+                      <td style={{ ...s.td, textAlign: 'center', fontSize: 12 }}>{item.Coc_Host}</td>
+                      {/* Host */}
                       <td style={{ ...s.td, textAlign: 'center', fontSize: 12 }}>{item.Chu_Can}</td>
                       {/* Thu về */}
                       <td style={{ ...s.td, textAlign: 'center', fontWeight: 700, color: '#38b274', fontSize: 12 }}>{item.Thu_Ve}</td>
@@ -921,10 +926,13 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
 
               <div style={{ display: 'flex', gap: 12 }}>
                 <div style={{ flex: 1 }}>
-                  <FormField label="Cọc" value={form.Coc} onChange={(v) => updateForm('Coc', v)} placeholder="VD: 50tr, 100tr..." />
+                  <FormField label="Khách cọc" value={form.Coc} onChange={(v) => updateForm('Coc', v)} placeholder="VD: 50tr, 100tr..." />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <FormField label="Chủ căn" value={form.Chu_Can} onChange={(v) => updateForm('Chu_Can', v)} placeholder="VD: Anh Nam 0363..." />
+                  <FormField label="Cọc Host" value={form.Coc_Host} onChange={(v) => updateForm('Coc_Host', v)} placeholder="VD: 50tr, 100tr..." />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <FormField label="Host" value={form.Chu_Can} onChange={(v) => updateForm('Chu_Can', v)} placeholder="VD: Anh Nam 0363..." />
                 </div>
               </div>
               <FormField label="Thu về (lợi nhuận)" value={form.Thu_Ve} onChange={(v) => updateForm('Thu_Ve', v)} placeholder="VD: 5tr, 10tr, 2.5tr..." />
