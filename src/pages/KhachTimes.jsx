@@ -697,9 +697,8 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                       ? [{ h: 'Thời hạn', w: 90 }, { h: 'Check In', w: 66 }, { h: 'Check Out', w: 66 }]
                       : [{ h: 'Thời hạn', w: 90 }, { h: 'Ngày vào', w: 66 }])),
                     ...(isHomestayTab
-                      ? [{ h: 'Căn Lock', w: 160 }, { h: 'Tổng tiền', w: 90 }]
-                      : [{ h: 'Tài chính', w: 90 }, { h: 'Căn tư vấn', w: 160 }]),
-                    { h: 'Trạng thái', w: 120 },
+                      ? [{ h: 'Căn Lock', w: 160 }, { h: 'Trạng thái', w: 120 }, { h: 'Tổng tiền', w: 90 }]
+                      : [{ h: 'Tài chính', w: 90 }, { h: 'Căn tư vấn', w: 160 }, { h: 'Trạng thái', w: 120 }]),
                     { h: 'Cọc', w: 80 }, { h: 'Chủ căn', w: 100 },
                     { h: 'Thu về', w: 90 }, { h: 'Ghi chú', w: 220 }, { h: '', w: 64 },
                   ].map(({ h, w }, idx) => (
@@ -768,25 +767,36 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                       {isHomestayTab ? (
                         <>
                           <td style={{ ...s.td, whiteSpace: 'pre-line', fontSize: 12 }}>{item.Can_Tu_Van}</td>
+                          {/* Trạng thái — inline dropdown */}
+                          <td style={{ ...s.td, padding: '4px 4px' }}>
+                            <select
+                              className="kt-inline-select"
+                              value={item.Trang_Thai || ''}
+                              onChange={(e) => inlineUpdate(item, 'Trang_Thai', e.target.value)}
+                              style={getTrangThaiSelectStyle(item.Trang_Thai)}
+                            >
+                              {TRANG_THAI_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            </select>
+                          </td>
                           <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Tai_Chinh}</td>
                         </>
                       ) : (
                         <>
                           <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Tai_Chinh}</td>
                           <td style={{ ...s.td, whiteSpace: 'pre-line', fontSize: 12 }}>{item.Can_Tu_Van}</td>
+                          {/* Trạng thái — inline dropdown */}
+                          <td style={{ ...s.td, padding: '4px 4px' }}>
+                            <select
+                              className="kt-inline-select"
+                              value={item.Trang_Thai || ''}
+                              onChange={(e) => inlineUpdate(item, 'Trang_Thai', e.target.value)}
+                              style={getTrangThaiSelectStyle(item.Trang_Thai)}
+                            >
+                              {TRANG_THAI_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            </select>
+                          </td>
                         </>
                       )}
-                      {/* Trạng thái — inline dropdown */}
-                      <td style={{ ...s.td, padding: '4px 4px' }}>
-                        <select
-                          className="kt-inline-select"
-                          value={item.Trang_Thai || ''}
-                          onChange={(e) => inlineUpdate(item, 'Trang_Thai', e.target.value)}
-                          style={getTrangThaiSelectStyle(item.Trang_Thai)}
-                        >
-                          {TRANG_THAI_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                        </select>
-                      </td>
                       {/* Cọc */}
                       <td style={{ ...s.td, textAlign: 'center', fontSize: 12 }}>{item.Coc}</td>
                       {/* Chủ căn */}
