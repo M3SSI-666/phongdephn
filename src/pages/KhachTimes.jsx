@@ -15,6 +15,17 @@ const TRANG_THAI_OPTIONS = [
   { value: 'Done', label: 'Done ✓', bg: '#3182CE', text: '#fff' },
 ];
 
+// Trạng thái riêng cho tab Khách Homestay.
+const HOMESTAY_TRANG_THAI_OPTIONS = [
+  { value: '', label: '--', bg: 'transparent', text: '#999' },
+  { value: 'Miss', label: 'Miss', bg: '#F8D7DA', text: '#721C24' },
+  { value: 'Gửi căn', label: 'Gửi căn', bg: '#E0F0FF', text: '#1A6FA8' },
+  { value: 'Chờ dẫn', label: 'Chờ dẫn', bg: '#FFF0DB', text: '#B45309' },
+  { value: 'Cọc', label: 'Cọc', bg: '#C6F6D5', text: '#276749' },
+  { value: 'Check in', label: 'Check in', bg: '#D6BCFA', text: '#553C9A' },
+  { value: 'Done', label: 'Done ✓', bg: '#3182CE', text: '#fff' },
+];
+
 const NHU_CAU_OPTIONS = ['Thuê', 'Mua', 'Homestay'];
 const SLOT_XE_OPTIONS = ['Có', 'Không', 'Null'];
 
@@ -290,6 +301,8 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   const isBanTab = activeSubTab === 'ban';
   // Tab Khách Homestay: ẩn cột/trường "Nội thất" và "Slot".
   const isHomestayTab = activeSubTab === 'homestay';
+  // Bộ trạng thái áp dụng theo tab hiện tại.
+  const trangThaiOptions = isHomestayTab ? HOMESTAY_TRANG_THAI_OPTIONS : TRANG_THAI_OPTIONS;
 
   const filtered = useMemo(() => {
     let list = [...items];
@@ -618,7 +631,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
             {aiSearching ? '⏳ Đang tìm...' : '✨ Tìm AI'}
           </button>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-            {TRANG_THAI_OPTIONS.filter(o => o.value).map(o => {
+            {trangThaiOptions.filter(o => o.value).map(o => {
               const active = filterTrangThai.includes(o.value);
               return (
                 <button
@@ -780,7 +793,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                               onChange={(e) => inlineUpdate(item, 'Trang_Thai', e.target.value)}
                               style={getTrangThaiSelectStyle(item.Trang_Thai)}
                             >
-                              {TRANG_THAI_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                              {trangThaiOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                             </select>
                           </td>
                           <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Tai_Chinh}</td>
@@ -797,7 +810,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                               onChange={(e) => inlineUpdate(item, 'Trang_Thai', e.target.value)}
                               style={getTrangThaiSelectStyle(item.Trang_Thai)}
                             >
-                              {TRANG_THAI_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                              {trangThaiOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                             </select>
                           </td>
                         </>
@@ -926,7 +939,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
               <div style={s.fieldWrap}>
                 <label style={s.fieldLabel}>Trạng thái khách</label>
                 <select value={form.Trang_Thai} onChange={(e) => updateForm('Trang_Thai', e.target.value)} style={s.fieldInput}>
-                  {TRANG_THAI_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.value ? o.label : '-- Chưa xác định --'}</option>)}
+                  {trangThaiOptions.map(o => <option key={o.value} value={o.value}>{o.value ? o.label : '-- Chưa xác định --'}</option>)}
                 </select>
               </div>
 
@@ -996,7 +1009,7 @@ function getNhuCauBadgeStyle(val) {
 }
 
 function getTrangThaiSelectStyle(val) {
-  const opt = TRANG_THAI_OPTIONS.find(o => o.value === val);
+  const opt = [...TRANG_THAI_OPTIONS, ...HOMESTAY_TRANG_THAI_OPTIONS].find(o => o.value === val);
   if (!opt || !opt.value) return {};
   return { background: opt.bg, color: opt.text, borderRadius: 8, fontWeight: 700 };
 }
