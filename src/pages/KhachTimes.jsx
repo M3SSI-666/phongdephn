@@ -702,7 +702,9 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                     ...(isHomestayTab
                       ? [{ h: 'Căn Lock', w: 130 }, { h: 'Trạng thái', w: 120 }, { h: 'Tổng tiền', w: 120 }]
                       : [{ h: 'Tài chính', w: 90 }, { h: 'Căn tư vấn', w: 160 }, { h: 'Trạng thái', w: 120 }]),
-                    { h: 'Khách cọc', w: 80 }, { h: 'Cọc Host', w: 80 }, { h: 'Host', w: 100 },
+                    ...(isHomestayTab
+                      ? [{ h: 'Khách cọc', w: 80 }, { h: 'Cọc Host', w: 80 }, { h: 'Host', w: 100 }]
+                      : [{ h: 'Cọc', w: 80 }]),
                     { h: 'Thu về', w: 90 }, { h: 'Ghi chú', w: 220 }, { h: '', w: 64 },
                   ].map(({ h, w }, idx) => (
                     <th key={h || `act_${idx}`} style={{ ...s.th, width: w, minWidth: w }}>{h}</th>
@@ -711,7 +713,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={isBanTab ? 21 : (isHomestayTab ? 18 : 20)} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
+                  <tr><td colSpan={isBanTab ? 19 : (isHomestayTab ? 18 : 18)} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
                 ) : (
                   filtered.map((item) => (
                     <tr
@@ -800,12 +802,16 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                           </td>
                         </>
                       )}
-                      {/* Khách cọc */}
+                      {/* Cọc (khách) */}
                       <td style={{ ...s.td, textAlign: 'center', fontSize: 12 }}>{item.Coc}</td>
-                      {/* Cọc Host */}
-                      <td style={{ ...s.td, textAlign: 'center', fontSize: 12 }}>{item.Coc_Host}</td>
-                      {/* Host */}
-                      <td style={{ ...s.td, textAlign: 'center', fontSize: 12 }}>{item.Chu_Can}</td>
+                      {isHomestayTab && (
+                        <>
+                          {/* Cọc Host */}
+                          <td style={{ ...s.td, textAlign: 'center', fontSize: 12 }}>{item.Coc_Host}</td>
+                          {/* Host */}
+                          <td style={{ ...s.td, textAlign: 'center', fontSize: 12 }}>{item.Chu_Can}</td>
+                        </>
+                      )}
                       {/* Thu về */}
                       <td style={{ ...s.td, textAlign: 'center', fontWeight: 700, color: '#38b274', fontSize: 12 }}>{item.Thu_Ve}</td>
                       <td style={{ ...s.td, whiteSpace: 'pre-line', color: C.textMuted, fontSize: 12 }}>{item.Ghi_Chu}</td>
@@ -926,14 +932,18 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
 
               <div style={{ display: 'flex', gap: 12 }}>
                 <div style={{ flex: 1 }}>
-                  <FormField label="Khách cọc" value={form.Coc} onChange={(v) => updateForm('Coc', v)} placeholder="VD: 50tr, 100tr..." />
+                  <FormField label="Cọc" value={form.Coc} onChange={(v) => updateForm('Coc', v)} placeholder="VD: 50tr, 100tr..." />
                 </div>
-                <div style={{ flex: 1 }}>
-                  <FormField label="Cọc Host" value={form.Coc_Host} onChange={(v) => updateForm('Coc_Host', v)} placeholder="VD: 50tr, 100tr..." />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <FormField label="Host" value={form.Chu_Can} onChange={(v) => updateForm('Chu_Can', v)} placeholder="VD: Anh Nam 0363..." />
-                </div>
+                {isHomestayTab && (
+                  <>
+                    <div style={{ flex: 1 }}>
+                      <FormField label="Cọc Host" value={form.Coc_Host} onChange={(v) => updateForm('Coc_Host', v)} placeholder="VD: 50tr, 100tr..." />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <FormField label="Host" value={form.Chu_Can} onChange={(v) => updateForm('Chu_Can', v)} placeholder="VD: Anh Nam 0363..." />
+                    </div>
+                  </>
+                )}
               </div>
               <FormField label="Thu về (lợi nhuận)" value={form.Thu_Ve} onChange={(v) => updateForm('Thu_Ve', v)} placeholder="VD: 5tr, 10tr, 2.5tr..." />
 
