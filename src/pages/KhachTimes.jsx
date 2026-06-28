@@ -827,7 +827,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                       )}
                       {/* Thu về */}
                       <td style={{ ...s.td, textAlign: 'center', fontWeight: 700, color: '#38b274', fontSize: 12 }}>{item.Thu_Ve}</td>
-                      <td style={{ ...s.td, whiteSpace: 'pre-line', color: C.textMuted, fontSize: 12 }}>{item.Ghi_Chu}</td>
+                      <td style={{ ...s.td, whiteSpace: 'pre-line', color: '#a3e635', fontSize: 12 }}>{item.Ghi_Chu}</td>
                       <td style={{ ...s.td, whiteSpace: 'nowrap', borderRight: 'none' }}>
                         <button onClick={() => openEdit(item)} style={s.actionBtn} title="Sửa">&#9998;</button>
                         <button onClick={() => setDeleteTarget(item)} style={{ ...s.actionBtn, ...s.deleteBtn }} title="Xoá">&#128465;</button>
