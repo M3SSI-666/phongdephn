@@ -186,6 +186,9 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   const [aiSearching, setAiSearching] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState('ban'); // mặc định mở tab Khách bán
   const [filterTrangThai, setFilterTrangThai] = useState([]);
+  const [viewMode, setViewMode] = useState('table'); // 'table' | 'mindmap' — chỉ dùng cho tab thuê
+  const [mmCollapsed, setMmCollapsed] = useState(() => new Set()); // node-key đang bị thu (cấp 1, cấp 2)
+  const [mmOpenCustomer, setMmOpenCustomer] = useState(() => new Set()); // _rowIndex khách đang mở chi tiết
 
   const currentSubTab = SUB_TABS.find(t => t.key === activeSubTab) || SUB_TABS[0];
   const filterLoai = currentSubTab.filter;
@@ -314,6 +317,8 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   const isBanTab = activeSubTab === 'ban';
   // Tab Khách Homestay: ẩn cột/trường "Nội thất" và "Slot".
   const isHomestayTab = activeSubTab === 'homestay';
+  // Tab Khách thuê: cho phép chế độ xem Mind Map.
+  const isThueTab = activeSubTab === 'thue';
   // Bộ trạng thái áp dụng theo tab hiện tại.
   const trangThaiOptions = isHomestayTab ? HOMESTAY_TRANG_THAI_OPTIONS : TRANG_THAI_OPTIONS;
 
@@ -362,6 +367,60 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     });
     return list;
   }, [items, filterLoai, filterTrangThai, search, aiFilter]);
+
+  // ── Dữ liệu cây cho chế độ Mind Map (tab Khách thuê) ──
+  // Cấp 1: Kiểu khách (KẾT HỢP / KHÁCH CHỦ ĐỘNG) → Cấp 2: số phòng ngủ → Cấp 3: khách.
+  const mindMapTree = useMemo(() => {
+    const norm = (v) => String(v ?? '').trim().toUpperCase();
+    const isKetHop = (it) => { const s = norm(it.SDT); return s === 'KẾT HỢP' || s === 'KET HOP'; };
+    // Gom theo kiểu khách rồi theo PN.
+    const groups = { 'KẾT HỢP': {}, 'KHÁCH CHỦ ĐỘNG': {} };
+    for (const it of filtered) {
+      const kieu = isKetHop(it) ? 'KẾT HỢP' : 'KHÁCH CHỦ ĐỘNG';
+      const pnRaw = String(it.Phong_Ngu ?? '').trim();
+      const pnKey = pnRaw || '(chưa rõ)';
+      if (!groups[kieu][pnKey]) groups[kieu][pnKey] = [];
+      groups[kieu][pnKey].push(it);
+    }
+    // Chuyển thành mảng có thứ tự, PN sắp tăng dần (số trước, '(chưa rõ)' cuối).
+    const pnSort = (a, b) => {
+      if (a === '(chưa rõ)') return 1;
+      if (b === '(chưa rõ)') return -1;
+      const na = parseFloat(a), nb = parseFloat(b);
+      if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+      return a.localeCompare(b);
+    };
+    return ['KẾT HỢP', 'KHÁCH CHỦ ĐỘNG'].map((kieu) => {
+      const pnGroups = Object.keys(groups[kieu]).sort(pnSort).map((pn) => ({
+        pn,
+        khach: groups[kieu][pn],
+        count: groups[kieu][pn].length,
+      }));
+      const total = pnGroups.reduce((sum, g) => sum + g.count, 0);
+      return { kieu, pnGroups, total };
+    });
+  }, [filtered]);
+
+  const toggleMmNode = useCallback((key) => {
+    setMmCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const toggleMmCustomer = useCallback((rowIndex) => {
+    setMmOpenCustomer((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowIndex)) next.delete(rowIndex); else next.add(rowIndex);
+      return next;
+    });
+  }, []);
+
+  // Rời tab Khách thuê thì luôn quay về chế độ bảng.
+  useEffect(() => {
+    if (activeSubTab !== 'thue') setViewMode('table');
+  }, [activeSubTab]);
 
   // Tìm kiếm thông minh: gửi câu chữ tự nhiên cho AI nhận dạng tiêu chí, rồi lọc khách.
   const handleAiSearch = useCallback(async () => {
@@ -618,6 +677,31 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
           ))}
         </div>
 
+        {/* Chuyển chế độ xem: Bảng / Mind Map — chỉ ở tab Khách thuê */}
+        {isThueTab && (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+            {[
+              { key: 'table', label: '☰ Bảng' },
+              { key: 'mindmap', label: '🗺 Mind Map' },
+            ].map((m) => (
+              <button
+                key={m.key}
+                onClick={() => setViewMode(m.key)}
+                className="kt-btn"
+                style={{
+                  padding: '7px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700,
+                  cursor: 'pointer', fontFamily: F, transition: 'all 0.15s',
+                  border: `1.5px solid ${viewMode === m.key ? C.primary : '#3a3f52'}`,
+                  background: viewMode === m.key ? C.primary : 'transparent',
+                  color: viewMode === m.key ? '#fff' : '#8a9bb8',
+                }}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Search + Filter */}
         <div className="kt-filter-row" style={s.filterRow}>
           <div style={s.searchWrap}>
@@ -711,8 +795,21 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         {error && <div style={s.errorBox}>{error}</div>}
         {loading && <div style={s.loadingBox}>Đang tải dữ liệu...</div>}
 
+        {/* Mind Map view — tab Khách thuê */}
+        {!loading && !error && isThueTab && viewMode === 'mindmap' && (
+          <MindMapView
+            tree={mindMapTree}
+            collapsed={mmCollapsed}
+            openCustomer={mmOpenCustomer}
+            onToggleNode={toggleMmNode}
+            onToggleCustomer={toggleMmCustomer}
+            onEdit={openEdit}
+            onDelete={setDeleteTarget}
+          />
+        )}
+
         {/* Table */}
-        {!loading && !error && (
+        {!loading && !error && !(isThueTab && viewMode === 'mindmap') && (
           <div className="kt-table-wrap" style={s.tableWrap}>
             <table style={s.table}>
               <thead>
@@ -1017,6 +1114,136 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
       )}
     </div>
   );
+}
+
+// ── Mind Map (cây xổ gọn) cho tab Khách thuê ──
+function MindMapView({ tree, collapsed, openCustomer, onToggleNode, onToggleCustomer, onEdit, onDelete }) {
+  const hasData = tree.some((b) => b.total > 0);
+  if (!hasData) {
+    return <div style={s.emptyTd}>Không có khách hàng nào để hiển thị</div>;
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '4px 2px 24px' }}>
+      {tree.map((branch) => {
+        if (branch.total === 0) return null;
+        const l1Key = `L1::${branch.kieu}`;
+        const l1Open = !collapsed.has(l1Key);
+        const isKetHop = branch.kieu === 'KẾT HỢP';
+        const l1Color = isKetHop ? '#E67E22' : C.primary;
+        return (
+          <div key={branch.kieu}>
+            {/* Cấp 1: Kiểu khách */}
+            <button
+              onClick={() => onToggleNode(l1Key)}
+              className="kt-btn"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
+                padding: '10px 14px', borderRadius: 10, cursor: 'pointer', fontFamily: F,
+                border: `1.5px solid ${l1Color}55`, background: `${l1Color}1a`, color: l1Color,
+                fontSize: 15, fontWeight: 800,
+              }}
+            >
+              <span style={{ fontSize: 12, width: 12 }}>{l1Open ? '▾' : '▸'}</span>
+              <span>{branch.kieu}</span>
+              <span style={mmBadge(l1Color)}>{branch.total}</span>
+            </button>
+
+            {l1Open && (
+              <div style={{ paddingLeft: 18, marginTop: 6, display: 'flex', flexDirection: 'column', gap: 5, borderLeft: `2px solid ${l1Color}33`, marginLeft: 12 }}>
+                {branch.pnGroups.map((g) => {
+                  const l2Key = `L2::${branch.kieu}::${g.pn}`;
+                  const l2Open = !collapsed.has(l2Key);
+                  return (
+                    <div key={g.pn}>
+                      {/* Cấp 2: Số phòng ngủ */}
+                      <button
+                        onClick={() => onToggleNode(l2Key)}
+                        className="kt-btn"
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
+                          padding: '8px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: F,
+                          border: '1.5px solid #3a3f52', background: 'rgba(255,255,255,0.04)', color: '#cbd5e1',
+                          fontSize: 13, fontWeight: 700,
+                        }}
+                      >
+                        <span style={{ fontSize: 11, width: 11 }}>{l2Open ? '▾' : '▸'}</span>
+                        <span>PN: {g.pn}</span>
+                        <span style={mmBadge('#64748b')}>{g.count}</span>
+                      </button>
+
+                      {l2Open && (
+                        <div style={{ paddingLeft: 18, marginTop: 5, display: 'flex', flexDirection: 'column', gap: 5, borderLeft: '2px solid #3a3f5255', marginLeft: 10 }}>
+                          {g.khach.map((item) => {
+                            const open = openCustomer.has(item._rowIndex);
+                            return (
+                              <div key={item._rowIndex}>
+                                {/* Cấp 3: Tên khách */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <button
+                                    onClick={() => onToggleCustomer(item._rowIndex)}
+                                    className="kt-btn"
+                                    style={{
+                                      display: 'flex', alignItems: 'center', gap: 8, flex: 1, textAlign: 'left',
+                                      padding: '7px 11px', borderRadius: 8, cursor: 'pointer', fontFamily: F,
+                                      border: '1px solid #2d3344', background: 'rgba(255,255,255,0.03)',
+                                      color: C.text, fontSize: 13, fontWeight: 600,
+                                    }}
+                                  >
+                                    <span style={{ fontSize: 11, width: 11, color: '#8a9bb8' }}>{open ? '▾' : '▸'}</span>
+                                    {item.Mau_KH ? (
+                                      <span style={{ background: item.Mau_KH, color: '#fff', padding: '2px 10px', borderRadius: 6 }}>{item.Ten_Zalo || '(chưa có tên)'}</span>
+                                    ) : (
+                                      <span>{item.Ten_Zalo || '(chưa có tên)'}</span>
+                                    )}
+                                    {item.SDT && <span style={{ fontSize: 11, color: '#8a9bb8', fontWeight: 500 }}>· {item.SDT}</span>}
+                                  </button>
+                                  <button onClick={() => onEdit(item)} style={s.actionBtn} title="Sửa">&#9998;</button>
+                                  <button onClick={() => onDelete(item)} style={{ ...s.actionBtn, ...s.deleteBtn }} title="Xoá">&#128465;</button>
+                                </div>
+
+                                {/* Cấp 4: Chi tiết khách */}
+                                {open && (
+                                  <div style={{ paddingLeft: 26, marginTop: 4, marginBottom: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                    {[
+                                      { label: 'Ngày vào', value: item.Ngay_Vao },
+                                      { label: 'Nội thất', value: item.Noi_That },
+                                      { label: 'Slot xe', value: item.Slot_Xe },
+                                      { label: 'Thời hạn', value: item.Thoi_Han_Thue },
+                                      { label: 'Tài chính', value: item.Tai_Chinh },
+                                    ].filter((r) => String(r.value ?? '').trim() !== '').map((r) => (
+                                      <div key={r.label} style={{ display: 'flex', gap: 8, fontSize: 12.5, lineHeight: 1.5 }}>
+                                        <span style={{ color: '#8a9bb8', minWidth: 78, fontWeight: 600 }}>{r.label}:</span>
+                                        <span style={{ color: C.text, whiteSpace: 'pre-line' }}>{r.value}</span>
+                                      </div>
+                                    ))}
+                                    {['Ngay_Vao', 'Noi_That', 'Slot_Xe', 'Thoi_Han_Thue', 'Tai_Chinh'].every((k) => String(item[k] ?? '').trim() === '') && (
+                                      <div style={{ fontSize: 12, color: '#64748b', fontStyle: 'italic' }}>Chưa có thông tin chi tiết</div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function mmBadge(color) {
+  return {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    minWidth: 22, height: 20, padding: '0 7px', borderRadius: 10,
+    background: `${color}33`, color, fontSize: 11, fontWeight: 800, marginLeft: 'auto',
+  };
 }
 
 // ── Helpers ──
