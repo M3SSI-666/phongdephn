@@ -715,7 +715,12 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
             ].map((m) => (
               <button
                 key={m.key}
-                onClick={() => setViewMode(m.key)}
+                onClick={() => {
+                  if (m.key === 'mindmap' && viewMode !== 'mindmap') {
+                    setFilterTrangThai(['Tư vấn, gửi căn', 'Dẫn khách']);
+                  }
+                  setViewMode(m.key);
+                }}
                 className="kt-btn"
                 style={{
                   padding: '7px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700,
@@ -1277,7 +1282,7 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
             borderRadius: 9, padding: '7px 11px', width: MM_NODE_W - 20, cursor: 'pointer',
           },
         });
-        es.push({ id: `e::${l1Id}::${l2Id}`, source: l1Id, target: l2Id, type: 'smoothstep', style: { stroke: `${l1Color}99` } });
+        es.push({ id: `e::${l1Id}::${l2Id}`, source: l1Id, target: l2Id, type: 'straight', style: { stroke: `${l1Color}99` } });
 
         if (!l2Open) return;
 
@@ -1294,7 +1299,7 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
               borderRadius: 9, padding: '6px 10px', width: MM_NODE_W - 40, cursor: 'pointer',
             },
           });
-          es.push({ id: `e::${l2Id}::${l3Id}`, source: l2Id, target: l3Id, type: 'smoothstep', style: { stroke: '#3a3f5288' } });
+          es.push({ id: `e::${l2Id}::${l3Id}`, source: l2Id, target: l3Id, type: 'straight', style: { stroke: '#3a3f5288' } });
 
           if (!l3Open) return;
 
@@ -1314,7 +1319,7 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
               },
               style: { width: 'auto' },
             });
-            es.push({ id: `e::${l3Id}::${cId}`, source: l3Id, target: cId, type: 'smoothstep', style: { stroke: '#3a3f5299' } });
+            es.push({ id: `e::${l3Id}::${cId}`, source: l3Id, target: cId, type: 'straight', style: { stroke: '#3a3f5299' } });
 
             if (!open) return;
 
@@ -1330,7 +1335,7 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
                   borderRadius: 8, padding: '6px 10px', width: MM_NODE_W - 20,
                 },
               });
-              es.push({ id: `e::${cId}::${dId}`, source: cId, target: dId, type: 'smoothstep', style: { stroke: '#2d334488' } });
+              es.push({ id: `e::${cId}::${dId}`, source: cId, target: dId, type: 'straight', style: { stroke: '#2d334488' } });
             } else {
               details.forEach((f) => {
                 const dId = `D::${item._rowIndex}::${f.key}`;
@@ -1343,7 +1348,7 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
                     borderRadius: 8, padding: '6px 10px', width: MM_NODE_W,
                   },
                 });
-                es.push({ id: `e::${cId}::${dId}`, source: cId, target: dId, type: 'smoothstep', style: { stroke: '#2d334488' } });
+                es.push({ id: `e::${cId}::${dId}`, source: cId, target: dId, type: 'straight', style: { stroke: '#2d334488' } });
               });
             }
           });
