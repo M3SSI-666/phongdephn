@@ -1197,6 +1197,31 @@ function getLayoutedElements(nodes, edges) {
       position: { x: pos.x - w / 2, y: pos.y - h / 2 },
     };
   });
+
+  // Giãn khoảng cách dọc giữa 2 nhánh gốc (KẾT HỢP / KHÁCH CHỦ ĐỘNG):
+  // sắp các nhánh theo y trung bình, đẩy mỗi nhánh phía dưới xuống thêm BRANCH_GAP.
+  const BRANCH_GAP = 140;
+  const branchMinY = {};
+  laid.forEach((n) => {
+    const b = n._branch;
+    if (b == null) return;
+    if (branchMinY[b] === undefined || n.position.y < branchMinY[b]) {
+      branchMinY[b] = n.position.y;
+    }
+  });
+  const orderedBranches = Object.keys(branchMinY).sort(
+    (a, b) => branchMinY[a] - branchMinY[b]
+  );
+  const branchShift = {};
+  orderedBranches.forEach((b, i) => {
+    branchShift[b] = i * BRANCH_GAP;
+  });
+  laid.forEach((n) => {
+    if (n._branch != null && branchShift[n._branch]) {
+      n.position = { ...n.position, y: n.position.y + branchShift[n._branch] };
+    }
+  });
+
   return { nodes: laid, edges };
 }
 
@@ -1259,6 +1284,7 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
 
       ns.push({
         id: l1Id,
+        _branch: branch.kieu,
         data: { label: `${l1Open ? '▾ ' : '▸ '}${branch.kieu} (${branch.total})` },
         style: {
           fontFamily: F, fontWeight: 800, fontSize: 14, color: l1Color,
@@ -1275,6 +1301,7 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
 
         ns.push({
           id: l2Id,
+          _branch: branch.kieu,
           data: { label: `${l2Open ? '▾ ' : '▸ '}PN: ${g.pn} (${g.count})` },
           style: {
             fontFamily: F, fontWeight: 700, fontSize: 13, color: '#cbd5e1',
@@ -1292,6 +1319,7 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
 
           ns.push({
             id: l3Id,
+            _branch: branch.kieu,
             data: { label: `${l3Open ? '▾ ' : '▸ '}${ntg.nt} (${ntg.count})` },
             style: {
               fontFamily: F, fontWeight: 700, fontSize: 12.5, color: '#cbd5e1',
@@ -1308,6 +1336,7 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
             const open = openCustomer.has(item._rowIndex);
             ns.push({
               id: cId,
+              _branch: branch.kieu,
               type: 'customer',
               data: {
                 name: item.Ten_Zalo || '(chưa có tên)',
@@ -1328,6 +1357,7 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
               const dId = `D::${item._rowIndex}::__empty`;
               ns.push({
                 id: dId,
+                _branch: branch.kieu,
                 data: { label: 'Chưa có thông tin chi tiết' },
                 style: {
                   fontFamily: F, fontSize: 12, fontStyle: 'italic', color: '#cbd5e1',
@@ -1341,6 +1371,7 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
                 const dId = `D::${item._rowIndex}::${f.key}`;
                 ns.push({
                   id: dId,
+                  _branch: branch.kieu,
                   data: { label: `${f.label}: ${item[f.key]}` },
                   style: {
                     fontFamily: F, fontSize: 12.5, fontWeight: 600, color: '#ffffff', textAlign: 'left',
