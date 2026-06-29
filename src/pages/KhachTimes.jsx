@@ -6,6 +6,18 @@ import { fetchKhachTimes, postKhachTimes, parseSearchQuery } from '../utils/api'
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
+// Bảng màu để highlight khách hàng (tô nền ô Tên Zalo) theo mục đích cá nhân.
+const RAINBOW_COLORS = [
+  { label: 'Mặc định',   value: '' },
+  { label: 'Đỏ',         value: '#E53E3E' },
+  { label: 'Cam',        value: '#DD6B20' },
+  { label: 'Vàng',       value: '#D69E2E' },
+  { label: 'Xanh lá',    value: '#38A169' },
+  { label: 'Xanh dương', value: '#3182CE' },
+  { label: 'Chàm',       value: '#5B21B6' },
+  { label: 'Tím',        value: '#9F7AEA' },
+];
+
 const TRANG_THAI_OPTIONS = [
   { value: '', label: '--', bg: 'transparent', text: '#999' },
   { value: 'Miss', label: 'Miss', bg: '#F8D7DA', text: '#721C24' },
@@ -48,7 +60,7 @@ const EMPTY_FORM = {
   Ngay_PS: '', Ten_Zalo: '', SDT: '',
   Nhu_Cau: 'Thuê', Phong_Ngu: '', Noi_That: '', Slot_Xe: '',
   Thoi_Han_Thue: '', Ngay_Vao: '', Check_Out: '', Dien_Tich: '', Tang: '', Ban_Cong: '', Cua: '', Tai_Chinh: '',
-  Toa: '', Can_Tu_Van: '', Trang_Thai: '', Coc: '', Coc_Host: '', Chu_Can: '', Thu_Ve: '', Ghi_Chu: '',
+  Toa: '', Can_Tu_Van: '', Trang_Thai: '', Coc: '', Coc_Host: '', Chu_Can: '', Thu_Ve: '', Ghi_Chu: '', Mau_KH: '',
 };
 
 // ── Khớp tiêu chí AI với dữ liệu khách (so khớp RỘNG để không bỏ sót khách) ──
@@ -277,6 +289,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         Tang: item.Tang || '',
         Ban_Cong: item.Ban_Cong || '',
         Cua: item.Cua || '',
+        Mau_KH: item.Mau_KH || '',
         [field]: value,
       };
       // Update local state immediately
@@ -454,6 +467,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
       Chu_Can: item.Chu_Can || '',
       Thu_Ve: item.Thu_Ve || '',
       Ghi_Chu: item.Ghi_Chu || '',
+      Mau_KH: item.Mau_KH || '',
     });
     setModalOpen(true);
   };
@@ -493,6 +507,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         Chu_Can: form.Chu_Can.trim(),
         Thu_Ve: form.Thu_Ve.trim(),
         Ghi_Chu: form.Ghi_Chu.trim(),
+        Mau_KH: form.Mau_KH || '',
         Owner_Id: userId || '',
       };
 
@@ -751,7 +766,11 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                         &#9776;
                       </td>
                       <td style={{ ...s.td, whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_PS}</td>
-                      <td style={{ ...s.td, ...s.tdName, fontWeight: 600, whiteSpace: 'pre-line' }}>{item.Ten_Zalo}</td>
+                      <td style={{ ...s.td, ...s.tdName, fontWeight: 600, whiteSpace: 'pre-line' }}>
+                        {item.Mau_KH ? (
+                          <span style={{ background: item.Mau_KH, color: '#fff', padding: '2px 8px', borderRadius: 6, display: 'inline-block' }}>{item.Ten_Zalo}</span>
+                        ) : item.Ten_Zalo}
+                      </td>
                       <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap' }}>{item.SDT}</td>
                       <td style={{ ...s.td, textAlign: 'center' }}>
                         <span style={getNhuCauBadgeStyle(item.Nhu_Cau)}>{item.Nhu_Cau || '-'}</span>
@@ -964,6 +983,8 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                 <label style={s.fieldLabel}>Ghi chú</label>
                 <textarea value={form.Ghi_Chu} onChange={(e) => updateForm('Ghi_Chu', e.target.value)} style={{ ...s.fieldInput, height: 56, resize: 'vertical' }} />
               </div>
+
+              <ColorPicker value={form.Mau_KH} onChange={(v) => updateForm('Mau_KH', v)} />
             </div>
             <div style={s.modalFooter}>
               <button onClick={closeModal} style={s.cancelBtn} className="kt-btn">Huỷ</button>
@@ -1012,6 +1033,31 @@ function getTrangThaiSelectStyle(val) {
   const opt = [...TRANG_THAI_OPTIONS, ...HOMESTAY_TRANG_THAI_OPTIONS].find(o => o.value === val);
   if (!opt || !opt.value) return {};
   return { background: opt.bg, color: opt.text, borderRadius: 8, fontWeight: 700 };
+}
+
+function ColorPicker({ value, onChange }) {
+  return (
+    <div style={{ marginTop: 4 }}>
+      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#8a9bb8', marginBottom: 6 }}>Màu khách hàng (highlight tên)</label>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {RAINBOW_COLORS.map((c) => (
+          <button
+            key={c.value || 'def'}
+            type="button"
+            onClick={() => onChange(c.value)}
+            title={c.label}
+            style={{
+              width: 30, height: 30, borderRadius: 7,
+              background: c.value || '#2a2f42',
+              border: value === c.value ? '3px solid #fff' : '2px solid #3a3f52',
+              cursor: 'pointer', transition: 'all 0.15s',
+              boxShadow: value === c.value ? `0 0 0 2px ${c.value || '#8a9bb8'}` : 'none',
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 // ── Sub-components ──
