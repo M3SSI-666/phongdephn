@@ -1165,7 +1165,6 @@ const MM_NODE_H = 46;
 
 // Các trường chi tiết hiện ở cấp 4 (xổ bên phải khi bấm tên khách).
 const MM_DETAIL_FIELDS = [
-  { key: 'Slot_Xe', label: 'Slot xe' },
   { key: 'Thoi_Han_Thue', label: 'Thời hạn' },
   { key: 'Tai_Chinh', label: 'Tài chính' },
 ];
@@ -1246,7 +1245,12 @@ function CustomerNode({ data }) {
           <span style={{ color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.name}</span>
         )}
         {data.sdt && <span style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 500 }}>{data.sdt}</span>}
-        {data.ngayVao && <span style={{ fontSize: 11, color: '#7dd3fc', fontWeight: 500 }}>Ngày vào: {data.ngayVao}</span>}
+        {(data.ngayVao || data.slotXe) && (
+          <span style={{ fontSize: 11, color: '#7dd3fc', fontWeight: 500, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {data.ngayVao && <span>Ngày vào: {data.ngayVao}</span>}
+            {data.slotXe && <span>Slot xe: {data.slotXe}</span>}
+          </span>
+        )}
       </div>
       <button
         className="nodrag"
@@ -1343,6 +1347,7 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
                 name: item.Ten_Zalo || '(chưa có tên)',
                 sdt: item.SDT || '',
                 ngayVao: item.Ngay_Vao || '',
+                slotXe: item.Slot_Xe || '',
                 color: item.Mau_KH || '',
                 open,
                 onEdit: () => onEdit(item),
