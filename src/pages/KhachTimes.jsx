@@ -199,7 +199,6 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   const [filterTrangThai, setFilterTrangThai] = useState([]);
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'mindmap' — chỉ dùng cho tab thuê
   const [mmCollapsed, setMmCollapsed] = useState(() => new Set()); // node-key đang bị thu (cấp 1, cấp 2)
-  const [mmOpenCustomer, setMmOpenCustomer] = useState(() => new Set()); // _rowIndex khách đang mở chi tiết
 
   const currentSubTab = SUB_TABS.find(t => t.key === activeSubTab) || SUB_TABS[0];
   const filterLoai = currentSubTab.filter;
@@ -434,14 +433,6 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     setMmCollapsed((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
-  }, []);
-
-  const toggleMmCustomer = useCallback((rowIndex) => {
-    setMmOpenCustomer((prev) => {
-      const next = new Set(prev);
-      if (next.has(rowIndex)) next.delete(rowIndex); else next.add(rowIndex);
       return next;
     });
   }, []);
@@ -834,9 +825,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
           <MindMapFlow
             tree={mindMapTree}
             collapsed={mmCollapsed}
-            openCustomer={mmOpenCustomer}
             onToggleNode={toggleMmNode}
-            onToggleCustomer={toggleMmCustomer}
             onEdit={openEdit}
             onDelete={setDeleteTarget}
           />
@@ -1163,12 +1152,6 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
 const MM_NODE_W = 230;
 const MM_NODE_H = 46;
 
-// Các trường chi tiết hiện ở cấp 4 (xổ bên phải khi bấm tên khách).
-const MM_DETAIL_FIELDS = [
-  { key: 'Thoi_Han_Thue', label: 'Thời hạn' },
-  { key: 'Tai_Chinh', label: 'Tài chính' },
-];
-
 // Dùng dagre tính vị trí node cho cây ngang (trái → phải).
 function getLayoutedElements(nodes, edges) {
   const g = new dagre.graphlib.Graph();
@@ -1228,14 +1211,13 @@ function CustomerNode({ data }) {
     <div
       style={{
         display: 'flex', alignItems: 'center', gap: 6, fontFamily: F,
-        padding: '7px 10px', borderRadius: 10, minWidth: 240, maxWidth: 300,
-        border: `1px solid ${data.open ? C.primary : '#2d3344'}`,
-        background: data.open ? `${C.primary}1a` : 'rgba(255,255,255,0.04)',
-        color: '#ffffff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+        padding: '7px 10px', borderRadius: 10, minWidth: 260, maxWidth: 360,
+        border: '1px solid #2d3344',
+        background: 'rgba(255,255,255,0.04)',
+        color: '#ffffff', fontSize: 13, fontWeight: 600, cursor: 'default',
       }}
     >
       <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
-      <span style={{ fontSize: 11, color: '#cbd5e1' }}>{data.open ? '▾' : '▸'}</span>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
         {data.color ? (
           <span style={{ background: data.color, color: '#fff', padding: '2px 8px', borderRadius: 6, alignSelf: 'flex-start', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1245,10 +1227,13 @@ function CustomerNode({ data }) {
           <span style={{ color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.name}</span>
         )}
         {data.sdt && <span style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 500 }}>{data.sdt}</span>}
-        {(data.ngayVao || data.slotXe) && (
+        {(data.ngayVao || data.slotXe || data.thoiHan || data.taiChinh || data.ghiChu) && (
           <span style={{ fontSize: 11, color: '#7dd3fc', fontWeight: 500, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {data.ngayVao && <span>Ngày vào: {data.ngayVao}</span>}
             {data.slotXe && <span>Slot xe: {data.slotXe}</span>}
+            {data.thoiHan && <span>Thời hạn: {data.thoiHan}</span>}
+            {data.taiChinh && <span>Tài chính: {data.taiChinh}</span>}
+            {data.ghiChu && <span>Ghi chú: {data.ghiChu}</span>}
           </span>
         )}
       </div>
@@ -1271,7 +1256,7 @@ function CustomerNode({ data }) {
 
 const MM_NODE_TYPES = { customer: CustomerNode };
 
-function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggleCustomer, onEdit, onDelete }) {
+function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete }) {
   const hasData = tree.some((b) => b.total > 0);
 
   const { nodes, edges } = useMemo(() => {
@@ -1336,75 +1321,40 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
 
           ntg.khach.forEach((item) => {
             const cId = `C::${item._rowIndex}`;
-            const open = openCustomer.has(item._rowIndex);
             ns.push({
               id: cId,
               _branch: branch.kieu,
               type: 'customer',
-              width: 280,
-              height: 64,
+              width: 320,
+              height: 78,
               data: {
                 name: item.Ten_Zalo || '(chưa có tên)',
                 sdt: item.SDT || '',
                 ngayVao: item.Ngay_Vao || '',
                 slotXe: item.Slot_Xe || '',
+                thoiHan: item.Thoi_Han_Thue || '',
+                taiChinh: item.Tai_Chinh || '',
+                ghiChu: item.Ghi_Chu || '',
                 color: item.Mau_KH || '',
-                open,
                 onEdit: () => onEdit(item),
                 onDelete: () => onDelete(item),
               },
               style: { width: 'auto' },
             });
             es.push({ id: `e::${l3Id}::${cId}`, source: l3Id, target: cId, type: 'bezier', style: { stroke: '#3a3f5299' } });
-
-            if (!open) return;
-
-            const details = MM_DETAIL_FIELDS.filter((f) => String(item[f.key] ?? '').trim() !== '');
-            if (details.length === 0) {
-              const dId = `D::${item._rowIndex}::__empty`;
-              ns.push({
-                id: dId,
-                _branch: branch.kieu,
-                data: { label: 'Chưa có thông tin chi tiết' },
-                style: {
-                  fontFamily: F, fontSize: 12, fontStyle: 'italic', color: '#cbd5e1',
-                  border: '1px dashed #3a3f52', background: 'rgba(255,255,255,0.04)',
-                  borderRadius: 8, padding: '6px 10px', width: MM_NODE_W - 20,
-                },
-              });
-              es.push({ id: `e::${cId}::${dId}`, source: cId, target: dId, type: 'bezier', style: { stroke: '#2d334488' } });
-            } else {
-              details.forEach((f) => {
-                const dId = `D::${item._rowIndex}::${f.key}`;
-                ns.push({
-                  id: dId,
-                  _branch: branch.kieu,
-                  data: { label: `${f.label}: ${item[f.key]}` },
-                  style: {
-                    fontFamily: F, fontSize: 12.5, fontWeight: 600, color: '#ffffff', textAlign: 'left',
-                    border: '1px solid #2d3344', background: 'rgba(255,255,255,0.06)',
-                    borderRadius: 8, padding: '6px 10px', width: MM_NODE_W,
-                  },
-                });
-                es.push({ id: `e::${cId}::${dId}`, source: cId, target: dId, type: 'bezier', style: { stroke: '#2d334488' } });
-              });
-            }
           });
         });
       });
     });
 
     return getLayoutedElements(ns, es);
-  }, [tree, collapsed, openCustomer, onEdit, onDelete]);
+  }, [tree, collapsed, onEdit, onDelete]);
 
   const onNodeClick = useCallback((_evt, node) => {
     if (node.id.startsWith('L1::') || node.id.startsWith('L2::') || node.id.startsWith('L3::')) {
       onToggleNode(node.id);
-    } else if (node.id.startsWith('C::')) {
-      const rowIndex = parseInt(node.id.slice(3), 10);
-      if (!Number.isNaN(rowIndex)) onToggleCustomer(rowIndex);
     }
-  }, [onToggleNode, onToggleCustomer]);
+  }, [onToggleNode]);
 
   if (!hasData) {
     return <div style={s.emptyTd}>Không có khách hàng nào để hiển thị</div>;
