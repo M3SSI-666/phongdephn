@@ -1178,20 +1178,20 @@ function CustomerNode({ data }) {
         padding: '7px 10px', borderRadius: 10, minWidth: 200, maxWidth: 240,
         border: `1px solid ${data.open ? C.primary : '#2d3344'}`,
         background: data.open ? `${C.primary}1a` : 'rgba(255,255,255,0.04)',
-        color: C.text, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+        color: '#ffffff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
       }}
     >
       <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
-      <span style={{ fontSize: 11, color: '#8a9bb8' }}>{data.open ? '▾' : '▸'}</span>
+      <span style={{ fontSize: 11, color: '#cbd5e1' }}>{data.open ? '▾' : '▸'}</span>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
         {data.color ? (
           <span style={{ background: data.color, color: '#fff', padding: '2px 8px', borderRadius: 6, alignSelf: 'flex-start', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {data.name}
           </span>
         ) : (
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.name}</span>
+          <span style={{ color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.name}</span>
         )}
-        {data.sdt && <span style={{ fontSize: 11, color: '#8a9bb8', fontWeight: 500 }}>{data.sdt}</span>}
+        {data.sdt && <span style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 500 }}>{data.sdt}</span>}
       </div>
       <button
         className="nodrag"
@@ -1282,8 +1282,8 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
               id: dId,
               data: { label: 'Chưa có thông tin chi tiết' },
               style: {
-                fontFamily: F, fontSize: 12, fontStyle: 'italic', color: '#64748b',
-                border: '1px dashed #3a3f52', background: 'rgba(255,255,255,0.02)',
+                fontFamily: F, fontSize: 12, fontStyle: 'italic', color: '#cbd5e1',
+                border: '1px dashed #3a3f52', background: 'rgba(255,255,255,0.04)',
                 borderRadius: 8, padding: '6px 10px', width: MM_NODE_W - 20,
               },
             });
@@ -1295,8 +1295,8 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
                 id: dId,
                 data: { label: `${f.label}: ${item[f.key]}` },
                 style: {
-                  fontFamily: F, fontSize: 12.5, fontWeight: 500, color: C.text, textAlign: 'left',
-                  border: '1px solid #2d3344', background: 'rgba(255,255,255,0.03)',
+                  fontFamily: F, fontSize: 12.5, fontWeight: 600, color: '#ffffff', textAlign: 'left',
+                  border: '1px solid #2d3344', background: 'rgba(255,255,255,0.06)',
                   borderRadius: 8, padding: '6px 10px', width: MM_NODE_W,
                 },
               });
