@@ -50,6 +50,7 @@ const HOMESTAY_TRANG_THAI_OPTIONS = [
 
 const NHU_CAU_OPTIONS = ['Thuê', 'Mua', 'Homestay'];
 const SLOT_XE_OPTIONS = ['Có', 'Không', 'Null'];
+const NOI_THAT_OPTIONS = ['Full đồ', 'Không đồ'];
 
 // Tab con trong tab Khách hàng. `filter` là giá trị dùng cho filterLoai,
 // `nhuCau` là giá trị Nhu_Cau tự điền vào form khi thêm khách ở tab đó.
@@ -379,18 +380,29 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   }, [items, filterLoai, filterTrangThai, search, aiFilter]);
 
   // ── Dữ liệu cây cho chế độ Mind Map (tab Khách thuê) ──
-  // Cấp 1: Kiểu khách (KẾT HỢP / KHÁCH CHỦ ĐỘNG) → Cấp 2: số phòng ngủ → Cấp 3: khách.
+  // Cấp 1: Kiểu khách (KẾT HỢP / KHÁCH CHỦ ĐỘNG) → Cấp 2: số phòng ngủ
+  // → Cấp 3: nội thất (Full đồ / Không đồ / (chưa rõ)) → Cấp 4: khách.
   const mindMapTree = useMemo(() => {
     const norm = (v) => String(v ?? '').trim().toUpperCase();
     const isKetHop = (it) => { const s = norm(it.SDT); return s === 'KẾT HỢP' || s === 'KET HOP'; };
-    // Gom theo kiểu khách rồi theo PN.
+    // Chuẩn hoá nội thất về 1 trong 3 nhãn cố định.
+    const ntKeyOf = (it) => {
+      const v = String(it.Noi_That ?? '').trim().toLowerCase();
+      if (!v) return '(chưa rõ)';
+      if (v.includes('full')) return 'Full đồ';
+      if (v.includes('không') || v.includes('khong')) return 'Không đồ';
+      return '(chưa rõ)';
+    };
+    // Gom theo kiểu khách → PN → nội thất.
     const groups = { 'KẾT HỢP': {}, 'KHÁCH CHỦ ĐỘNG': {} };
     for (const it of filtered) {
       const kieu = isKetHop(it) ? 'KẾT HỢP' : 'KHÁCH CHỦ ĐỘNG';
       const pnRaw = String(it.Phong_Ngu ?? '').trim();
       const pnKey = pnRaw || '(chưa rõ)';
-      if (!groups[kieu][pnKey]) groups[kieu][pnKey] = [];
-      groups[kieu][pnKey].push(it);
+      const ntKey = ntKeyOf(it);
+      if (!groups[kieu][pnKey]) groups[kieu][pnKey] = {};
+      if (!groups[kieu][pnKey][ntKey]) groups[kieu][pnKey][ntKey] = [];
+      groups[kieu][pnKey][ntKey].push(it);
     }
     // Chuyển thành mảng có thứ tự, PN sắp tăng dần (số trước, '(chưa rõ)' cuối).
     const pnSort = (a, b) => {
@@ -400,12 +412,19 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
       if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
       return a.localeCompare(b);
     };
+    // Thứ tự nội thất cố định: Full đồ → Không đồ → (chưa rõ).
+    const ntOrder = ['Full đồ', 'Không đồ', '(chưa rõ)'];
+    const ntSort = (a, b) => ntOrder.indexOf(a) - ntOrder.indexOf(b);
     return ['KẾT HỢP', 'KHÁCH CHỦ ĐỘNG'].map((kieu) => {
-      const pnGroups = Object.keys(groups[kieu]).sort(pnSort).map((pn) => ({
-        pn,
-        khach: groups[kieu][pn],
-        count: groups[kieu][pn].length,
-      }));
+      const pnGroups = Object.keys(groups[kieu]).sort(pnSort).map((pn) => {
+        const ntGroups = Object.keys(groups[kieu][pn]).sort(ntSort).map((nt) => ({
+          nt,
+          khach: groups[kieu][pn][nt],
+          count: groups[kieu][pn][nt].length,
+        }));
+        const count = ntGroups.reduce((sum, g) => sum + g.count, 0);
+        return { pn, ntGroups, count };
+      });
       const total = pnGroups.reduce((sum, g) => sum + g.count, 0);
       return { kieu, pnGroups, total };
     });
@@ -1009,7 +1028,14 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                 <>
                   <div style={s.fieldWrap}>
                     <label style={s.fieldLabel}>Nội thất</label>
-                    <textarea value={form.Noi_That} onChange={(e) => updateForm('Noi_That', e.target.value)} placeholder="VD: Full nội thất, cơ bản, nguyên bản..." style={{ ...s.fieldInput, height: 56, resize: 'vertical' }} />
+                    <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+                      {NOI_THAT_OPTIONS.map((val) => (
+                        <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14, color: '#e2e8f0' }}>
+                          <input type="radio" name="noi_that" checked={form.Noi_That === val} onChange={() => updateForm('Noi_That', val)} style={{ accentColor: C.primary }} />
+                          {val}
+                        </label>
+                      ))}
+                    </div>
                   </div>
 
                   <div style={s.fieldWrap}>
@@ -1255,54 +1281,72 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
 
         if (!l2Open) return;
 
-        g.khach.forEach((item) => {
-          const cId = `C::${item._rowIndex}`;
-          const open = openCustomer.has(item._rowIndex);
+        g.ntGroups.forEach((ntg) => {
+          const l3Id = `L3::${branch.kieu}::${g.pn}::${ntg.nt}`;
+          const l3Open = !collapsed.has(l3Id);
+
           ns.push({
-            id: cId,
-            type: 'customer',
-            data: {
-              name: item.Ten_Zalo || '(chưa có tên)',
-              sdt: item.SDT || '',
-              color: item.Mau_KH || '',
-              open,
-              onEdit: () => onEdit(item),
-              onDelete: () => onDelete(item),
+            id: l3Id,
+            data: { label: `${l3Open ? '▾ ' : '▸ '}${ntg.nt} (${ntg.count})` },
+            style: {
+              fontFamily: F, fontWeight: 700, fontSize: 12.5, color: '#cbd5e1',
+              border: '1.5px solid #3a3f52', background: 'rgba(255,255,255,0.04)',
+              borderRadius: 9, padding: '6px 10px', width: MM_NODE_W - 40, cursor: 'pointer',
             },
-            style: { width: 'auto' },
           });
-          es.push({ id: `e::${l2Id}::${cId}`, source: l2Id, target: cId, type: 'smoothstep', style: { stroke: '#3a3f5299' } });
+          es.push({ id: `e::${l2Id}::${l3Id}`, source: l2Id, target: l3Id, type: 'smoothstep', style: { stroke: '#3a3f5288' } });
 
-          if (!open) return;
+          if (!l3Open) return;
 
-          const details = MM_DETAIL_FIELDS.filter((f) => String(item[f.key] ?? '').trim() !== '');
-          if (details.length === 0) {
-            const dId = `D::${item._rowIndex}::__empty`;
+          ntg.khach.forEach((item) => {
+            const cId = `C::${item._rowIndex}`;
+            const open = openCustomer.has(item._rowIndex);
             ns.push({
-              id: dId,
-              data: { label: 'Chưa có thông tin chi tiết' },
-              style: {
-                fontFamily: F, fontSize: 12, fontStyle: 'italic', color: '#cbd5e1',
-                border: '1px dashed #3a3f52', background: 'rgba(255,255,255,0.04)',
-                borderRadius: 8, padding: '6px 10px', width: MM_NODE_W - 20,
+              id: cId,
+              type: 'customer',
+              data: {
+                name: item.Ten_Zalo || '(chưa có tên)',
+                sdt: item.SDT || '',
+                color: item.Mau_KH || '',
+                open,
+                onEdit: () => onEdit(item),
+                onDelete: () => onDelete(item),
               },
+              style: { width: 'auto' },
             });
-            es.push({ id: `e::${cId}::${dId}`, source: cId, target: dId, type: 'smoothstep', style: { stroke: '#2d334488' } });
-          } else {
-            details.forEach((f) => {
-              const dId = `D::${item._rowIndex}::${f.key}`;
+            es.push({ id: `e::${l3Id}::${cId}`, source: l3Id, target: cId, type: 'smoothstep', style: { stroke: '#3a3f5299' } });
+
+            if (!open) return;
+
+            const details = MM_DETAIL_FIELDS.filter((f) => String(item[f.key] ?? '').trim() !== '');
+            if (details.length === 0) {
+              const dId = `D::${item._rowIndex}::__empty`;
               ns.push({
                 id: dId,
-                data: { label: `${f.label}: ${item[f.key]}` },
+                data: { label: 'Chưa có thông tin chi tiết' },
                 style: {
-                  fontFamily: F, fontSize: 12.5, fontWeight: 600, color: '#ffffff', textAlign: 'left',
-                  border: '1px solid #2d3344', background: 'rgba(255,255,255,0.06)',
-                  borderRadius: 8, padding: '6px 10px', width: MM_NODE_W,
+                  fontFamily: F, fontSize: 12, fontStyle: 'italic', color: '#cbd5e1',
+                  border: '1px dashed #3a3f52', background: 'rgba(255,255,255,0.04)',
+                  borderRadius: 8, padding: '6px 10px', width: MM_NODE_W - 20,
                 },
               });
               es.push({ id: `e::${cId}::${dId}`, source: cId, target: dId, type: 'smoothstep', style: { stroke: '#2d334488' } });
-            });
-          }
+            } else {
+              details.forEach((f) => {
+                const dId = `D::${item._rowIndex}::${f.key}`;
+                ns.push({
+                  id: dId,
+                  data: { label: `${f.label}: ${item[f.key]}` },
+                  style: {
+                    fontFamily: F, fontSize: 12.5, fontWeight: 600, color: '#ffffff', textAlign: 'left',
+                    border: '1px solid #2d3344', background: 'rgba(255,255,255,0.06)',
+                    borderRadius: 8, padding: '6px 10px', width: MM_NODE_W,
+                  },
+                });
+                es.push({ id: `e::${cId}::${dId}`, source: cId, target: dId, type: 'smoothstep', style: { stroke: '#2d334488' } });
+              });
+            }
+          });
         });
       });
     });
@@ -1311,7 +1355,7 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
   }, [tree, collapsed, openCustomer, onEdit, onDelete]);
 
   const onNodeClick = useCallback((_evt, node) => {
-    if (node.id.startsWith('L1::') || node.id.startsWith('L2::')) {
+    if (node.id.startsWith('L1::') || node.id.startsWith('L2::') || node.id.startsWith('L3::')) {
       onToggleNode(node.id);
     } else if (node.id.startsWith('C::')) {
       const rowIndex = parseInt(node.id.slice(3), 10);
