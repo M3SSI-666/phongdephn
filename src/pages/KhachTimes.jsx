@@ -1156,7 +1156,7 @@ const MM_NODE_H = 46;
 function getLayoutedElements(nodes, edges) {
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: 'LR', nodesep: 18, ranksep: 70, marginx: 20, marginy: 20 });
+  g.setGraph({ rankdir: 'LR', nodesep: 32, ranksep: 90, marginx: 20, marginy: 20 });
 
   nodes.forEach((n) => {
     g.setNode(n.id, { width: n.width || MM_NODE_W, height: n.height || MM_NODE_H });
@@ -1211,7 +1211,7 @@ function CustomerNode({ data }) {
     <div
       style={{
         display: 'flex', alignItems: 'center', gap: 6, fontFamily: F,
-        padding: '7px 10px', borderRadius: 10, minWidth: 260, maxWidth: 360,
+        padding: '7px 10px', borderRadius: 10, width: 320, boxSizing: 'border-box',
         border: '1px solid #2d3344',
         background: 'rgba(255,255,255,0.04)',
         color: '#ffffff', fontSize: 13, fontWeight: 600, cursor: 'default',
@@ -1326,7 +1326,7 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete }) {
               _branch: branch.kieu,
               type: 'customer',
               width: 320,
-              height: 78,
+              height: 120,
               data: {
                 name: item.Ten_Zalo || '(chưa có tên)',
                 sdt: item.SDT || '',
