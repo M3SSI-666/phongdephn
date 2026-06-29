@@ -1165,7 +1165,6 @@ const MM_NODE_H = 46;
 
 // Các trường chi tiết hiện ở cấp 4 (xổ bên phải khi bấm tên khách).
 const MM_DETAIL_FIELDS = [
-  { key: 'Noi_That', label: 'Nội thất' },
   { key: 'Slot_Xe', label: 'Slot xe' },
   { key: 'Thoi_Han_Thue', label: 'Thời hạn' },
   { key: 'Tai_Chinh', label: 'Tài chính' },
