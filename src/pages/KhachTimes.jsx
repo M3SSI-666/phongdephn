@@ -1141,11 +1141,12 @@ const MM_DETAIL_FIELDS = [
   { key: 'Tai_Chinh', label: 'Tài chính' },
 ];
 
-// Dùng dagre tính vị trí node cho cây ngang (trái → phải).
-function getLayoutedElements(nodes, edges) {
+// Layout 1 cây con (1 nhánh gốc) theo chiều ngang trái → phải bằng dagre.
+// Trả về node đã có position + bbox {minX, minY, maxX, maxY} của cây con.
+function layoutSubtree(nodes, edges) {
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: 'LR', nodesep: 18, ranksep: 70, marginx: 20, marginy: 20 });
+  g.setGraph({ rankdir: 'LR', nodesep: 18, ranksep: 70, marginx: 0, marginy: 0 });
 
   nodes.forEach((n) => {
     g.setNode(n.id, { width: n.width || MM_NODE_W, height: n.height || MM_NODE_H });
@@ -1154,19 +1155,52 @@ function getLayoutedElements(nodes, edges) {
 
   dagre.layout(g);
 
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   const laid = nodes.map((n) => {
     const pos = g.node(n.id);
     const w = n.width || MM_NODE_W;
     const h = n.height || MM_NODE_H;
-    return {
-      ...n,
-      sourcePosition: 'right',
-      targetPosition: 'left',
-      // dagre trả tâm node → quy về góc trên-trái cho react-flow.
-      position: { x: pos.x - w / 2, y: pos.y - h / 2 },
-    };
+    const x = pos.x - w / 2;
+    const y = pos.y - h / 2;
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x + w > maxX) maxX = x + w;
+    if (y + h > maxY) maxY = y + h;
+    return { ...n, sourcePosition: 'right', targetPosition: 'left', position: { x, y } };
   });
-  return { nodes: laid, edges };
+  return { laid, bbox: { minX, minY, maxX, maxY } };
+}
+
+// Layout toàn bộ: mỗi nhánh gốc (L1) là 1 cây con riêng, đặt CẠNH NHAU theo
+// chiều ngang (tận dụng khoảng trống ngang thay vì xếp dọc).
+function getLayoutedElements(nodes, edges) {
+  // Gom node theo nhánh gốc dựa trên kiểu (KẾT HỢP / KHÁCH CHỦ ĐỘNG).
+  // Mọi node trong 1 nhánh đều mang mã `_branch` để phân nhóm.
+  const groups = new Map(); // branchKey -> { nodes:[], edges:[] }
+  nodes.forEach((n) => {
+    const key = n._branch || '__root';
+    if (!groups.has(key)) groups.set(key, { nodes: [], edges: [], ids: new Set() });
+    groups.get(key).nodes.push(n);
+    groups.get(key).ids.add(n.id);
+  });
+  edges.forEach((e) => {
+    for (const grp of groups.values()) {
+      if (grp.ids.has(e.source) && grp.ids.has(e.target)) { grp.edges.push(e); break; }
+    }
+  });
+
+  const GAP_X = 80; // khoảng cách ngang giữa 2 cây con
+  let offsetX = 0;
+  const allNodes = [];
+  for (const grp of groups.values()) {
+    const { laid, bbox } = layoutSubtree(grp.nodes, grp.edges);
+    const shift = offsetX - bbox.minX;
+    laid.forEach((n) => {
+      allNodes.push({ ...n, position: { x: n.position.x + shift, y: n.position.y - bbox.minY } });
+    });
+    offsetX += (bbox.maxX - bbox.minX) + GAP_X;
+  }
+  return { nodes: allNodes, edges };
 }
 
 // Node tuỳ biến cho khách (cấp 3): tên + SĐT + nút Sửa/Xoá.
@@ -1228,6 +1262,7 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
 
       ns.push({
         id: l1Id,
+        _branch: branch.kieu,
         data: { label: `${l1Open ? '▾ ' : '▸ '}${branch.kieu} (${branch.total})` },
         style: {
           fontFamily: F, fontWeight: 800, fontSize: 14, color: l1Color,
@@ -1244,6 +1279,7 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
 
         ns.push({
           id: l2Id,
+          _branch: branch.kieu,
           data: { label: `${l2Open ? '▾ ' : '▸ '}PN: ${g.pn} (${g.count})` },
           style: {
             fontFamily: F, fontWeight: 700, fontSize: 13, color: '#cbd5e1',
@@ -1260,6 +1296,7 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
           const open = openCustomer.has(item._rowIndex);
           ns.push({
             id: cId,
+            _branch: branch.kieu,
             type: 'customer',
             data: {
               name: item.Ten_Zalo || '(chưa có tên)',
@@ -1280,6 +1317,7 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
             const dId = `D::${item._rowIndex}::__empty`;
             ns.push({
               id: dId,
+              _branch: branch.kieu,
               data: { label: 'Chưa có thông tin chi tiết' },
               style: {
                 fontFamily: F, fontSize: 12, fontStyle: 'italic', color: '#cbd5e1',
@@ -1293,6 +1331,7 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
               const dId = `D::${item._rowIndex}::${f.key}`;
               ns.push({
                 id: dId,
+                _branch: branch.kieu,
                 data: { label: `${f.label}: ${item[f.key]}` },
                 style: {
                   fontFamily: F, fontSize: 12.5, fontWeight: 600, color: '#ffffff', textAlign: 'left',
