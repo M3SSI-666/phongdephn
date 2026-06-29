@@ -1165,7 +1165,6 @@ const MM_NODE_H = 46;
 
 // Các trường chi tiết hiện ở cấp 4 (xổ bên phải khi bấm tên khách).
 const MM_DETAIL_FIELDS = [
-  { key: 'Ngay_Vao', label: 'Ngày vào' },
   { key: 'Noi_That', label: 'Nội thất' },
   { key: 'Slot_Xe', label: 'Slot xe' },
   { key: 'Thoi_Han_Thue', label: 'Thời hạn' },
@@ -1231,7 +1230,7 @@ function CustomerNode({ data }) {
     <div
       style={{
         display: 'flex', alignItems: 'center', gap: 6, fontFamily: F,
-        padding: '7px 10px', borderRadius: 10, minWidth: 200, maxWidth: 240,
+        padding: '7px 10px', borderRadius: 10, minWidth: 240, maxWidth: 300,
         border: `1px solid ${data.open ? C.primary : '#2d3344'}`,
         background: data.open ? `${C.primary}1a` : 'rgba(255,255,255,0.04)',
         color: '#ffffff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
@@ -1248,6 +1247,7 @@ function CustomerNode({ data }) {
           <span style={{ color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.name}</span>
         )}
         {data.sdt && <span style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 500 }}>{data.sdt}</span>}
+        {data.ngayVao && <span style={{ fontSize: 11, color: '#7dd3fc', fontWeight: 500 }}>Ngày vào: {data.ngayVao}</span>}
       </div>
       <button
         className="nodrag"
@@ -1338,9 +1338,12 @@ function MindMapFlowInner({ tree, collapsed, openCustomer, onToggleNode, onToggl
               id: cId,
               _branch: branch.kieu,
               type: 'customer',
+              width: 280,
+              height: 64,
               data: {
                 name: item.Ten_Zalo || '(chưa có tên)',
                 sdt: item.SDT || '',
+                ngayVao: item.Ngay_Vao || '',
                 color: item.Mau_KH || '',
                 open,
                 onEdit: () => onEdit(item),
