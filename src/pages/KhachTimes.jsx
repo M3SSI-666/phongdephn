@@ -517,7 +517,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   // groupRows: mảng _rowIndex các khách cùng nhóm theo thứ tự hiện tại.
   // idx: vị trí khách đang đẩy; dir: -1 lên, +1 xuống.
   const handleMindMapReorder = useCallback((groupRows, idx, dir) => {
-    if (!canDrag || !Array.isArray(groupRows) || groupRows.length < 2) return;
+    if (!Array.isArray(groupRows) || groupRows.length < 2) return;
     const target = idx + dir;
     if (target < 0 || target >= groupRows.length) return;
     // Hoán đổi để ra thứ tự mới của nhóm.
@@ -532,7 +532,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     const byRow = new Map(filtered.map((it) => [it._rowIndex, it]));
     slots.forEach((slotIdx, k) => { order[slotIdx] = byRow.get(newGroupOrder[k]); });
     persistOrder(order);
-  }, [canDrag, filtered, persistOrder]);
+  }, [filtered, persistOrder]);
 
   const stats = useMemo(() => {
     const total = items.length;
@@ -1431,8 +1431,7 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete, can
                 color: item.Mau_KH || '',
                 hasDetails,
                 detailsOpen,
-                canDrag,
-                canReorder: canDrag && groupRows.length > 1,
+                canReorder: groupRows.length > 1,
                 isFirst: idx === 0,
                 isLast: idx === groupRows.length - 1,
                 onMove: (dir) => onReorderCustomer && onReorderCustomer(groupRows, idx, dir),
