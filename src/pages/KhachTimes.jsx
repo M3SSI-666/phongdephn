@@ -8,6 +8,7 @@ import {
   Controls,
   Handle,
   Position,
+  applyNodeChanges,
 } from '@xyflow/react';
 import dagre from '@dagrejs/dagre';
 import '@xyflow/react/dist/style.css';
@@ -1321,7 +1322,7 @@ const DETAIL_FIELDS = [
 function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete, canDrag, onReorderCustomer }) {
   const hasData = tree.some((b) => b.total > 0);
 
-  const { nodes, edges } = useMemo(() => {
+  const { nodes: layoutNodes, edges } = useMemo(() => {
     const ns = [];
     const es = [];
 
@@ -1439,6 +1440,14 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete, can
     return getLayoutedElements(ns, es);
   }, [tree, collapsed, onEdit, onDelete, canDrag]);
 
+  // React Flow cần state node có thể thay đổi để kéo-thả di chuyển được.
+  const [nodes, setNodes] = useState(layoutNodes);
+  useEffect(() => { setNodes(layoutNodes); }, [layoutNodes]);
+  const onNodesChange = useCallback(
+    (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
+    []
+  );
+
   const onNodeClick = useCallback((_evt, node) => {
     if (node.id.startsWith('L1::') || node.id.startsWith('L2::') || node.id.startsWith('L3::')) {
       onToggleNode(node.id);
@@ -1471,6 +1480,7 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete, can
         nodes={nodes}
         edges={edges}
         nodeTypes={MM_NODE_TYPES}
+        onNodesChange={onNodesChange}
         onNodeClick={onNodeClick}
         onNodeDragStop={onNodeDragStop}
         fitView
