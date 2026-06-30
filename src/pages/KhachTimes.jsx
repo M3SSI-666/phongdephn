@@ -513,22 +513,24 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     persistOrder(order);
   }, [dragRowIndex, filtered, persistOrder]);
 
-  // Kéo-thả sắp xếp khách trong Mind Map (chỉ trong cùng nhóm kiểu/PN/nội thất).
-  // newGroupOrder: mảng _rowIndex của các khách cùng nhóm theo thứ tự mới.
-  const handleMindMapReorder = useCallback((newGroupOrder) => {
-    if (!canDrag || !Array.isArray(newGroupOrder) || newGroupOrder.length < 2) return;
+  // Đẩy 1 khách lên/xuống 1 bậc trong cùng nhóm (kiểu/PN/nội thất) trên Mind Map.
+  // groupRows: mảng _rowIndex các khách cùng nhóm theo thứ tự hiện tại.
+  // idx: vị trí khách đang đẩy; dir: -1 lên, +1 xuống.
+  const handleMindMapReorder = useCallback((groupRows, idx, dir) => {
+    if (!canDrag || !Array.isArray(groupRows) || groupRows.length < 2) return;
+    const target = idx + dir;
+    if (target < 0 || target >= groupRows.length) return;
+    // Hoán đổi để ra thứ tự mới của nhóm.
+    const newGroupOrder = [...groupRows];
+    [newGroupOrder[idx], newGroupOrder[target]] = [newGroupOrder[target], newGroupOrder[idx]];
+    // Đặt thứ tự mới vào đúng các vị trí cũ của nhóm trong danh sách phẳng.
     const order = [...filtered];
-    const groupSet = new Set(newGroupOrder);
-    // Các vị trí trong danh sách phẳng mà nhóm này đang chiếm.
+    const groupSet = new Set(groupRows);
     const slots = [];
     order.forEach((it, i) => { if (groupSet.has(it._rowIndex)) slots.push(i); });
     if (slots.length !== newGroupOrder.length) return;
-    // Đặt khách theo thứ tự mới vào đúng các vị trí cũ của nhóm.
-    const byRow = new Map(order.map((it) => [it._rowIndex, it]));
+    const byRow = new Map(filtered.map((it) => [it._rowIndex, it]));
     slots.forEach((slotIdx, k) => { order[slotIdx] = byRow.get(newGroupOrder[k]); });
-    // Bỏ qua nếu thứ tự không đổi.
-    const changed = slots.some((slotIdx, k) => filtered[slotIdx]._rowIndex !== order[slotIdx]._rowIndex);
-    if (!changed) return;
     persistOrder(order);
   }, [canDrag, filtered, persistOrder]);
 
@@ -1240,7 +1242,7 @@ function CustomerNode({ data }) {
         padding: '7px 10px', borderRadius: 10, width: 320, boxSizing: 'border-box',
         border: '1px solid #2d3344',
         background: 'rgba(255,255,255,0.04)',
-        color: '#ffffff', fontSize: 13, fontWeight: 600, cursor: data.canDrag ? 'grab' : 'default',
+        color: '#ffffff', fontSize: 13, fontWeight: 600, cursor: 'default',
       }}
     >
       <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
@@ -1266,6 +1268,24 @@ function CustomerNode({ data }) {
           </span>
         )}
       </div>
+      {data.canReorder && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <button
+            className="nodrag"
+            onClick={(e) => { e.stopPropagation(); if (!data.isFirst) data.onMove(-1); }}
+            disabled={data.isFirst}
+            style={{ ...s.actionBtn, ...s.moveBtn, opacity: data.isFirst ? 0.3 : 1, cursor: data.isFirst ? 'default' : 'pointer' }}
+            title="Đẩy lên trên"
+          >&#9650;</button>
+          <button
+            className="nodrag"
+            onClick={(e) => { e.stopPropagation(); if (!data.isLast) data.onMove(1); }}
+            disabled={data.isLast}
+            style={{ ...s.actionBtn, ...s.moveBtn, opacity: data.isLast ? 0.3 : 1, cursor: data.isLast ? 'default' : 'pointer' }}
+            title="Đẩy xuống dưới"
+          >&#9660;</button>
+        </div>
+      )}
       <button
         className="nodrag"
         onClick={(e) => { e.stopPropagation(); data.onEdit(); }}
@@ -1385,7 +1405,8 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete, can
 
           if (!l3Open) return;
 
-          ntg.khach.forEach((item) => {
+          const groupRows = ntg.khach.map((k) => k._rowIndex);
+          ntg.khach.forEach((item, idx) => {
             const cId = `C::${item._rowIndex}`;
             const detailFields = DETAIL_FIELDS
               .map(([label, key]) => ({ label, value: String(item[key] ?? '').trim() }))
@@ -1399,7 +1420,6 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete, can
               _branch: branch.kieu,
               _group: l3Id,
               type: 'customer',
-              draggable: canDrag,
               width: 320,
               height: 100,
               data: {
@@ -1412,6 +1432,10 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete, can
                 hasDetails,
                 detailsOpen,
                 canDrag,
+                canReorder: canDrag && groupRows.length > 1,
+                isFirst: idx === 0,
+                isLast: idx === groupRows.length - 1,
+                onMove: (dir) => onReorderCustomer && onReorderCustomer(groupRows, idx, dir),
                 onEdit: () => onEdit(item),
                 onDelete: () => onDelete(item),
               },
@@ -1438,7 +1462,7 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete, can
     });
 
     return getLayoutedElements(ns, es);
-  }, [tree, collapsed, onEdit, onDelete, canDrag]);
+  }, [tree, collapsed, onEdit, onDelete, canDrag, onReorderCustomer]);
 
   // React Flow cần state node có thể thay đổi để kéo-thả di chuyển được.
   const [nodes, setNodes] = useState(layoutNodes);
@@ -1456,19 +1480,6 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete, can
     }
   }, [onToggleNode]);
 
-  const onNodeDragStop = useCallback((_evt, node) => {
-    if (!canDrag || !node.id.startsWith('C::') || !onReorderCustomer) return;
-    // Các khách cùng nhánh (cùng _group). Dùng Y mới của node đang kéo.
-    const siblings = nodes
-      .filter((n) => n.type === 'customer' && n._group === node._group)
-      .map((n) => ({
-        rowIndex: Number(n.id.slice(3)),
-        y: n.id === node.id ? node.position.y : n.position.y,
-      }));
-    if (siblings.length < 2) return;
-    siblings.sort((a, b) => a.y - b.y);
-    onReorderCustomer(siblings.map((s) => s.rowIndex));
-  }, [canDrag, nodes, onReorderCustomer]);
 
   if (!hasData) {
     return <div style={s.emptyTd}>Không có khách hàng nào để hiển thị</div>;
@@ -1482,12 +1493,11 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete, can
         nodeTypes={MM_NODE_TYPES}
         onNodesChange={onNodesChange}
         onNodeClick={onNodeClick}
-        onNodeDragStop={onNodeDragStop}
         fitView
         fitViewOptions={{ padding: 0.15 }}
         minZoom={0.2}
         maxZoom={2}
-        nodesDraggable={true}
+        nodesDraggable={false}
         proOptions={{ hideAttribution: true }}
       >
         <Background color="#3a3f52" gap={20} />
@@ -1603,6 +1613,7 @@ const s = {
   emptyTd: { textAlign: 'center', padding: 40, color: '#8a9bb8', fontSize: 14 },
   actionBtn: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: '4px 6px', borderRadius: 6, transition: 'background 0.12s', color: '#8a9bb8' },
   deleteBtn: { color: C.error },
+  moveBtn: { fontSize: 10, padding: '1px 5px', color: '#34d399', lineHeight: 1 },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 },
   modal: { background: '#1a1d27', borderRadius: 16, width: 520, maxWidth: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: C.shadowLg, animation: 'ktSlideUp 0.25s ease', overflow: 'hidden' },
   modalHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #2d3240' },
