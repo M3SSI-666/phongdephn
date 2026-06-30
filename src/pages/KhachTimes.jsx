@@ -1226,6 +1226,7 @@ function CustomerNode({ data }) {
         ) : (
           <span style={{ color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.name}</span>
         )}
+        {data.sdt && <span style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 500 }}>{data.sdt}</span>}
         {(data.ngayVao || data.slotXe || data.taiChinh) && (
           <span style={{ fontSize: 11, color: '#7dd3fc', fontWeight: 500, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {data.ngayVao && <span>Ngày vào: {data.ngayVao}</span>}
@@ -1284,7 +1285,6 @@ const MM_NODE_TYPES = { customer: CustomerNode, customerDetail: CustomerDetailNo
 
 // Các trường đẩy ra nhánh phụ (label hiển thị → key trong dữ liệu).
 const DETAIL_FIELDS = [
-  ['SĐT', 'SDT'],
   ['Ngày PS', 'Ngay_PS'],
   ['Thời hạn', 'Thoi_Han_Thue'],
   ['Check out', 'Check_Out'],
@@ -1382,6 +1382,7 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete }) {
               height: 100,
               data: {
                 name: item.Ten_Zalo || '(chưa có tên)',
+                sdt: item.SDT || '',
                 ngayVao: item.Ngay_Vao || '',
                 slotXe: item.Slot_Xe || '',
                 taiChinh: item.Tai_Chinh || '',
