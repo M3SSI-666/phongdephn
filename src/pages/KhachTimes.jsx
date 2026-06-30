@@ -350,6 +350,8 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   const isHomestayTab = activeSubTab === 'homestay';
   // Tab Khách thuê: cho phép chế độ xem Mind Map.
   const isThueTab = activeSubTab === 'thue';
+  // Tab cho phép chế độ xem Mind Map: Khách thuê và Khách bán.
+  const isMindMapTab = isThueTab || isBanTab;
   // Bộ trạng thái áp dụng theo tab hiện tại.
   const trangThaiOptions = isHomestayTab ? HOMESTAY_TRANG_THAI_OPTIONS : TRANG_THAI_OPTIONS;
 
@@ -447,9 +449,9 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     });
   }, []);
 
-  // Rời tab Khách thuê thì luôn quay về chế độ bảng.
+  // Rời tab có Mind Map (Khách thuê / Khách bán) thì luôn quay về chế độ bảng.
   useEffect(() => {
-    if (activeSubTab !== 'thue') setViewMode('table');
+    if (activeSubTab !== 'thue' && activeSubTab !== 'ban') setViewMode('table');
   }, [activeSubTab]);
 
   // Tìm kiếm thông minh: gửi câu chữ tự nhiên cho AI nhận dạng tiêu chí, rồi lọc khách.
@@ -728,8 +730,8 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
           ))}
         </div>
 
-        {/* Chuyển chế độ xem: Bảng / Mind Map — chỉ ở tab Khách thuê */}
-        {isThueTab && (
+        {/* Chuyển chế độ xem: Bảng / Mind Map — tab Khách thuê và Khách bán */}
+        {isMindMapTab && (
           <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
             {[
               { key: 'table', label: '☰ Bảng' },
@@ -851,8 +853,8 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         {error && <div style={s.errorBox}>{error}</div>}
         {loading && <div style={s.loadingBox}>Đang tải dữ liệu...</div>}
 
-        {/* Mind Map view — tab Khách thuê */}
-        {!loading && !error && isThueTab && viewMode === 'mindmap' && (
+        {/* Mind Map view — tab Khách thuê và Khách bán */}
+        {!loading && !error && isMindMapTab && viewMode === 'mindmap' && (
           <MindMapFlow
             tree={mindMapTree}
             collapsed={mmCollapsed}
@@ -861,11 +863,12 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
             onDelete={setDeleteTarget}
             canDrag={canDrag}
             onReorderCustomer={handleMindMapReorder}
+            detailFields={isBanTab ? DETAIL_FIELDS_BAN : DETAIL_FIELDS}
           />
         )}
 
         {/* Table */}
-        {!loading && !error && !(isThueTab && viewMode === 'mindmap') && (
+        {!loading && !error && !(isMindMapTab && viewMode === 'mindmap') && (
           <div className="kt-table-wrap" style={s.tableWrap}>
             <table style={s.table}>
               <thead>
@@ -1329,7 +1332,7 @@ function CustomerDetailNode({ data }) {
 
 const MM_NODE_TYPES = { customer: CustomerNode, customerDetail: CustomerDetailNode };
 
-// Các trường đẩy ra nhánh phụ (label hiển thị → key trong dữ liệu).
+// Các trường đẩy ra nhánh phụ (label hiển thị → key trong dữ liệu) — tab Khách thuê.
 const DETAIL_FIELDS = [
   ['Trạng thái', 'Trang_Thai'],
   ['Thời hạn', 'Thoi_Han_Thue'],
@@ -1339,7 +1342,21 @@ const DETAIL_FIELDS = [
   ['Ngày PS', 'Ngay_PS'],
 ];
 
-function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete, canDrag, onReorderCustomer }) {
+// Nhánh phụ cho tab Khách bán (cột khác Khách thuê: có Tầng/Ban công/Cửa, không có Thời hạn/Ngày vào).
+const DETAIL_FIELDS_BAN = [
+  ['Trạng thái', 'Trang_Thai'],
+  ['Diện tích', 'Dien_Tich'],
+  ['Tầng', 'Tang'],
+  ['Ban công', 'Ban_Cong'],
+  ['Cửa', 'Cua'],
+  ['Căn tư vấn', 'Can_Tu_Van'],
+  ['Cọc', 'Coc'],
+  ['Thu về', 'Thu_Ve'],
+  ['Ghi chú', 'Ghi_Chu'],
+  ['Ngày PS', 'Ngay_PS'],
+];
+
+function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete, canDrag, onReorderCustomer, detailFields }) {
   const hasData = tree.some((b) => b.total > 0);
 
   const { nodes: layoutNodes, edges } = useMemo(() => {
@@ -1408,10 +1425,10 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete, can
           const groupRows = ntg.khach.map((k) => k._rowIndex);
           ntg.khach.forEach((item, idx) => {
             const cId = `C::${item._rowIndex}`;
-            const detailFields = DETAIL_FIELDS
+            const detailFieldRows = (detailFields || DETAIL_FIELDS)
               .map(([label, key]) => ({ label, value: String(item[key] ?? '').trim() }))
               .filter((f) => f.value);
-            const hasDetails = detailFields.length > 0;
+            const hasDetails = detailFieldRows.length > 0;
             const dId = `D::${item._rowIndex}`;
             const detailsOpen = hasDetails && !collapsed.has(dId);
 
@@ -1449,8 +1466,8 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete, can
                 type: 'customerDetail',
                 draggable: false,
                 width: 300,
-                height: Math.max(60, detailFields.length * 18 + 20),
-                data: { fields: detailFields },
+                height: Math.max(60, detailFieldRows.length * 18 + 20),
+                data: { fields: detailFieldRows },
                 style: { width: 'auto' },
               });
               es.push({ id: `e::${cId}::${dId}`, source: cId, target: dId, type: 'bezier', style: { stroke: '#7dd3fc66' } });
@@ -1461,7 +1478,7 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete, can
     });
 
     return getLayoutedElements(ns, es);
-  }, [tree, collapsed, onEdit, onDelete, canDrag, onReorderCustomer]);
+  }, [tree, collapsed, onEdit, onDelete, canDrag, onReorderCustomer, detailFields]);
 
   // React Flow cần state node có thể thay đổi để kéo-thả di chuyển được.
   const [nodes, setNodes] = useState(layoutNodes);
