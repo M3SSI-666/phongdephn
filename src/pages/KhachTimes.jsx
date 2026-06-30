@@ -1335,6 +1335,7 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete, can
       ns.push({
         id: l1Id,
         _branch: branch.kieu,
+        draggable: false,
         data: { label: `${l1Open ? '▾ ' : '▸ '}${branch.kieu} (${branch.total})` },
         style: {
           fontFamily: F, fontWeight: 800, fontSize: 14, color: l1Color,
@@ -1352,6 +1353,7 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete, can
         ns.push({
           id: l2Id,
           _branch: branch.kieu,
+          draggable: false,
           data: { label: `${l2Open ? '▾ ' : '▸ '}PN: ${g.pn} (${g.count})` },
           style: {
             fontFamily: F, fontWeight: 700, fontSize: 13, color: '#cbd5e1',
@@ -1370,6 +1372,7 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete, can
           ns.push({
             id: l3Id,
             _branch: branch.kieu,
+            draggable: false,
             data: { label: `${l3Open ? '▾ ' : '▸ '}${ntg.nt} (${ntg.count})` },
             style: {
               fontFamily: F, fontWeight: 700, fontSize: 12.5, color: '#cbd5e1',
@@ -1420,6 +1423,7 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete, can
                 id: dId,
                 _branch: branch.kieu,
                 type: 'customerDetail',
+                draggable: false,
                 width: 300,
                 height: Math.max(60, detailFields.length * 18 + 20),
                 data: { fields: detailFields },
@@ -1473,7 +1477,7 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete, can
         fitViewOptions={{ padding: 0.15 }}
         minZoom={0.2}
         maxZoom={2}
-        nodesDraggable={false}
+        nodesDraggable={true}
         proOptions={{ hideAttribution: true }}
       >
         <Background color="#3a3f52" gap={20} />
