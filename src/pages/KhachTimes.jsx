@@ -1073,11 +1073,6 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                 <textarea value={form.Tai_Chinh} onChange={(e) => updateForm('Tai_Chinh', e.target.value)} placeholder="VD: 11 / 11.5 / 2000" style={{ ...s.fieldInput, height: 56, resize: 'vertical' }} />
               </div>
               <div style={s.fieldWrap}>
-                <label style={s.fieldLabel}>Tòa</label>
-                <textarea value={form.Toa} onChange={(e) => updateForm('Toa', e.target.value)} placeholder="VD: T1, Park 5, R6..." style={{ ...s.fieldInput, height: 56, resize: 'vertical' }} />
-              </div>
-
-              <div style={s.fieldWrap}>
                 <label style={s.fieldLabel}>{isHomestayTab ? 'Căn Lock' : 'Căn tư vấn'}</label>
                 <textarea value={form.Can_Tu_Van} onChange={(e) => updateForm('Can_Tu_Van', e.target.value)} placeholder="VD: Park 1 - 07.12&#10;Park 5 - 03.08" style={{ ...s.fieldInput, height: 72, resize: 'vertical' }} />
               </div>
