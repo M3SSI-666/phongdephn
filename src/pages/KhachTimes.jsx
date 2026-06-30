@@ -1226,14 +1226,16 @@ function CustomerNode({ data }) {
         ) : (
           <span style={{ color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.name}</span>
         )}
-        {data.sdt && <span style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 500 }}>{data.sdt}</span>}
-        {(data.ngayVao || data.slotXe || data.thoiHan || data.taiChinh || data.ghiChu) && (
+        {(data.ngayVao || data.slotXe || data.taiChinh) && (
           <span style={{ fontSize: 11, color: '#7dd3fc', fontWeight: 500, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {data.ngayVao && <span>Ngày vào: {data.ngayVao}</span>}
             {data.slotXe && <span>Slot xe: {data.slotXe}</span>}
-            {data.thoiHan && <span>Thời hạn: {data.thoiHan}</span>}
             {data.taiChinh && <span>Tài chính: {data.taiChinh}</span>}
-            {data.ghiChu && <span>Ghi chú: {data.ghiChu}</span>}
+          </span>
+        )}
+        {data.hasDetails && (
+          <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>
+            {data.detailsOpen ? '▾ Ẩn thông tin' : '▸ Xem thêm'}
           </span>
         )}
       </div>
@@ -1254,7 +1256,51 @@ function CustomerNode({ data }) {
   );
 }
 
-const MM_NODE_TYPES = { customer: CustomerNode };
+// Node phụ: gộp toàn bộ thông tin còn lại của khách (ẩn/hiện theo node khách).
+function CustomerDetailNode({ data }) {
+  return (
+    <div
+      style={{
+        fontFamily: F, padding: '8px 11px', borderRadius: 10, width: 300, boxSizing: 'border-box',
+        border: '1px dashed #3a3f52', background: 'rgba(125,211,252,0.05)',
+        color: '#cbd5e1', fontSize: 11, fontWeight: 500, cursor: 'default',
+      }}
+    >
+      <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {data.fields.map((f) => (
+          <span key={f.label} style={{ display: 'flex', gap: 6 }}>
+            <span style={{ color: '#94a3b8', minWidth: 78 }}>{f.label}:</span>
+            <span style={{ color: '#e2e8f0', flex: 1, wordBreak: 'break-word' }}>{f.value}</span>
+          </span>
+        ))}
+      </div>
+      <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
+    </div>
+  );
+}
+
+const MM_NODE_TYPES = { customer: CustomerNode, customerDetail: CustomerDetailNode };
+
+// Các trường đẩy ra nhánh phụ (label hiển thị → key trong dữ liệu).
+const DETAIL_FIELDS = [
+  ['SĐT', 'SDT'],
+  ['Ngày PS', 'Ngay_PS'],
+  ['Thời hạn', 'Thoi_Han_Thue'],
+  ['Check out', 'Check_Out'],
+  ['Diện tích', 'Dien_Tich'],
+  ['Tầng', 'Tang'],
+  ['Ban công', 'Ban_Cong'],
+  ['Cửa', 'Cua'],
+  ['Toà', 'Toa'],
+  ['Cần tư vấn', 'Can_Tu_Van'],
+  ['Trạng thái', 'Trang_Thai'],
+  ['Cọc', 'Coc'],
+  ['Cọc Host', 'Coc_Host'],
+  ['Chủ căn', 'Chu_Can'],
+  ['Thu về', 'Thu_Ve'],
+  ['Ghi chú', 'Ghi_Chu'],
+];
 
 function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete }) {
   const hasData = tree.some((b) => b.total > 0);
@@ -1321,27 +1367,46 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete }) {
 
           ntg.khach.forEach((item) => {
             const cId = `C::${item._rowIndex}`;
+            const detailFields = DETAIL_FIELDS
+              .map(([label, key]) => ({ label, value: String(item[key] ?? '').trim() }))
+              .filter((f) => f.value);
+            const hasDetails = detailFields.length > 0;
+            const dId = `D::${item._rowIndex}`;
+            const detailsOpen = hasDetails && !collapsed.has(dId);
+
             ns.push({
               id: cId,
               _branch: branch.kieu,
               type: 'customer',
               width: 320,
-              height: 120,
+              height: 100,
               data: {
                 name: item.Ten_Zalo || '(chưa có tên)',
-                sdt: item.SDT || '',
                 ngayVao: item.Ngay_Vao || '',
                 slotXe: item.Slot_Xe || '',
-                thoiHan: item.Thoi_Han_Thue || '',
                 taiChinh: item.Tai_Chinh || '',
-                ghiChu: item.Ghi_Chu || '',
                 color: item.Mau_KH || '',
+                hasDetails,
+                detailsOpen,
                 onEdit: () => onEdit(item),
                 onDelete: () => onDelete(item),
               },
               style: { width: 'auto' },
             });
             es.push({ id: `e::${l3Id}::${cId}`, source: l3Id, target: cId, type: 'bezier', style: { stroke: '#3a3f5299' } });
+
+            if (detailsOpen) {
+              ns.push({
+                id: dId,
+                _branch: branch.kieu,
+                type: 'customerDetail',
+                width: 300,
+                height: Math.max(60, detailFields.length * 18 + 20),
+                data: { fields: detailFields },
+                style: { width: 'auto' },
+              });
+              es.push({ id: `e::${cId}::${dId}`, source: cId, target: dId, type: 'bezier', style: { stroke: '#7dd3fc66' } });
+            }
           });
         });
       });
@@ -1353,6 +1418,8 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete }) {
   const onNodeClick = useCallback((_evt, node) => {
     if (node.id.startsWith('L1::') || node.id.startsWith('L2::') || node.id.startsWith('L3::')) {
       onToggleNode(node.id);
+    } else if (node.id.startsWith('C::') && node.data?.hasDetails) {
+      onToggleNode(`D::${node.id.slice(3)}`);
     }
   }, [onToggleNode]);
 
