@@ -67,6 +67,26 @@ function getTodayStr() {
   return `${dd}/${mm}/${d.getFullYear()}`;
 }
 
+// ── Khoá nhóm Mind Map (kiểu khách / phòng ngủ / nội thất) ──
+// Dùng chung cho cây Mind Map và logic kéo-thả sắp xếp.
+function mmKieuOf(it) {
+  const s = String(it.SDT ?? '').trim().toUpperCase();
+  return s === 'KẾT HỢP' || s === 'KET HOP' ? 'KẾT HỢP' : 'KHÁCH CHỦ ĐỘNG';
+}
+function mmPnKeyOf(it) {
+  return String(it.Phong_Ngu ?? '').trim() || '(chưa rõ)';
+}
+function mmNtKeyOf(it) {
+  const v = String(it.Noi_That ?? '').trim().toLowerCase();
+  if (!v) return '(chưa rõ)';
+  if (v.includes('full')) return 'Full đồ';
+  if (v.includes('không') || v.includes('khong')) return 'Không đồ';
+  return '(chưa rõ)';
+}
+function mmGroupKey(it) {
+  return `${mmKieuOf(it)}|${mmPnKeyOf(it)}|${mmNtKeyOf(it)}`;
+}
+
 const EMPTY_FORM = {
   Ngay_PS: '', Ten_Zalo: '', SDT: '',
   Nhu_Cau: 'Thuê', Phong_Ngu: '', Noi_That: '', Slot_Xe: '',
@@ -382,23 +402,12 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   // Cấp 1: Kiểu khách (KẾT HỢP / KHÁCH CHỦ ĐỘNG) → Cấp 2: số phòng ngủ
   // → Cấp 3: nội thất (Full đồ / Không đồ / (chưa rõ)) → Cấp 4: khách.
   const mindMapTree = useMemo(() => {
-    const norm = (v) => String(v ?? '').trim().toUpperCase();
-    const isKetHop = (it) => { const s = norm(it.SDT); return s === 'KẾT HỢP' || s === 'KET HOP'; };
-    // Chuẩn hoá nội thất về 1 trong 3 nhãn cố định.
-    const ntKeyOf = (it) => {
-      const v = String(it.Noi_That ?? '').trim().toLowerCase();
-      if (!v) return '(chưa rõ)';
-      if (v.includes('full')) return 'Full đồ';
-      if (v.includes('không') || v.includes('khong')) return 'Không đồ';
-      return '(chưa rõ)';
-    };
     // Gom theo kiểu khách → PN → nội thất.
     const groups = { 'KẾT HỢP': {}, 'KHÁCH CHỦ ĐỘNG': {} };
     for (const it of filtered) {
-      const kieu = isKetHop(it) ? 'KẾT HỢP' : 'KHÁCH CHỦ ĐỘNG';
-      const pnRaw = String(it.Phong_Ngu ?? '').trim();
-      const pnKey = pnRaw || '(chưa rõ)';
-      const ntKey = ntKeyOf(it);
+      const kieu = mmKieuOf(it);
+      const pnKey = mmPnKeyOf(it);
+      const ntKey = mmNtKeyOf(it);
       if (!groups[kieu][pnKey]) groups[kieu][pnKey] = {};
       if (!groups[kieu][pnKey][ntKey]) groups[kieu][pnKey][ntKey] = [];
       groups[kieu][pnKey][ntKey].push(it);
@@ -502,6 +511,25 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     order.splice(to, 0, moved);
     persistOrder(order);
   }, [dragRowIndex, filtered, persistOrder]);
+
+  // Kéo-thả sắp xếp khách trong Mind Map (chỉ trong cùng nhóm kiểu/PN/nội thất).
+  // newGroupOrder: mảng _rowIndex của các khách cùng nhóm theo thứ tự mới.
+  const handleMindMapReorder = useCallback((newGroupOrder) => {
+    if (!canDrag || !Array.isArray(newGroupOrder) || newGroupOrder.length < 2) return;
+    const order = [...filtered];
+    const groupSet = new Set(newGroupOrder);
+    // Các vị trí trong danh sách phẳng mà nhóm này đang chiếm.
+    const slots = [];
+    order.forEach((it, i) => { if (groupSet.has(it._rowIndex)) slots.push(i); });
+    if (slots.length !== newGroupOrder.length) return;
+    // Đặt khách theo thứ tự mới vào đúng các vị trí cũ của nhóm.
+    const byRow = new Map(order.map((it) => [it._rowIndex, it]));
+    slots.forEach((slotIdx, k) => { order[slotIdx] = byRow.get(newGroupOrder[k]); });
+    // Bỏ qua nếu thứ tự không đổi.
+    const changed = slots.some((slotIdx, k) => filtered[slotIdx]._rowIndex !== order[slotIdx]._rowIndex);
+    if (!changed) return;
+    persistOrder(order);
+  }, [canDrag, filtered, persistOrder]);
 
   const stats = useMemo(() => {
     const total = items.length;
@@ -828,6 +856,8 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
             onToggleNode={toggleMmNode}
             onEdit={openEdit}
             onDelete={setDeleteTarget}
+            canDrag={canDrag}
+            onReorderCustomer={handleMindMapReorder}
           />
         )}
 
@@ -1209,7 +1239,7 @@ function CustomerNode({ data }) {
         padding: '7px 10px', borderRadius: 10, width: 320, boxSizing: 'border-box',
         border: '1px solid #2d3344',
         background: 'rgba(255,255,255,0.04)',
-        color: '#ffffff', fontSize: 13, fontWeight: 600, cursor: 'default',
+        color: '#ffffff', fontSize: 13, fontWeight: 600, cursor: data.canDrag ? 'grab' : 'default',
       }}
     >
       <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
@@ -1288,7 +1318,7 @@ const DETAIL_FIELDS = [
   ['Ngày PS', 'Ngay_PS'],
 ];
 
-function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete }) {
+function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete, canDrag, onReorderCustomer }) {
   const hasData = tree.some((b) => b.total > 0);
 
   const { nodes, edges } = useMemo(() => {
@@ -1363,7 +1393,9 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete }) {
             ns.push({
               id: cId,
               _branch: branch.kieu,
+              _group: l3Id,
               type: 'customer',
+              draggable: canDrag,
               width: 320,
               height: 100,
               data: {
@@ -1375,6 +1407,7 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete }) {
                 color: item.Mau_KH || '',
                 hasDetails,
                 detailsOpen,
+                canDrag,
                 onEdit: () => onEdit(item),
                 onDelete: () => onDelete(item),
               },
@@ -1400,7 +1433,7 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete }) {
     });
 
     return getLayoutedElements(ns, es);
-  }, [tree, collapsed, onEdit, onDelete]);
+  }, [tree, collapsed, onEdit, onDelete, canDrag]);
 
   const onNodeClick = useCallback((_evt, node) => {
     if (node.id.startsWith('L1::') || node.id.startsWith('L2::') || node.id.startsWith('L3::')) {
@@ -1409,6 +1442,20 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete }) {
       onToggleNode(`D::${node.id.slice(3)}`);
     }
   }, [onToggleNode]);
+
+  const onNodeDragStop = useCallback((_evt, node) => {
+    if (!canDrag || !node.id.startsWith('C::') || !onReorderCustomer) return;
+    // Các khách cùng nhánh (cùng _group). Dùng Y mới của node đang kéo.
+    const siblings = nodes
+      .filter((n) => n.type === 'customer' && n._group === node._group)
+      .map((n) => ({
+        rowIndex: Number(n.id.slice(3)),
+        y: n.id === node.id ? node.position.y : n.position.y,
+      }));
+    if (siblings.length < 2) return;
+    siblings.sort((a, b) => a.y - b.y);
+    onReorderCustomer(siblings.map((s) => s.rowIndex));
+  }, [canDrag, nodes, onReorderCustomer]);
 
   if (!hasData) {
     return <div style={s.emptyTd}>Không có khách hàng nào để hiển thị</div>;
@@ -1421,6 +1468,7 @@ function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete }) {
         edges={edges}
         nodeTypes={MM_NODE_TYPES}
         onNodeClick={onNodeClick}
+        onNodeDragStop={onNodeDragStop}
         fitView
         fitViewOptions={{ padding: 0.15 }}
         minZoom={0.2}
