@@ -1272,16 +1272,16 @@ function CustomerNode({ data }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <button
             className="nodrag"
-            onClick={(e) => { e.stopPropagation(); if (!data.isFirst) data.onMove(-1); }}
-            disabled={data.isFirst}
-            style={{ ...s.actionBtn, ...s.moveBtn, opacity: data.isFirst ? 0.3 : 1, cursor: data.isFirst ? 'default' : 'pointer' }}
+            onClick={(e) => { e.stopPropagation(); if (!data.isLast) data.onMove(1); }}
+            disabled={data.isLast}
+            style={{ ...s.actionBtn, ...s.moveBtn, opacity: data.isLast ? 0.3 : 1, cursor: data.isLast ? 'default' : 'pointer' }}
             title="Đẩy lên trên"
           >&#9650;</button>
           <button
             className="nodrag"
-            onClick={(e) => { e.stopPropagation(); if (!data.isLast) data.onMove(1); }}
-            disabled={data.isLast}
-            style={{ ...s.actionBtn, ...s.moveBtn, opacity: data.isLast ? 0.3 : 1, cursor: data.isLast ? 'default' : 'pointer' }}
+            onClick={(e) => { e.stopPropagation(); if (!data.isFirst) data.onMove(-1); }}
+            disabled={data.isFirst}
+            style={{ ...s.actionBtn, ...s.moveBtn, opacity: data.isFirst ? 0.3 : 1, cursor: data.isFirst ? 'default' : 'pointer' }}
             title="Đẩy xuống dưới"
           >&#9660;</button>
         </div>
