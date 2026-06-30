@@ -1221,7 +1221,7 @@ function CustomerNode({ data }) {
         ) : (
           <span style={{ color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.name}</span>
         )}
-        {data.sdt && <span style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 500 }}>{data.sdt}</span>}
+        {data.sdt && <span style={{ fontSize: 11, color: '#fbbf24', fontWeight: 600 }}>{data.sdt}</span>}
         {(data.ngayVao || data.slotXe || data.taiChinh) && (
           <span style={{ fontSize: 11, color: '#7dd3fc', fontWeight: 500, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {data.ngayVao && <span>Ngày vào: {data.ngayVao}</span>}
@@ -1280,21 +1280,12 @@ const MM_NODE_TYPES = { customer: CustomerNode, customerDetail: CustomerDetailNo
 
 // Các trường đẩy ra nhánh phụ (label hiển thị → key trong dữ liệu).
 const DETAIL_FIELDS = [
-  ['Ngày PS', 'Ngay_PS'],
-  ['Thời hạn', 'Thoi_Han_Thue'],
-  ['Check out', 'Check_Out'],
-  ['Diện tích', 'Dien_Tich'],
-  ['Tầng', 'Tang'],
-  ['Ban công', 'Ban_Cong'],
-  ['Cửa', 'Cua'],
-  ['Toà', 'Toa'],
-  ['Cần tư vấn', 'Can_Tu_Van'],
   ['Trạng thái', 'Trang_Thai'],
-  ['Cọc', 'Coc'],
-  ['Cọc Host', 'Coc_Host'],
-  ['Chủ căn', 'Chu_Can'],
-  ['Thu về', 'Thu_Ve'],
+  ['Thời hạn', 'Thoi_Han_Thue'],
+  ['Diện tích', 'Dien_Tich'],
+  ['Căn tư vấn', 'Can_Tu_Van'],
   ['Ghi chú', 'Ghi_Chu'],
+  ['Ngày PS', 'Ngay_PS'],
 ];
 
 function MindMapFlowInner({ tree, collapsed, onToggleNode, onEdit, onDelete }) {
