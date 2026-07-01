@@ -34,7 +34,7 @@ function TimesCityApp() {
   const [searchParams] = useSearchParams();
   const { user } = useUser();
   const { signOut } = useClerk();
-  const [activeTab, setActiveTab] = useState('thue');
+  const [activeTab, setActiveTab] = useState('khach');
 
   const role = user?.publicMetadata?.role || 'staff';
   const isAdmin = role === 'admin';
