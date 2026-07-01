@@ -720,6 +720,35 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                 </button>
               ))}
             </div>
+            {/* Chuyển chế độ xem: Bảng / Mind Map — tab Khách thuê và Khách bán */}
+            {isMindMapTab && (
+              <div style={{ display: 'flex', gap: 8, marginLeft: 20 }}>
+                {[
+                  { key: 'table', label: '☰ Bảng' },
+                  { key: 'mindmap', label: '🗺 Mind Map' },
+                ].map((m) => (
+                  <button
+                    key={m.key}
+                    onClick={() => {
+                      if (m.key === 'mindmap' && viewMode !== 'mindmap') {
+                        setFilterTrangThai(['Tư vấn, gửi căn', 'Dẫn khách']);
+                      }
+                      setViewMode(m.key);
+                    }}
+                    className="kt-btn"
+                    style={{
+                      padding: '7px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700,
+                      cursor: 'pointer', fontFamily: F, transition: 'all 0.15s',
+                      border: `1.5px solid ${viewMode === m.key ? C.primary : '#3a3f52'}`,
+                      background: viewMode === m.key ? C.primary : 'transparent',
+                      color: viewMode === m.key ? '#fff' : '#8a9bb8',
+                    }}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="kt-stats" style={s.statsRow}>
             <StatBadge label="Tổng" value={stats.total} color={C.blue} />
@@ -728,36 +757,6 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
             <StatBadge label="Homestay" value={stats.homestay} color="#E67E22" />
           </div>
         </div>
-
-        {/* Chuyển chế độ xem: Bảng / Mind Map — tab Khách thuê và Khách bán */}
-        {isMindMapTab && (
-          <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-            {[
-              { key: 'table', label: '☰ Bảng' },
-              { key: 'mindmap', label: '🗺 Mind Map' },
-            ].map((m) => (
-              <button
-                key={m.key}
-                onClick={() => {
-                  if (m.key === 'mindmap' && viewMode !== 'mindmap') {
-                    setFilterTrangThai(['Tư vấn, gửi căn', 'Dẫn khách']);
-                  }
-                  setViewMode(m.key);
-                }}
-                className="kt-btn"
-                style={{
-                  padding: '7px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700,
-                  cursor: 'pointer', fontFamily: F, transition: 'all 0.15s',
-                  border: `1.5px solid ${viewMode === m.key ? C.primary : '#3a3f52'}`,
-                  background: viewMode === m.key ? C.primary : 'transparent',
-                  color: viewMode === m.key ? '#fff' : '#8a9bb8',
-                }}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
-        )}
 
         {/* Search + Filter */}
         <div className="kt-filter-row" style={s.filterRow}>
