@@ -283,13 +283,13 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
 
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchKhachTimes(userId, role).then((data) => {
+      fetchKhachTimes(userId, role, isViewAs).then((data) => {
         const arr = Array.isArray(data) ? data : [];
         setItems(arr);
       }).catch(() => {});
     }, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [userId, role, isViewAs]);
 
   // Inline update — thay đổi 1 field ngay trong bảng, auto save
   const inlineUpdate = useCallback(async (item, field, value) => {
@@ -358,8 +358,8 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   const filtered = useMemo(() => {
     let list = [...items];
     list = list.filter((it) => {
-      const nc = (it.Nhu_Cau || '').toLowerCase();
-      const fv = filterLoai.toLowerCase();
+      const nc = (it.Nhu_Cau || '').trim().toLowerCase();
+      const fv = filterLoai.trim().toLowerCase();
       if (fv === 'homestay') return nc === 'homestay';
       if (fv === 'thuê' || fv === 'thue') return nc.includes('thu') && nc !== 'homestay';
       if (fv === 'mua') return nc === 'mua';
@@ -702,11 +702,24 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
 
       <div style={showHeader ? s.container : { padding: '0' }}>
         <div className="kt-header-row" style={s.titleRow}>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {/* Nhóm trái: Thêm khách + reload + 3 tag khách trên cùng 1 dòng */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <button onClick={openAdd} style={s.addBtn} className="kt-btn">+ Thêm Khách</button>
             <button onClick={loadData} disabled={loading} style={s.reloadBtn} className="kt-btn" title="Tải lại">
               {loading ? '...' : '↻'}
             </button>
+            <div className="kt-subtabs-row" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginLeft: 20 }}>
+              {SUB_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveSubTab(tab.key)}
+                  className="kt-subtab"
+                  style={{ ...s.subTab, ...(activeSubTab === tab.key ? s.subTabActive : {}) }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="kt-stats" style={s.statsRow}>
             <StatBadge label="Tổng" value={stats.total} color={C.blue} />
@@ -714,20 +727,6 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
             <StatBadge label="Mua" value={stats.mua} color={C.accent} />
             <StatBadge label="Homestay" value={stats.homestay} color="#E67E22" />
           </div>
-        </div>
-
-        {/* Sub-tabs: Khách bán / Khách thuê / Khách Homestay */}
-        <div className="kt-subtabs-row" style={s.subTabsRow}>
-          {SUB_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveSubTab(tab.key)}
-              className="kt-subtab"
-              style={{ ...s.subTab, ...(activeSubTab === tab.key ? s.subTabActive : {}) }}
-            >
-              {tab.label}
-            </button>
-          ))}
         </div>
 
         {/* Chuyển chế độ xem: Bảng / Mind Map — tab Khách thuê và Khách bán */}
