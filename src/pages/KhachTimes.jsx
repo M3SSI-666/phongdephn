@@ -708,7 +708,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
             <button onClick={loadData} disabled={loading} style={s.reloadBtn} className="kt-btn" title="Tải lại">
               {loading ? '...' : '↻'}
             </button>
-            <div className="kt-subtabs-row" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginLeft: 20 }}>
+            <div className="kt-subtabs-row" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginLeft: 36 }}>
               {SUB_TABS.map((tab) => (
                 <button
                   key={tab.key}
@@ -722,7 +722,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
             </div>
             {/* Chuyển chế độ xem: Bảng / Mind Map — tab Khách thuê và Khách bán */}
             {isMindMapTab && (
-              <div style={{ display: 'flex', gap: 8, marginLeft: 20 }}>
+              <div style={{ display: 'flex', gap: 8, marginLeft: 36 }}>
                 {[
                   { key: 'table', label: '☰ Bảng' },
                   { key: 'mindmap', label: '🗺 Mind Map' },
