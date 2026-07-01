@@ -449,8 +449,11 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     });
   }, []);
 
-  // Rời tab có Mind Map (Khách thuê / Khách bán) thì luôn quay về chế độ bảng.
+  // Đổi tab: mỗi tab có bộ trạng thái riêng nên phải xoá bộ lọc trạng thái cũ,
+  // tránh việc lọc của tab trước (vd Mind Map set 'Tư vấn, gửi căn') làm tab mới
+  // (vd Homestay) không khớp trạng thái nào → hiện "Không tìm thấy kết quả".
   useEffect(() => {
+    setFilterTrangThai([]);
     if (activeSubTab !== 'thue' && activeSubTab !== 'ban') setViewMode('table');
   }, [activeSubTab]);
 
@@ -539,11 +542,11 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   const stats = useMemo(() => {
     const total = items.length;
     const thue = items.filter((i) => {
-      const nc = (i.Nhu_Cau || '').toLowerCase();
+      const nc = (i.Nhu_Cau || '').trim().toLowerCase();
       return nc.includes('thu') && nc !== 'homestay';
     }).length;
-    const mua = items.filter((i) => (i.Nhu_Cau || '').toLowerCase() === 'mua').length;
-    const homestay = items.filter((i) => (i.Nhu_Cau || '').toLowerCase() === 'homestay').length;
+    const mua = items.filter((i) => (i.Nhu_Cau || '').trim().toLowerCase() === 'mua').length;
+    const homestay = items.filter((i) => (i.Nhu_Cau || '').trim().toLowerCase() === 'homestay').length;
     return { total, thue, mua, homestay };
   }, [items]);
 
