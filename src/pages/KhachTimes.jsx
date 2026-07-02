@@ -452,9 +452,14 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   // Đổi tab: mỗi tab có bộ trạng thái riêng nên phải xoá bộ lọc trạng thái cũ,
   // tránh việc lọc của tab trước (vd Mind Map set 'Tư vấn, gửi căn') làm tab mới
   // (vd Homestay) không khớp trạng thái nào → hiện "Không tìm thấy kết quả".
+  // Riêng tab Khách bán / Khách thuê mặc định chọn sẵn 'Tư vấn, gửi căn' và 'Dẫn khách'.
   useEffect(() => {
-    setFilterTrangThai([]);
-    if (activeSubTab !== 'thue' && activeSubTab !== 'ban') setViewMode('table');
+    if (activeSubTab === 'thue' || activeSubTab === 'ban') {
+      setFilterTrangThai(['Tư vấn, gửi căn', 'Dẫn khách']);
+    } else {
+      setFilterTrangThai([]);
+      setViewMode('table');
+    }
   }, [activeSubTab]);
 
   // Tìm kiếm thông minh: gửi câu chữ tự nhiên cho AI nhận dạng tiêu chí, rồi lọc khách.

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
 import { fetchQuyCanThue, postQuyCanThue, parseThue, uploadToCloudinary, parseSearchQuery } from '../utils/api';
+import ImportSheetModal from '../components/ImportSheetModal';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -34,6 +35,73 @@ function normalizeNoiThat(val) {
   if (s.includes('khong') || s.includes('trong') || s.includes('tho')) return 'Không đồ';
   return 'Đồ cơ bản';
 }
+
+// "2N" -> "2PN"; giữ nguyên nếu không phải dạng số + N.
+function normalizeThietKe(val) {
+  const s = (val || '').toString().trim();
+  const m = s.match(/^(\d+)\s*n$/i);
+  return m ? `${m[1]}PN` : s;
+}
+
+// Chuẩn hoá cột "TT" của bảng công ty -> Nội Thất.
+// "Full"/"Có đồ"/typo -> Full đồ; "K đồ"/"Ko đồ"/"Không đồ" -> Không đồ; còn lại để trống.
+function importNoiThat(val) {
+  const s = (val || '').toString().toLowerCase().normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').trim();
+  if (!s) return '';
+  if (/^k\b|^ko\b|khong|trong/.test(s)) return 'Không đồ';
+  if (s.includes('ful') || s.includes('fil') || s.includes('co do') || s.includes('day du') || s.includes('du do')) return 'Full đồ';
+  return '';
+}
+
+// Cấu hình import cho bảng hàng công ty (tab Căn Thuê) -> schema Quỹ Căn Thuê.
+const IMPORT_CONFIG_THUE = {
+  title: 'Import bảng hàng công ty → Căn Thuê',
+  tabMatch: /thu[eê]/i,
+  keyField: 'Ma_Can',
+  previewCols: [
+    { key: 'Ma_Can', label: 'Mã Căn' },
+    { key: 'Thiet_Ke', label: 'Thiết Kế' },
+    { key: 'Dien_Tich', label: 'DT' },
+    { key: 'Huong_BC', label: 'Hướng BC' },
+    { key: 'Gia', label: 'Giá' },
+    { key: 'Phi_MG', label: 'Phí MG' },
+    { key: 'Noi_That', label: 'Nội Thất' },
+    { key: 'Slot_Xe', label: 'Slot' },
+    { key: 'Thoi_Gian_Vao', label: 'TG Vào' },
+    { key: 'Lien_He', label: 'Liên Hệ' },
+    { key: 'Nguon', label: 'Nguồn' },
+    { key: 'Ngay_Update', label: 'Ngày CN' },
+  ],
+  // r: object khoá theo header đã chuẩn hoá (không dấu, thường).
+  mapRow(r) {
+    const g = (...keys) => {
+      for (const k of keys) { if (r[k] != null && r[k] !== '') return r[k].toString().trim(); }
+      return '';
+    };
+    const thang = g('thang');
+    const nam = g('nam');
+    const tgVao = thang && nam ? `${thang}/${nam}` : (thang || nam || '');
+    const slot = g('slot xe');
+    return {
+      Ma_Can:        g('ma can').toUpperCase(),
+      Thiet_Ke:      normalizeThietKe(g('pn')),
+      Dien_Tich:     g('dt (m2)', 'dt', 'dt m2'),
+      Huong_BC:      g('bc'),
+      Gia:           g('gia'),
+      Phi_MG:        g('phi mg'),
+      Noi_That:      importNoiThat(g('tt')),
+      Slot_Xe:       slot ? 'Có' : 'Không',
+      Thoi_Gian_Vao: tgVao,
+      Lien_He:       g('sdt chu', 'sdt chu '),
+      Nguon:         g('nguon'),
+      Ghi_Chu:       g('ghi chu'),
+      Ngay_Update:   g('ngay cap nhat'),
+      Hinh_Anh:      '',
+      Mau_Ma_Can:    '',
+    };
+  },
+};
 
 const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
@@ -90,6 +158,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
   const [toast, setToast]           = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [dupTarget, setDupTarget]   = useState(null); // { existing, payload }
+  const [showImport, setShowImport] = useState(false);
   const [lightbox, setLightbox]     = useState(null); // { urls:[], index:0 }
   const toastTimer                  = useRef(null);
 
@@ -446,6 +515,38 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     finally { setSaving(false); }
   }
 
+  // ── Import bảng hàng công ty ──
+  // Chia payload theo Mã Căn trùng (cập nhật đè) / mới (thêm), ghi theo lô 1 request.
+  const handleImportRows = useCallback(async (payloads) => {
+    const byMa = new Map();
+    items.forEach(it => { const k = (it.Ma_Can||'').trim().toUpperCase(); if (k) byMa.set(k, it); });
+    let maxSTT = items.reduce((m,i) => Math.max(m, Number(i.STT)||0), 0);
+    const adds = [], updates = [];
+    for (const p of payloads) {
+      const key = (p.Ma_Can||'').trim().toUpperCase();
+      const existing = key ? byMa.get(key) : null;
+      if (existing) {
+        // Giữ ảnh cũ (sheet công ty không có ảnh) và giữ màu Mã Căn bạn tự tô
+        updates.push({
+          ...p,
+          Hinh_Anh: p.Hinh_Anh || existing.Hinh_Anh || '',
+          Mau_Ma_Can: p.Mau_Ma_Can || existing.Mau_Ma_Can || '',
+          _rowIndex: existing._rowIndex,
+          STT: existing.STT,
+          Owner_Id: existing.Owner_Id || userId || '',
+        });
+      } else {
+        maxSTT += 1;
+        adds.push({ ...p, STT: maxSTT, Owner_Id: userId || '' });
+      }
+    }
+    const res = await postQuyCanThue({ action: 'bulk', adds, updates });
+    payloads.slice(0, 5).forEach(p => pushImportLog(p.Ma_Can));
+    await loadData();
+    showToast(`Đã thêm ${res.added||adds.length}, cập nhật ${res.updated||updates.length} căn!`);
+    return { added: res.added ?? adds.length, updated: res.updated ?? updates.length };
+  }, [items, userId, loadData, showToast]);
+
   // ── Media helpers ──
   function isVideo(url) {
     return /\.(mp4|mov|avi|webm|mkv|m4v)(\?|$)/i.test(url) || url.includes('/video/upload/');
@@ -488,6 +589,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, gap:12, flexWrap:'wrap' }}>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
           <button onClick={openAdd} style={st.addBtn} className="ct-btn">+ Thêm Căn</button>
+          <button onClick={() => setShowImport(true)} style={st.importBtn} className="ct-btn" title="Import bảng hàng công ty">⬇ Import</button>
           <button onClick={loadData} disabled={loading} style={st.reloadBtn} className="ct-btn" title="Tải lại">
             {loading ? '...' : '↻'}
           </button>
@@ -838,6 +940,15 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
         </div>
       )}
 
+      {/* Import bảng hàng công ty */}
+      <ImportSheetModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        config={IMPORT_CONFIG_THUE}
+        existingItems={items}
+        onImport={handleImportRows}
+      />
+
       {/* Duplicate confirm */}
       {dupTarget && (
         <div style={st.overlay} onClick={e => e.target===e.currentTarget && setDupTarget(null)}>
@@ -1075,6 +1186,7 @@ const lb = {
 const D = '1.5px solid #2d3240';
 const st = {
   addBtn:      { background:C.gradient, color:'#fff', border:'none', borderRadius:10, padding:'10px 20px', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:F, boxShadow:C.shadowGreen, whiteSpace:'nowrap' },
+  importBtn:   { background:'#22263a', color:C.primaryLight, border:'1.5px solid #3a3f52', borderRadius:10, padding:'10px 16px', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
   reloadBtn:   { background:'#22263a', border:'1.5px solid #3a3f52', borderRadius:10, width:40, height:40, fontSize:20, color:C.primary, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontFamily:F },
   searchInput: { width:'100%', padding:'10px 36px', border:'1.5px solid #3a3f52', borderRadius:10, fontSize:13, fontFamily:F, outline:'none', background:'#1e2130', color:'#e2e8f0', boxSizing:'border-box' },
   clearBtn:    { position:'absolute', right:10, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', fontSize:18, color:'#8a9bb8', cursor:'pointer' },
