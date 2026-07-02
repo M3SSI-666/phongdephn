@@ -191,7 +191,6 @@ export default function ImportSheetModal({ open, onClose, config, existingItems 
               <div style={s.statRow}>
                 <span style={{ ...s.chip, background: C.primaryBg, color: C.primaryDark }}>➕ Thêm mới: {parsed.adds}</span>
                 <span style={{ ...s.chip, background: '#FEF3C7', color: '#92400E' }}>♻ Cập nhật đè: {parsed.updates}</span>
-                <span style={{ ...s.chip, background: C.borderLight, color: C.textMuted }}>⤫ Bỏ qua: {parsed.skipped}</span>
               </div>
 
               {parsed.payloads.length === 0 ? (
