@@ -109,7 +109,7 @@ const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
   'Hướng BC', 'Giá', 'Phí MG', 'Nội Thất', 'Thời Gian Vào', 'Tên Chủ', 'Liên Hệ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
 ];
-const COL_WIDTHS = [92, 100, 72, 66, 76, 85, 70, 90, 110, 130, 63, 63, 80, 100, 270, 72];
+const COL_WIDTHS = [92, 100, 72, 66, 76, 85, 70, 90, 110, 130, 78, 78, 80, 100, 270, 72];
 
 export function QuyCanThueContent({ overrideUserId, overrideRole, isViewAs } = {}) {
   return <QuyCanThueInner overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
@@ -707,8 +707,8 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                       <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Phi_MG}</td>
                       <td style={{...st.td, textAlign:'center'}}>{normalizeNoiThat(item.Noi_That)}</td>
                       <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Thoi_Gian_Vao}</td>
-                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', fontSize:12}}>{item.Ten_Chu}</td>
-                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap'}}>{item.Lien_He}</td>
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'normal', wordBreak:'break-word', fontSize:12}}>{item.Ten_Chu}</td>
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'normal', wordBreak:'break-word', fontSize:12}}>{item.Lien_He}</td>
                       <td style={{...st.td, textAlign:'center', cursor:'pointer'}}
                         onClick={() => {
                           const urls = item.Hinh_Anh ? item.Hinh_Anh.split(',').map(u=>u.trim()).filter(Boolean) : [];
@@ -1201,7 +1201,7 @@ const st = {
   errorBox:    { background:'#FEF2F2', color:C.error, padding:'12px 16px', borderRadius:10, fontSize:13, marginBottom:16 },
   loadingBox:  { textAlign:'center', padding:40, color:'#8a9bb8', fontSize:14 },
   tableWrap:   { background:'#1a1d27', borderRadius:12, border:'1px solid #2d3240', boxShadow:'0 4px 24px rgba(0,0,0,0.4)' },
-  table:       { width:'100%', borderCollapse:'collapse', fontSize:13 },
+  table:       { width:'100%', borderCollapse:'collapse', fontSize:13, tableLayout:'fixed' },
   th:          { textAlign:'center', padding:'10px 8px', fontWeight:700, fontSize:11, textTransform:'uppercase', color:'#8a9bb8', borderBottom:'2px solid #2d3240', borderRight:D, whiteSpace:'nowrap', background:'#13151e' },
   tr:          { borderBottom:'1.5px solid #2d3240', transition:'background 0.12s' },
   td:          { padding:'8px 8px', verticalAlign:'middle', fontSize:13, borderRight:D, color:'#e2e8f0' },
