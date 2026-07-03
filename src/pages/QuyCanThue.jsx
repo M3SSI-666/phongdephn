@@ -54,6 +54,28 @@ function importNoiThat(val) {
   return '';
 }
 
+// Ngày Update "mới": trong vòng 2 tháng trở lại tính từ hôm nay (dd/mm/yyyy).
+function isRecentUpdate(val) {
+  const m = (val || '').toString().trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return false;
+  const d = new Date(+m[3], +m[2] - 1, +m[1]);
+  if (isNaN(d)) return false;
+  const now = new Date();
+  const from = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
+  return d >= from && d <= now;
+}
+
+// Thời Gian Vào "quan tâm": trong khoảng +-3 tháng so với tháng hiện tại (m/yyyy).
+function isSoonMoveIn(val) {
+  const m = (val || '').toString().match(/(\d{1,2})\s*\/\s*(\d{4})/);
+  if (!m) return false;
+  const month = +m[1], year = +m[2];
+  if (month < 1 || month > 12) return false;
+  const now = new Date();
+  const diff = (year - now.getFullYear()) * 12 + (month - 1 - now.getMonth());
+  return Math.abs(diff) <= 3;
+}
+
 // Cấu hình import cho bảng hàng công ty (tab Căn Thuê) -> schema Quỹ Căn Thuê.
 const IMPORT_CONFIG_THUE = {
   title: 'Import bảng hàng công ty → Căn Thuê',
@@ -691,7 +713,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                   {/* Các căn trong tòa */}
                   {toaItems.map(item => (
                     <tr key={item._rowIndex} id={`ct-row-${item.Ma_Can}`} className="ct-row" style={st.tr}>
-                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', fontSize:12}}>{item.Ngay_Update}</td>
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', fontSize:12, background: isRecentUpdate(item.Ngay_Update) ? 'rgba(250, 204, 21, 0.22)' : undefined}}>{item.Ngay_Update}</td>
                       <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', background:item.Mau_Ma_Can||'transparent', color:'#fff', borderRadius: item.Mau_Ma_Can ? 6 : 0}}>{item.Ma_Can}</td>
                       <td style={{...st.td, textAlign:'center'}}>{item.Thiet_Ke}</td>
                       <td style={{...st.td, textAlign:'center'}}>{(item.Dien_Tich||'').replace(/\s*m²|m2|m$/i,'').trim()}</td>
@@ -706,7 +728,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                       <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap'}}>{item.Gia}</td>
                       <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Phi_MG}</td>
                       <td style={{...st.td, textAlign:'center'}}>{normalizeNoiThat(item.Noi_That)}</td>
-                      <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Thoi_Gian_Vao}</td>
+                      <td style={{...st.td, textAlign:'center', fontSize:12, background: isSoonMoveIn(item.Thoi_Gian_Vao) ? 'rgba(34, 211, 238, 0.20)' : undefined}}>{item.Thoi_Gian_Vao}</td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'normal', wordBreak:'break-word', fontSize:12}}>{item.Ten_Chu}</td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'normal', wordBreak:'break-word', fontSize:12}}>{item.Lien_He}</td>
                       <td style={{...st.td, textAlign:'center', cursor:'pointer'}}
