@@ -111,6 +111,21 @@ function thietKeText(val) {
   return m ? `${m[1]} phòng ngủ` : s;
 }
 
+// Viết tắt hướng ban công -> tên đầy đủ. T=Tây, B=Bắc, N=Nam, Đ=Đông;
+// 2 ký tự ghép lại: TB=Tây Bắc, ĐN=Đông Nam... Nếu đã là tên đầy đủ thì giữ nguyên.
+const HUONG_MAP = { T: 'Tây', B: 'Bắc', N: 'Nam', D: 'Đông', Đ: 'Đông' };
+function huongText(val) {
+  const s = (val || '').toString().trim();
+  if (!s) return '';
+  const key = s.toUpperCase().replace(/[\s.]/g, '');
+  // Chỉ đổi khi là chuỗi 1-2 ký tự trong tập hướng (T/B/N/Đ/D); còn lại giữ nguyên.
+  if (/^[TBNDĐ]{1,2}$/.test(key)) {
+    const words = key.split('').map(ch => HUONG_MAP[ch]).filter(Boolean);
+    if (words.length) return words.join(' ');
+  }
+  return s;
+}
+
 // Ghép Nội Thất + Slot Xe thành câu "Hiện trạng".
 function hienTrangText(item) {
   const nt = normalizeNoiThat(item.Noi_That);
@@ -132,7 +147,8 @@ function buildCustomerMessage(item) {
   if (tk) lines.push(`- Thiết kế: ${tk}`);
   const dt = (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim();
   if (dt) lines.push(`- Diện tích: ${dt} m²`);
-  if (item.Huong_BC) lines.push(`- Hướng ban công: ${item.Huong_BC}`);
+  const hbc = huongText(item.Huong_BC);
+  if (hbc) lines.push(`- Hướng ban công: ${hbc}`);
   const ht = hienTrangText(item);
   if (ht) lines.push(`- Hiện trạng: ${ht}`);
   if (item.Thoi_Gian_Vao) lines.push(`- Thời gian vào: ${item.Thoi_Gian_Vao}`);
