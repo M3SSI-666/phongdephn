@@ -868,7 +868,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                           padding:'2px 8px', borderRadius:10, fontSize:11, fontWeight:700,
                         }}>{item.Slot_Xe || 'Không'}</span>
                       </td>
-                      <td style={{...st.td, textAlign:'center', background: rowBg}}>{item.Huong_BC}</td>
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'normal', background: rowBg}}>{huongText(item.Huong_BC)}</td>
                       <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap', background: rowBg}}>{item.Gia}</td>
                       <td style={{...st.td, textAlign:'center', fontSize:12, background: rowBg}}>{item.Phi_MG}</td>
                       <td style={{...st.td, textAlign:'center', background: rowBg}}>{normalizeNoiThat(item.Noi_That)}</td>
