@@ -109,7 +109,7 @@ const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
   'Hướng BC', 'Giá', 'Phí MG', 'Nội Thất', 'Thời Gian Vào', 'Tên Chủ', 'Liên Hệ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
 ];
-const COL_WIDTHS = [92, 100, 72, 66, 76, 85, 70, 90, 110, 130, 78, 78, 80, 100, 270, 72];
+const COL_WIDTHS = [92, 100, 72, 66, 76, 85, 70, 90, 110, 100, 100, 100, 80, 100, 270, 72];
 
 export function QuyCanThueContent({ overrideUserId, overrideRole, isViewAs } = {}) {
   return <QuyCanThueInner overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
