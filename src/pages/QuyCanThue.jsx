@@ -23,14 +23,14 @@ const RAINBOW_COLORS = [
 ];
 
 // Màu "trạng thái" sao chép từ sheet công ty (lưu ké vào Mau_Ma_Can).
-// LƯU Ý: 3 hex này phải KHÁC mọi giá trị trong RAINBOW_COLORS để phân biệt được
-// màu trạng thái (tô nền cả hàng) với màu Mã Căn user tự tô (pill ô Mã Căn).
+// LƯU Ý: các hex này phải KHÁC mọi giá trị trong RAINBOW_COLORS để phân biệt được
+// màu trạng thái với màu Mã Căn user tự tô (pill ô Mã Căn).
+// (Bỏ "Căn giá tốt" màu đỏ — không cần thể hiện lên bảng cá nhân.)
 const STATUS_RENTED = '#9CA3AF'; // xám  -> Đã cho thuê
 const STATUS_PAUSED = '#FFF000'; // vàng -> Dừng thuê
-const STATUS_GOODP  = '#FF3B30'; // đỏ   -> Căn giá tốt
-const STATUS_COLORS = new Set([STATUS_RENTED, STATUS_PAUSED, STATUS_GOODP]);
+const STATUS_COLORS = new Set([STATUS_RENTED, STATUS_PAUSED]);
 
-// Chuẩn hóa màu nền ô (fgColor.rgb) từ file công ty -> 1 trong 3 màu trạng thái, hoặc '' (bình thường).
+// Chuẩn hóa màu nền ô (fgColor.rgb) từ file công ty -> màu trạng thái, hoặc '' (bình thường/không dùng).
 function canonicalStatusColor(rgb) {
   if (!rgb) return '';
   let h = rgb.toString().replace('#', '').toUpperCase();
@@ -38,7 +38,6 @@ function canonicalStatusColor(rgb) {
   if (h.length !== 6) return '';
   if (h === 'FFFFFF') return '';         // trắng = bình thường
   if (h === 'FFFF00') return STATUS_PAUSED;
-  if (h === 'FF0000') return STATUS_GOODP;
   const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
   const max = Math.max(r, g, b), min = Math.min(r, g, b);
   if (max - min <= 16 && min >= 0x60 && max <= 0xF0) return STATUS_RENTED; // dải xám trung tính
@@ -49,7 +48,6 @@ function canonicalStatusColor(rgb) {
 function statusRowBg(mau) {
   if (mau === STATUS_RENTED) return 'rgba(148,163,184,0.16)';
   if (mau === STATUS_PAUSED) return 'rgba(250,204,21,0.16)';
-  if (mau === STATUS_GOODP)  return 'rgba(248,113,113,0.18)';
   return undefined;
 }
 
@@ -752,11 +750,8 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                   {/* Các căn trong tòa */}
                   {toaItems.map(item => {
                     const isStatus = STATUS_COLORS.has(item.Mau_Ma_Can);
-                    // Dừng thuê (vàng) & Căn giá tốt (đỏ): chỉ tô ô Mã Căn (giống bảng công ty).
-                    const cellOnlyBg =
-                      item.Mau_Ma_Can === STATUS_PAUSED ? '#EAB308' : // vàng đậm
-                      item.Mau_Ma_Can === STATUS_GOODP  ? '#EF4444' : // đỏ
-                      undefined;
+                    // Dừng thuê (vàng): chỉ tô ô Mã Căn (giống bảng công ty).
+                    const cellOnlyBg = item.Mau_Ma_Can === STATUS_PAUSED ? '#EAB308' : undefined; // vàng đậm
                     // Nền cả hàng CHỈ cho xám (Đã cho thuê).
                     const rowBg = cellOnlyBg ? undefined : statusRowBg(item.Mau_Ma_Can);
                     // Nền ô Mã Căn: trạng thái cell-only -> màu đậm; xám -> theo nền hàng; user tự tô -> hex.
