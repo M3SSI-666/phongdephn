@@ -29,6 +29,13 @@ const RAINBOW_COLORS = [
 const STATUS_RENTED = '#9CA3AF'; // xám  -> Đã cho thuê
 const STATUS_PAUSED = '#FFF000'; // vàng -> Dừng thuê
 const STATUS_COLORS = new Set([STATUS_RENTED, STATUS_PAUSED]);
+// Màu trạng thái CŨ đã bỏ (đỏ "Căn giá tốt") — coi như không màu để dữ liệu cũ hết đỏ.
+const LEGACY_STATUS_COLORS = new Set(['#FF3B30']);
+
+// Bỏ màu trạng thái đã loại bỏ khỏi dữ liệu cũ (hiển thị như bình thường).
+function cleanMauMaCan(mau) {
+  return LEGACY_STATUS_COLORS.has(mau) ? '' : (mau || '');
+}
 
 // Chuẩn hóa màu nền ô (fgColor.rgb) từ file công ty -> màu trạng thái, hoặc '' (bình thường/không dùng).
 function canonicalStatusColor(rgb) {
@@ -749,14 +756,15 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                   </tr>
                   {/* Các căn trong tòa */}
                   {toaItems.map(item => {
-                    const isStatus = STATUS_COLORS.has(item.Mau_Ma_Can);
+                    const mau = cleanMauMaCan(item.Mau_Ma_Can); // bỏ màu trạng thái đã loại (đỏ cũ)
+                    const isStatus = STATUS_COLORS.has(mau);
                     // Dừng thuê (vàng): chỉ tô ô Mã Căn (giống bảng công ty).
-                    const cellOnlyBg = item.Mau_Ma_Can === STATUS_PAUSED ? '#EAB308' : undefined; // vàng đậm
+                    const cellOnlyBg = mau === STATUS_PAUSED ? '#EAB308' : undefined; // vàng đậm
                     // Nền cả hàng CHỈ cho xám (Đã cho thuê).
-                    const rowBg = cellOnlyBg ? undefined : statusRowBg(item.Mau_Ma_Can);
+                    const rowBg = cellOnlyBg ? undefined : statusRowBg(mau);
                     // Nền ô Mã Căn: trạng thái cell-only -> màu đậm; xám -> theo nền hàng; user tự tô -> hex.
-                    const maCanBg = cellOnlyBg || (isStatus ? rowBg : (item.Mau_Ma_Can || 'transparent'));
-                    const maCanWhiteText = !isStatus && item.Mau_Ma_Can; // chữ trắng khi có màu user
+                    const maCanBg = cellOnlyBg || (isStatus ? rowBg : (mau || 'transparent'));
+                    const maCanWhiteText = !isStatus && mau; // chữ trắng khi có màu user
                     const isPaused = !!cellOnlyBg; // ô Mã Căn có màu đậm -> chữ trắng + bo góc
                     return (
                     <tr key={item._rowIndex} id={`ct-row-${item.Ma_Can}`} className="ct-row" style={st.tr}>
