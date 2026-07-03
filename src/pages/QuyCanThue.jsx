@@ -25,7 +25,7 @@ const RAINBOW_COLORS = [
 const EMPTY_FORM = {
   Ma_Can: '', Thiet_Ke: '', Dien_Tich: '', Slot_Xe: 'Không',
   Huong_BC: '', Gia: '', Phi_MG: '', Noi_That: 'Đồ cơ bản',
-  Thoi_Gian_Vao: '', Lien_He: '', Hinh_Anh: '', Nguon: '', Ghi_Chu: '', Mau_Ma_Can: '',
+  Thoi_Gian_Vao: '', Ten_Chu: '', Lien_He: '', Hinh_Anh: '', Nguon: '', Ghi_Chu: '', Mau_Ma_Can: '',
 };
 
 function normalizeNoiThat(val) {
@@ -69,6 +69,7 @@ const IMPORT_CONFIG_THUE = {
     { key: 'Noi_That', label: 'Nội Thất' },
     { key: 'Slot_Xe', label: 'Slot' },
     { key: 'Thoi_Gian_Vao', label: 'TG Vào' },
+    { key: 'Ten_Chu', label: 'Tên Chủ' },
     { key: 'Lien_He', label: 'Liên Hệ' },
     { key: 'Nguon', label: 'Nguồn' },
     { key: 'Ngay_Update', label: 'Ngày CN' },
@@ -93,6 +94,7 @@ const IMPORT_CONFIG_THUE = {
       Noi_That:      importNoiThat(g('tt')),
       Slot_Xe:       slot ? 'Có' : 'Không',
       Thoi_Gian_Vao: tgVao,
+      Ten_Chu:       g('ten chu', 'ten chu '),
       Lien_He:       g('sdt chu', 'sdt chu '),
       Nguon:         g('nguon'),
       Ghi_Chu:       g('ghi chu'),
@@ -105,9 +107,9 @@ const IMPORT_CONFIG_THUE = {
 
 const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
-  'Hướng BC', 'Giá', 'Phí MG', 'Nội Thất', 'Thời Gian Vào', 'Liên Hệ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
+  'Hướng BC', 'Giá', 'Phí MG', 'Nội Thất', 'Thời Gian Vào', 'Tên Chủ', 'Liên Hệ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
 ];
-const COL_WIDTHS = [92, 100, 72, 66, 76, 85, 70, 90, 110, 130, 110, 80, 100, 220, 72];
+const COL_WIDTHS = [92, 100, 72, 66, 76, 85, 70, 90, 110, 130, 110, 110, 80, 100, 220, 72];
 
 export function QuyCanThueContent({ overrideUserId, overrideRole, isViewAs } = {}) {
   return <QuyCanThueInner overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
@@ -435,6 +437,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       Phi_MG:        item.Phi_MG        || '',
       Noi_That:      item.Noi_That      || '',
       Thoi_Gian_Vao: item.Thoi_Gian_Vao || '',
+      Ten_Chu:       item.Ten_Chu       || '',
       Lien_He:       item.Lien_He       || '',
       Hinh_Anh:      item.Hinh_Anh      || '',
       Nguon:         item.Nguon         || '',
@@ -704,6 +707,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                       <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Phi_MG}</td>
                       <td style={{...st.td, textAlign:'center'}}>{normalizeNoiThat(item.Noi_That)}</td>
                       <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Thoi_Gian_Vao}</td>
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', fontSize:12}}>{item.Ten_Chu}</td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap'}}>{item.Lien_He}</td>
                       <td style={{...st.td, textAlign:'center', cursor:'pointer'}}
                         onClick={() => {
@@ -837,6 +841,10 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                 </div>
 
                 <FormField label="Thời Gian Vào" value={form.Thoi_Gian_Vao} onChange={v => set('Thoi_Gian_Vao', v)} placeholder="VD: Luôn, Tháng 6/2025" />
+
+                <div style={{ gridColumn:'1/-1' }}>
+                  <FormField label="Tên Chủ" value={form.Ten_Chu} onChange={v => set('Ten_Chu', v)} placeholder="VD: Anh Nam, Chị Lan" />
+                </div>
 
                 <div style={{ gridColumn:'1/-1' }}>
                   <FormField label="Liên Hệ (Chủ nhà / SĐT)" value={form.Lien_He} onChange={v => set('Lien_He', v)} placeholder="VD: 0363560203, Anh Nam" />
