@@ -752,36 +752,41 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                   {/* Các căn trong tòa */}
                   {toaItems.map(item => {
                     const isStatus = STATUS_COLORS.has(item.Mau_Ma_Can);
-                    const statusBg = statusRowBg(item.Mau_Ma_Can); // nền trạng thái (xám/vàng/đỏ) hoặc undefined
+                    const isPaused = item.Mau_Ma_Can === STATUS_PAUSED; // Dừng thuê: chỉ tô ô Mã Căn
+                    // Nền cả hàng chỉ cho xám (Đã cho thuê) & đỏ (Căn giá tốt), KHÔNG cho Dừng thuê.
+                    const rowBg = isPaused ? undefined : statusRowBg(item.Mau_Ma_Can);
+                    // Nền ô Mã Căn: Dừng thuê -> vàng đậm; trạng thái khác -> theo nền hàng; user tự tô -> hex.
+                    const maCanBg = isPaused ? '#EAB308' : (isStatus ? rowBg : (item.Mau_Ma_Can || 'transparent'));
+                    const maCanWhiteText = !isStatus && item.Mau_Ma_Can; // chữ trắng khi có màu user
                     return (
                     <tr key={item._rowIndex} id={`ct-row-${item.Ma_Can}`} className="ct-row" style={st.tr}>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', fontSize:12, background: isRecentUpdate(item.Ngay_Update) ? 'rgba(250, 204, 21, 0.22)' : undefined}}>{item.Ngay_Update}</td>
-                      <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', background: isStatus ? statusBg : (item.Mau_Ma_Can||'transparent'), color: isStatus ? undefined : '#fff', borderRadius: (!isStatus && item.Mau_Ma_Can) ? 6 : 0}}>{item.Ma_Can}</td>
-                      <td style={{...st.td, textAlign:'center', background: statusBg}}>{item.Thiet_Ke}</td>
-                      <td style={{...st.td, textAlign:'center', background: statusBg}}>{(item.Dien_Tich||'').replace(/\s*m²|m2|m$/i,'').trim()}</td>
-                      <td style={{...st.td, textAlign:'center', background: statusBg}}>
+                      <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', background: maCanBg, color: (maCanWhiteText || isPaused) ? '#fff' : undefined, borderRadius: (isPaused || maCanWhiteText) ? 6 : 0}}>{item.Ma_Can}</td>
+                      <td style={{...st.td, textAlign:'center', background: rowBg}}>{item.Thiet_Ke}</td>
+                      <td style={{...st.td, textAlign:'center', background: rowBg}}>{(item.Dien_Tich||'').replace(/\s*m²|m2|m$/i,'').trim()}</td>
+                      <td style={{...st.td, textAlign:'center', background: rowBg}}>
                         <span style={{
                           background: item.Slot_Xe === 'Có' ? '#C6F6D5' : '#FED7D7',
                           color: item.Slot_Xe === 'Có' ? '#276749' : '#9B2C2C',
                           padding:'2px 8px', borderRadius:10, fontSize:11, fontWeight:700,
                         }}>{item.Slot_Xe || 'Không'}</span>
                       </td>
-                      <td style={{...st.td, textAlign:'center', background: statusBg}}>{item.Huong_BC}</td>
-                      <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap', background: statusBg}}>{item.Gia}</td>
-                      <td style={{...st.td, textAlign:'center', fontSize:12, background: statusBg}}>{item.Phi_MG}</td>
-                      <td style={{...st.td, textAlign:'center', background: statusBg}}>{normalizeNoiThat(item.Noi_That)}</td>
+                      <td style={{...st.td, textAlign:'center', background: rowBg}}>{item.Huong_BC}</td>
+                      <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap', background: rowBg}}>{item.Gia}</td>
+                      <td style={{...st.td, textAlign:'center', fontSize:12, background: rowBg}}>{item.Phi_MG}</td>
+                      <td style={{...st.td, textAlign:'center', background: rowBg}}>{normalizeNoiThat(item.Noi_That)}</td>
                       <td style={{...st.td, textAlign:'center', fontSize:12, background: isSoonMoveIn(item.Thoi_Gian_Vao) ? 'rgba(34, 211, 238, 0.20)' : undefined}}>{item.Thoi_Gian_Vao}</td>
-                      <td style={{...st.td, textAlign:'center', whiteSpace:'normal', wordBreak:'break-word', fontSize:12, background: statusBg}}>{item.Ten_Chu}</td>
-                      <td style={{...st.td, textAlign:'center', whiteSpace:'normal', wordBreak:'break-word', fontSize:12, background: statusBg}}>{item.Lien_He}</td>
-                      <td style={{...st.td, textAlign:'center', cursor:'pointer', background: statusBg}}
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'normal', wordBreak:'break-word', fontSize:12, background: rowBg}}>{item.Ten_Chu}</td>
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'normal', wordBreak:'break-word', fontSize:12, background: rowBg}}>{item.Lien_He}</td>
+                      <td style={{...st.td, textAlign:'center', cursor:'pointer', background: rowBg}}
                         onClick={() => {
                           const urls = item.Hinh_Anh ? item.Hinh_Anh.split(',').map(u=>u.trim()).filter(Boolean) : [];
                           setLightbox({ urls: sortMedia(urls), index: 0, maCan: item.Ma_Can || 'media', defaultTab: urls.length ? 'anh' : 'matbang' });
                         }}
                       ><ThumbCell value={item.Hinh_Anh} /></td>
-                      <td style={{...st.td, textAlign:'center', fontSize:12, background: statusBg}}>{item.Nguon}</td>
-                      <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8', background: statusBg}}>{item.Ghi_Chu}</td>
-                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none', background: statusBg}}>
+                      <td style={{...st.td, textAlign:'center', fontSize:12, background: rowBg}}>{item.Nguon}</td>
+                      <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8', background: rowBg}}>{item.Ghi_Chu}</td>
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none', background: rowBg}}>
                         <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>
                         <button onClick={() => setDeleteTarget(item)} style={{...st.actionBtn, color:C.error}} title="Xoá">&#128465;</button>
                       </td>
