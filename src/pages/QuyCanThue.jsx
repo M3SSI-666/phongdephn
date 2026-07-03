@@ -22,6 +22,44 @@ const RAINBOW_COLORS = [
   { label: 'Tím',       value: '#9F7AEA' },
 ];
 
+// Màu "trạng thái" sao chép từ sheet công ty (lưu ké vào Mau_Ma_Can).
+// LƯU Ý: 3 hex này phải KHÁC mọi giá trị trong RAINBOW_COLORS để phân biệt được
+// màu trạng thái (tô nền cả hàng) với màu Mã Căn user tự tô (pill ô Mã Căn).
+const STATUS_RENTED = '#9CA3AF'; // xám  -> Đã cho thuê
+const STATUS_PAUSED = '#FFF000'; // vàng -> Dừng thuê
+const STATUS_GOODP  = '#FF3B30'; // đỏ   -> Căn giá tốt
+const STATUS_COLORS = new Set([STATUS_RENTED, STATUS_PAUSED, STATUS_GOODP]);
+
+// Chuẩn hóa màu nền ô (fgColor.rgb) từ file công ty -> 1 trong 3 màu trạng thái, hoặc '' (bình thường).
+function canonicalStatusColor(rgb) {
+  if (!rgb) return '';
+  let h = rgb.toString().replace('#', '').toUpperCase();
+  if (h.length === 8) h = h.slice(2);   // bỏ alpha AARRGGBB
+  if (h.length !== 6) return '';
+  if (h === 'FFFFFF') return '';         // trắng = bình thường
+  if (h === 'FFFF00') return STATUS_PAUSED;
+  if (h === 'FF0000') return STATUS_GOODP;
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  if (max - min <= 16 && min >= 0x60 && max <= 0xF0) return STATUS_RENTED; // dải xám trung tính
+  return '';
+}
+
+// Nền mờ hiển thị theo màu trạng thái (dark theme).
+function statusRowBg(mau) {
+  if (mau === STATUS_RENTED) return 'rgba(148,163,184,0.16)';
+  if (mau === STATUS_PAUSED) return 'rgba(250,204,21,0.16)';
+  if (mau === STATUS_GOODP)  return 'rgba(248,113,113,0.18)';
+  return undefined;
+}
+
+// Khi import đè: màu user tự tô luôn thắng; màu trạng thái chỉ là lớp dưới.
+function resolveMauMaCan(incoming, existing) {
+  const inc = incoming || '', ex = existing || '';
+  if (ex && !STATUS_COLORS.has(ex)) return ex; // user tự chọn -> giữ, bỏ qua status mới
+  return inc || ex;                            // còn lại: lấy status mới (hoặc giữ status cũ)
+}
+
 const EMPTY_FORM = {
   Ma_Can: '', Thiet_Ke: '', Dien_Tich: '', Slot_Xe: 'Không',
   Huong_BC: '', Gia: '', Phi_MG: '', Noi_That: 'Đồ cơ bản',
@@ -97,7 +135,8 @@ const IMPORT_CONFIG_THUE = {
     { key: 'Ngay_Update', label: 'Ngày CN' },
   ],
   // r: object khoá theo header đã chuẩn hoá (không dấu, thường).
-  mapRow(r) {
+  // extra.statusRgb: màu nền ô Mã Căn (fgColor.rgb) từ file công ty.
+  mapRow(r, extra = {}) {
     const g = (...keys) => {
       for (const k of keys) { if (r[k] != null && r[k] !== '') return r[k].toString().trim(); }
       return '';
@@ -122,7 +161,7 @@ const IMPORT_CONFIG_THUE = {
       Ghi_Chu:       g('ghi chu'),
       Ngay_Update:   g('ngay cap nhat'),
       Hinh_Anh:      '',
-      Mau_Ma_Can:    '',
+      Mau_Ma_Can:    canonicalStatusColor(extra.statusRgb),
     };
   },
 };
@@ -518,7 +557,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       setSaving(true);
       const { existing, payload } = dupTarget;
       const mergedHinh = payload.Hinh_Anh || existing.Hinh_Anh || '';
-      await postQuyCanThue({ action: 'update', _rowIndex: existing._rowIndex, STT: existing.STT, Owner_Id: existing.Owner_Id || userId || '', ...payload, Hinh_Anh: mergedHinh });
+      await postQuyCanThue({ action: 'update', _rowIndex: existing._rowIndex, STT: existing.STT, Owner_Id: existing.Owner_Id || userId || '', ...payload, Hinh_Anh: mergedHinh, Mau_Ma_Can: resolveMauMaCan(payload.Mau_Ma_Can, existing.Mau_Ma_Can) });
       pushImportLog(payload.Ma_Can);
       showToast('Đã cập nhật căn ' + payload.Ma_Can + '!');
       setDupTarget(null);
@@ -551,11 +590,11 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       const key = (p.Ma_Can||'').trim().toUpperCase();
       const existing = key ? byMa.get(key) : null;
       if (existing) {
-        // Giữ ảnh cũ (sheet công ty không có ảnh) và giữ màu Mã Căn bạn tự tô
+        // Giữ ảnh cũ (sheet công ty không có ảnh); màu Mã Căn user tự tô thắng, xám chỉ lớp dưới
         updates.push({
           ...p,
           Hinh_Anh: p.Hinh_Anh || existing.Hinh_Anh || '',
-          Mau_Ma_Can: p.Mau_Ma_Can || existing.Mau_Ma_Can || '',
+          Mau_Ma_Can: resolveMauMaCan(p.Mau_Ma_Can, existing.Mau_Ma_Can),
           _rowIndex: existing._rowIndex,
           STT: existing.STT,
           Owner_Id: existing.Owner_Id || userId || '',
@@ -711,40 +750,44 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                     </td>
                   </tr>
                   {/* Các căn trong tòa */}
-                  {toaItems.map(item => (
+                  {toaItems.map(item => {
+                    const isStatus = STATUS_COLORS.has(item.Mau_Ma_Can);
+                    const statusBg = statusRowBg(item.Mau_Ma_Can); // nền trạng thái (xám/vàng/đỏ) hoặc undefined
+                    return (
                     <tr key={item._rowIndex} id={`ct-row-${item.Ma_Can}`} className="ct-row" style={st.tr}>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', fontSize:12, background: isRecentUpdate(item.Ngay_Update) ? 'rgba(250, 204, 21, 0.22)' : undefined}}>{item.Ngay_Update}</td>
-                      <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', background:item.Mau_Ma_Can||'transparent', color:'#fff', borderRadius: item.Mau_Ma_Can ? 6 : 0}}>{item.Ma_Can}</td>
-                      <td style={{...st.td, textAlign:'center'}}>{item.Thiet_Ke}</td>
-                      <td style={{...st.td, textAlign:'center'}}>{(item.Dien_Tich||'').replace(/\s*m²|m2|m$/i,'').trim()}</td>
-                      <td style={{...st.td, textAlign:'center'}}>
+                      <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', background: isStatus ? statusBg : (item.Mau_Ma_Can||'transparent'), color: isStatus ? undefined : '#fff', borderRadius: (!isStatus && item.Mau_Ma_Can) ? 6 : 0}}>{item.Ma_Can}</td>
+                      <td style={{...st.td, textAlign:'center', background: statusBg}}>{item.Thiet_Ke}</td>
+                      <td style={{...st.td, textAlign:'center', background: statusBg}}>{(item.Dien_Tich||'').replace(/\s*m²|m2|m$/i,'').trim()}</td>
+                      <td style={{...st.td, textAlign:'center', background: statusBg}}>
                         <span style={{
                           background: item.Slot_Xe === 'Có' ? '#C6F6D5' : '#FED7D7',
                           color: item.Slot_Xe === 'Có' ? '#276749' : '#9B2C2C',
                           padding:'2px 8px', borderRadius:10, fontSize:11, fontWeight:700,
                         }}>{item.Slot_Xe || 'Không'}</span>
                       </td>
-                      <td style={{...st.td, textAlign:'center'}}>{item.Huong_BC}</td>
-                      <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap'}}>{item.Gia}</td>
-                      <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Phi_MG}</td>
-                      <td style={{...st.td, textAlign:'center'}}>{normalizeNoiThat(item.Noi_That)}</td>
+                      <td style={{...st.td, textAlign:'center', background: statusBg}}>{item.Huong_BC}</td>
+                      <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap', background: statusBg}}>{item.Gia}</td>
+                      <td style={{...st.td, textAlign:'center', fontSize:12, background: statusBg}}>{item.Phi_MG}</td>
+                      <td style={{...st.td, textAlign:'center', background: statusBg}}>{normalizeNoiThat(item.Noi_That)}</td>
                       <td style={{...st.td, textAlign:'center', fontSize:12, background: isSoonMoveIn(item.Thoi_Gian_Vao) ? 'rgba(34, 211, 238, 0.20)' : undefined}}>{item.Thoi_Gian_Vao}</td>
-                      <td style={{...st.td, textAlign:'center', whiteSpace:'normal', wordBreak:'break-word', fontSize:12}}>{item.Ten_Chu}</td>
-                      <td style={{...st.td, textAlign:'center', whiteSpace:'normal', wordBreak:'break-word', fontSize:12}}>{item.Lien_He}</td>
-                      <td style={{...st.td, textAlign:'center', cursor:'pointer'}}
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'normal', wordBreak:'break-word', fontSize:12, background: statusBg}}>{item.Ten_Chu}</td>
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'normal', wordBreak:'break-word', fontSize:12, background: statusBg}}>{item.Lien_He}</td>
+                      <td style={{...st.td, textAlign:'center', cursor:'pointer', background: statusBg}}
                         onClick={() => {
                           const urls = item.Hinh_Anh ? item.Hinh_Anh.split(',').map(u=>u.trim()).filter(Boolean) : [];
                           setLightbox({ urls: sortMedia(urls), index: 0, maCan: item.Ma_Can || 'media', defaultTab: urls.length ? 'anh' : 'matbang' });
                         }}
                       ><ThumbCell value={item.Hinh_Anh} /></td>
-                      <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Nguon}</td>
-                      <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8'}}>{item.Ghi_Chu}</td>
-                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none'}}>
+                      <td style={{...st.td, textAlign:'center', fontSize:12, background: statusBg}}>{item.Nguon}</td>
+                      <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8', background: statusBg}}>{item.Ghi_Chu}</td>
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none', background: statusBg}}>
                         <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>
                         <button onClick={() => setDeleteTarget(item)} style={{...st.actionBtn, color:C.error}} title="Xoá">&#128465;</button>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </>
               ))}
             </tbody>

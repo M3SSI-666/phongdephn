@@ -60,13 +60,16 @@ export default function ImportSheetModal({ open, onClose, config, existingItems 
     if (!workbook || !activeSheet) return null;
     const ws = workbook.Sheets[activeSheet];
     if (!ws) return null;
-    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false, blankrows: false });
+    // Giữ blankrows:true để index dòng khớp đúng với hàng thật trong sheet
+    // (cần đọc màu nền ô theo đúng địa chỉ ô).
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false, blankrows: true });
     if (!rows.length) return { headers: [], payloads: [], adds: 0, updates: 0, skipped: 0 };
 
     // Tìm dòng header: dòng chứa ô chuẩn hóa === 'ma can'
     let headerIdx = rows.findIndex(r => r.some(c => normHeader(c) === 'ma can'));
     if (headerIdx < 0) headerIdx = 0;
     const headers = rows[headerIdx].map(normHeader);
+    const maCanCol = headers.findIndex(h => h === 'ma can');
 
     const payloads = [];
     let skipped = 0, adds = 0, updates = 0;
@@ -76,7 +79,13 @@ export default function ImportSheetModal({ open, onClose, config, existingItems 
       headers.forEach((h, idx) => { if (h) rowObj[h] = r[idx]; });
       const ma = (rowObj['ma can'] || '').toString().trim();
       if (!MA_CAN_RE.test(ma)) { skipped++; continue; } // bỏ banner/thiếu mã
-      const payload = config.mapRow(rowObj);
+      // Đọc màu nền ô Mã Căn (nếu có) để suy ra trạng thái căn.
+      let statusRgb;
+      if (maCanCol >= 0) {
+        const cell = ws[XLSX.utils.encode_cell({ r: i, c: maCanCol })];
+        statusRgb = cell?.s?.fgColor?.rgb;
+      }
+      const payload = config.mapRow(rowObj, { statusRgb });
       if (!payload || !(payload[keyField] || '').toString().trim()) { skipped++; continue; }
       const isDup = existingKeys.has((payload[keyField] || '').toString().trim().toUpperCase());
       payload.__dup = isDup;
@@ -100,7 +109,8 @@ export default function ImportSheetModal({ open, onClose, config, existingItems 
     if (!okExt) { setError('Chỉ hỗ trợ file .xlsx, .xls hoặc .csv'); return; }
     try {
       const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf, { type: 'array' });
+      // cellStyles:true để đọc màu nền ô (fill) — dùng suy ra trạng thái căn.
+      const wb = XLSX.read(buf, { type: 'array', cellStyles: true });
       const names = wb.SheetNames || [];
       if (!names.length) { setError('File không có sheet nào'); return; }
       const match = config.tabMatch ? names.find(n => config.tabMatch.test(n)) : null;
