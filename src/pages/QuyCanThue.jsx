@@ -86,6 +86,60 @@ function normalizeThietKe(val) {
   return m ? `${m[1]}PN` : s;
 }
 
+// Tách "tòa" và "tầng" từ Mã Căn (VD: P11-1205 -> {toa:'P11', tang:'12'};
+// R6-1208 -> {toa:'R6', tang:'12'}; P0112A11 -> {toa:'P01', tang:'12'}).
+function parseToaTang(maCan) {
+  const s = (maCan || '').toString().toUpperCase().trim();
+  const mToa = s.match(/^([A-Z]+\d{1,2})/);
+  const toa = mToa ? mToa[1] : '';
+  let tang = '';
+  const rest = toa ? s.slice(toa.length).replace(/^[-\s]/, '') : s;
+  // Lấy cụm số đầu tiên trong phần còn lại; 4 số -> 2 số đầu là tầng, 3 số -> 1 số đầu.
+  const mNum = rest.match(/(\d{3,4})/);
+  if (mNum) {
+    const num = mNum[1];
+    tang = num.length === 4 ? num.slice(0, 2) : num.slice(0, 1);
+    tang = String(parseInt(tang, 10)); // bỏ số 0 đứng đầu
+  }
+  return { toa, tang };
+}
+
+// "2PN"/"2N"/"2 phòng ngủ" -> "2 phòng ngủ"; "Studio" giữ nguyên.
+function thietKeText(val) {
+  const s = normalizeThietKe(val);
+  const m = s.match(/^(\d+)\s*PN$/i);
+  return m ? `${m[1]} phòng ngủ` : s;
+}
+
+// Ghép Nội Thất + Slot Xe thành câu "Hiện trạng".
+function hienTrangText(item) {
+  const nt = normalizeNoiThat(item.Noi_That);
+  const parts = [];
+  if (nt) parts.push(nt);
+  if (item.Slot_Xe === 'Có') parts.push('có slot xe');
+  else if (item.Slot_Xe === 'Không') parts.push('không có slot xe');
+  return parts.join(', ');
+}
+
+// Tạo form tin nhắn gửi khách từ 1 căn (để copy vào clipboard).
+function buildCustomerMessage(item) {
+  const { toa, tang } = parseToaTang(item.Ma_Can);
+  const header = toa
+    ? `Em gửi chị căn hộ tòa ${toa}${tang ? ` – tầng ${tang}` : ''}:`
+    : `Em gửi chị thông tin căn hộ ${item.Ma_Can || ''}:`;
+  const lines = [header];
+  const tk = thietKeText(item.Thiet_Ke);
+  if (tk) lines.push(`- Thiết kế: ${tk}`);
+  const dt = (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim();
+  if (dt) lines.push(`- Diện tích: ${dt} m²`);
+  if (item.Huong_BC) lines.push(`- Hướng ban công: ${item.Huong_BC}`);
+  const ht = hienTrangText(item);
+  if (ht) lines.push(`- Hiện trạng: ${ht}`);
+  if (item.Thoi_Gian_Vao) lines.push(`- Thời gian vào: ${item.Thoi_Gian_Vao}`);
+  if (item.Gia) lines.push(`- Giá: ${item.Gia}`);
+  return lines.join('\n');
+}
+
 // Chuẩn hoá cột "TT" của bảng công ty -> Nội Thất.
 // "Full"/"Có đồ"/typo -> Full đồ; "K đồ"/"Ko đồ"/"Không đồ" -> Không đồ; còn lại để trống.
 function importNoiThat(val) {
@@ -175,7 +229,7 @@ const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
   'Hướng BC', 'Giá', 'Phí MG', 'Nội Thất', 'Thời Gian Vào', 'Tên Chủ', 'Liên Hệ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
 ];
-const COL_WIDTHS = [92, 100, 72, 66, 76, 85, 70, 90, 110, 100, 100, 100, 80, 100, 270, 72];
+const COL_WIDTHS = [92, 100, 72, 66, 76, 85, 70, 90, 110, 100, 100, 100, 80, 100, 270, 104];
 
 export function QuyCanThueContent({ overrideUserId, overrideRole, isViewAs } = {}) {
   return <QuyCanThueInner overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
@@ -584,6 +638,25 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     finally { setSaving(false); }
   }
 
+  async function copyCustomerInfo(item) {
+    const msg = buildCustomerMessage(item);
+    try {
+      await navigator.clipboard.writeText(msg);
+      showToast(`Đã copy thông tin căn ${item.Ma_Can} — dán vào tin nhắn gửi khách`);
+    } catch {
+      // Fallback khi clipboard API bị chặn (http/không có quyền).
+      const ta = document.createElement('textarea');
+      ta.value = msg;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); showToast(`Đã copy thông tin căn ${item.Ma_Can}`); }
+      catch { showToast('Không copy được, vui lòng thử lại', 'error'); }
+      document.body.removeChild(ta);
+    }
+  }
+
   // ── Import bảng hàng công ty ──
   // Chia payload theo Mã Căn trùng (cập nhật đè) / mới (thêm), ghi theo lô 1 request.
   const handleImportRows = useCallback(async (payloads) => {
@@ -795,6 +868,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                       <td style={{...st.td, textAlign:'center', fontSize:12, background: rowBg}}>{item.Nguon}</td>
                       <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8', background: rowBg}}>{item.Ghi_Chu}</td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none', background: rowBg}}>
+                        <button onClick={() => copyCustomerInfo(item)} style={{...st.actionBtn, color:C.primary}} title="Copy thông tin gửi khách">&#128203;</button>
                         <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>
                         <button onClick={() => setDeleteTarget(item)} style={{...st.actionBtn, color:C.error}} title="Xoá">&#128465;</button>
                       </td>
