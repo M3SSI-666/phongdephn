@@ -752,12 +752,17 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                   {/* Các căn trong tòa */}
                   {toaItems.map(item => {
                     const isStatus = STATUS_COLORS.has(item.Mau_Ma_Can);
-                    const isPaused = item.Mau_Ma_Can === STATUS_PAUSED; // Dừng thuê: chỉ tô ô Mã Căn
-                    // Nền cả hàng chỉ cho xám (Đã cho thuê) & đỏ (Căn giá tốt), KHÔNG cho Dừng thuê.
-                    const rowBg = isPaused ? undefined : statusRowBg(item.Mau_Ma_Can);
-                    // Nền ô Mã Căn: Dừng thuê -> vàng đậm; trạng thái khác -> theo nền hàng; user tự tô -> hex.
-                    const maCanBg = isPaused ? '#EAB308' : (isStatus ? rowBg : (item.Mau_Ma_Can || 'transparent'));
+                    // Dừng thuê (vàng) & Căn giá tốt (đỏ): chỉ tô ô Mã Căn (giống bảng công ty).
+                    const cellOnlyBg =
+                      item.Mau_Ma_Can === STATUS_PAUSED ? '#EAB308' : // vàng đậm
+                      item.Mau_Ma_Can === STATUS_GOODP  ? '#EF4444' : // đỏ
+                      undefined;
+                    // Nền cả hàng CHỈ cho xám (Đã cho thuê).
+                    const rowBg = cellOnlyBg ? undefined : statusRowBg(item.Mau_Ma_Can);
+                    // Nền ô Mã Căn: trạng thái cell-only -> màu đậm; xám -> theo nền hàng; user tự tô -> hex.
+                    const maCanBg = cellOnlyBg || (isStatus ? rowBg : (item.Mau_Ma_Can || 'transparent'));
                     const maCanWhiteText = !isStatus && item.Mau_Ma_Can; // chữ trắng khi có màu user
+                    const isPaused = !!cellOnlyBg; // ô Mã Căn có màu đậm -> chữ trắng + bo góc
                     return (
                     <tr key={item._rowIndex} id={`ct-row-${item.Ma_Can}`} className="ct-row" style={st.tr}>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', fontSize:12, background: isRecentUpdate(item.Ngay_Update) ? 'rgba(250, 204, 21, 0.22)' : undefined}}>{item.Ngay_Update}</td>
