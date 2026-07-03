@@ -58,11 +58,16 @@ function statusRowBg(mau) {
   return undefined;
 }
 
-// Khi import đè: màu user tự tô luôn thắng; màu trạng thái chỉ là lớp dưới.
+// Màu do user CHỦ ĐỘNG tô (qua ColorPicker) — khác màu trạng thái công ty và màu cũ đã bỏ.
+function isUserPickedColor(c) {
+  return !!c && !STATUS_COLORS.has(c) && !LEGACY_STATUS_COLORS.has(c);
+}
+
+// Khi import đè: màu user tự tô LUÔN THẮNG; màu trạng thái công ty chỉ là lớp dưới.
 function resolveMauMaCan(incoming, existing) {
   const inc = incoming || '', ex = existing || '';
-  if (ex && !STATUS_COLORS.has(ex)) return ex; // user tự chọn -> giữ, bỏ qua status mới
-  return inc || ex;                            // còn lại: lấy status mới (hoặc giữ status cũ)
+  if (isUserPickedColor(ex)) return ex; // user tự chọn -> giữ nguyên, bỏ qua status mới
+  return inc || ex;                     // còn lại: lấy status mới (hoặc giữ status cũ)
 }
 
 const EMPTY_FORM = {
