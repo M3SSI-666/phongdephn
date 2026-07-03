@@ -141,6 +141,21 @@ function hienTrangText(item) {
   return parts.join(', ');
 }
 
+// Viết đầy đủ giá cho tin nhắn: "15tr" -> "15 triệu/tháng"; "17,5 tr" -> "17,5 triệu/tháng";
+// "1,2 tỷ" -> "1,2 tỷ"; số trần (VD "16") -> "16 triệu/tháng". Không nhận ra thì giữ nguyên.
+function giaText(val) {
+  const s = (val || '').toString().trim();
+  if (!s) return '';
+  const lower = s.toLowerCase();
+  // Có đơn vị "tỷ" -> giữ nguyên dạng tỷ (chỉ chuẩn hoá chữ).
+  const ty = lower.match(/([\d.,]+)\s*t[ỷy]/);
+  if (ty) return `${ty[1]} tỷ`;
+  // Có "tr"/"triệu" hoặc chỉ là số -> quy về "<số> triệu/tháng".
+  const tr = lower.match(/([\d.,]+)\s*(?:tr|triệu|trieu)?/);
+  if (tr && tr[1]) return `${tr[1]} triệu/tháng`;
+  return s;
+}
+
 // Tạo form tin nhắn gửi khách từ 1 căn (để copy vào clipboard).
 function buildCustomerMessage(item) {
   const { toa, tang } = parseToaTang(item.Ma_Can);
@@ -157,7 +172,8 @@ function buildCustomerMessage(item) {
   const ht = hienTrangText(item);
   if (ht) lines.push(`- Hiện trạng: ${ht}`);
   if (item.Thoi_Gian_Vao) lines.push(`- Thời gian vào: ${item.Thoi_Gian_Vao}`);
-  if (item.Gia) lines.push(`- Giá: ${item.Gia}`);
+  const gia = giaText(item.Gia);
+  if (gia) lines.push(`- Giá: ${gia}`);
   return lines.join('\n');
 }
 
