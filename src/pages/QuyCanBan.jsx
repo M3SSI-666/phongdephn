@@ -100,6 +100,86 @@ function huongText(val) {
   return s;
 }
 
+// Tách "tòa" và "tầng" từ Mã Căn (VD: P11-1205 -> {toa:'P11', tang:'12'};
+// T01305 -> {toa:'T01', tang:'3'}). 4 số -> 2 số đầu là tầng; 3 số -> 1 số đầu.
+function parseToaTang(maCan) {
+  const s = (maCan || '').toString().toUpperCase().trim();
+  const mToa = s.match(/^([A-Z]+\d{1,2})/);
+  const toa = mToa ? mToa[1] : '';
+  let tang = '';
+  const rest = toa ? s.slice(toa.length).replace(/^[-\s]/, '') : s;
+  const mNum = rest.match(/(\d{3,4})/);
+  if (mNum) {
+    const num = mNum[1];
+    tang = num.length === 4 ? num.slice(0, 2) : num.slice(0, 1);
+    tang = String(parseInt(tang, 10)); // bỏ số 0 đứng đầu
+  }
+  return { toa, tang };
+}
+
+// "2PN"/"2N"/"2 phòng ngủ" -> "2 phòng ngủ"; "Studio" giữ nguyên.
+function thietKeText(val) {
+  const s = normalizeThietKe(val);
+  const m = s.match(/^(\d+)\s*PN$/i);
+  return m ? `${m[1]} phòng ngủ` : s;
+}
+
+// Ghép Nội Thất + Slot Xe thành câu "Hiện trạng".
+function hienTrangText(item) {
+  const nt = normalizeNoiThat(item.Noi_That);
+  const parts = [];
+  if (nt) parts.push(nt);
+  if (item.Slot_Xe === 'Có') parts.push('có slot xe');
+  else if (item.Slot_Xe === 'Không') parts.push('không có slot xe');
+  return parts.join(', ');
+}
+
+// Viết đầy đủ giá bán cho tin nhắn: "13" -> "13 tỷ"; "13 tỷ" giữ nguyên;
+// đơn giá /m² (VD "115tr/m2") -> "115 triệu/m²". Không nhận ra thì giữ nguyên.
+function giaTextBan(val) {
+  const s = (val || '').toString().trim();
+  if (!s) return '';
+  const lower = s.toLowerCase();
+  // Đơn giá /m² (VD "115tr/m2") -> giữ dạng triệu/m²; xét TRƯỚC guard serial ngày
+  // (bỏ chữ, "115tr/m2" -> "1152" >= 1000 sẽ bị nhầm là serial).
+  if (/\/\s*m/.test(lower)) {
+    const pm = lower.match(/([\d.,]+)/);
+    if (pm) return `${pm[1]} triệu/m²`;
+    return s;
+  }
+  if (isDateSerialGia(s)) return ''; // ô Giá là serial ngày Excel -> bỏ
+  const ty = lower.match(/([\d.,]+)\s*t[ỷy]/);
+  if (ty) return `${ty[1]} tỷ`;
+  const tr = lower.match(/([\d.,]+)\s*(?:tr|triệu|trieu)/);
+  if (tr) return `${tr[1]} triệu`;
+  // Số trần không đơn vị -> hiểu là tỷ (giá bán).
+  if (/^[\d.,]+$/.test(s)) return `${s} tỷ`;
+  return s;
+}
+
+// Tạo tin nhắn gửi khách từ 1 căn bán (để copy vào clipboard).
+function buildCustomerMessage(item) {
+  const { toa, tang } = parseToaTang(item.Ma_Can);
+  const header = toa
+    ? `Em gửi anh/chị căn hộ tòa ${toa}${tang ? ` – tầng ${tang}` : ''}:`
+    : `Em gửi anh/chị thông tin căn hộ ${item.Ma_Can || ''}:`;
+  const lines = [header];
+  const tk = thietKeText(item.Thiet_Ke);
+  if (tk) lines.push(`- Thiết kế: ${tk}`);
+  const dt = (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim();
+  if (dt) lines.push(`- Diện tích: ${dt} m²`);
+  const hbc = huongText(item.Huong_BC);
+  if (hbc) lines.push(`- Hướng ban công: ${hbc}`);
+  const ht = hienTrangText(item);
+  if (ht) lines.push(`- Hiện trạng: ${ht}`);
+  const gia = giaTextBan(item.Gia_Net || item.Gia); // ưu tiên giá nét nếu có
+  if (gia) {
+    const phi = mapPhi(item.Phi);
+    lines.push(`- Giá: ${gia}${phi ? ` ${phi.toLowerCase()}` : ''}`);
+  }
+  return lines.join('\n');
+}
+
 // Ngày Update "mới": trong vòng 2 tháng trở lại tính từ hôm nay (dd/mm/yyyy).
 function isRecentUpdate(val) {
   const m = (val || '').toString().trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -631,6 +711,25 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
     finally { setSaving(false); }
   }
 
+  async function copyCustomerInfo(item) {
+    const msg = buildCustomerMessage(item);
+    try {
+      await navigator.clipboard.writeText(msg);
+      showToast(`Đã copy thông tin căn ${item.Ma_Can} — dán vào tin nhắn gửi khách`);
+    } catch {
+      // Fallback khi clipboard API bị chặn (http/không có quyền).
+      const ta = document.createElement('textarea');
+      ta.value = msg;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); showToast(`Đã copy thông tin căn ${item.Ma_Can}`); }
+      catch { showToast('Không copy được, vui lòng thử lại', 'error'); }
+      document.body.removeChild(ta);
+    }
+  }
+
   const handleImportRows = useCallback(async (payloads) => {
     const byMa = new Map();
     items.forEach(it => { const k = (it.Ma_Can||'').trim().toUpperCase(); if (k) byMa.set(k, it); });
@@ -844,6 +943,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
                       <td style={{...st.td, textAlign:'center', fontSize:12, background: rowBg}}>{item.Nguon}</td>
                       <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8', background: rowBg}}>{item.Ghi_Chu}</td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none', padding:'4px 2px', background: rowBg}}>
+                        <button onClick={() => copyCustomerInfo(item)} style={{...st.actionBtn, color:C.primary, padding:'2px 3px'}} title="Copy thông tin gửi khách">&#128203;</button>
                         <button onClick={() => openEdit(item)} style={{...st.actionBtn, padding:'2px 3px'}} title="Sửa">&#9998;</button>
                         <button onClick={() => setDeleteTarget(item)} style={{...st.actionBtn, color:C.error, padding:'2px 3px'}} title="Xoá">&#128465;</button>
                       </td>
