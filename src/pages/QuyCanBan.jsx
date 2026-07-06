@@ -86,6 +86,16 @@ function mapPhi(val) {
   return s;
 }
 
+// Giá bán từ bảng công ty là số tỷ (VD "6.7"). Gắn " tỷ" để đơn vị rõ ràng
+// (parseGiaValue/tr per m² đọc đúng). Nếu đã có chữ "tỷ"/"tr" thì giữ nguyên.
+function formatGiaTy(val) {
+  const s = (val || '').toString().trim();
+  if (!s) return '';
+  if (/t[ỷy]|tr|triệu/i.test(s)) return s;
+  const n = s.match(/^[\d.,]+$/);
+  return n ? `${s} tỷ` : s;
+}
+
 // Cấu hình import bảng hàng công ty (tab Bán) -> schema Quỹ Căn Bán.
 // Gộp nhiều tên header vì 3 sheet (T / Park Hill / G4) đặt tên lệch nhau.
 const IMPORT_CONFIG_BAN = {
@@ -120,7 +130,7 @@ const IMPORT_CONFIG_BAN = {
       Dien_Tich:   g('m2', 'dt (m2)', 'dt m2', 'dt'),
       Huong_BC:    g('bc'),
       Huong_Cua:   g('cua'),
-      Gia:         g('gia ty', 'gia tỷ', 'gia'),
+      Gia:         formatGiaTy(g('gia ty', 'gia tỷ', 'gia')),
       Phi:         mapPhi(g('phi', 'tv or bp')),
       Slot_Xe:     g('xe') ? 'Có' : 'Không',
       Noi_That:    '',
@@ -137,9 +147,9 @@ const IMPORT_CONFIG_BAN = {
 
 const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
-  'Hướng BC', 'Giá', 'Tr/m²', 'Phí', 'Nội Thất', 'SDT', 'Tên Chủ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
+  'Hướng BC', 'Giá', 'Tr/m²', 'Phí', 'SDT', 'Tên Chủ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
 ];
-const COL_WIDTHS = [92, 100, 72, 66, 76, 80, 72, 80, 110, 110, 100, 110, 100, 80, 320, 44];
+const COL_WIDTHS = [92, 100, 72, 66, 76, 80, 72, 80, 110, 100, 110, 100, 80, 320, 44];
 
 export function QuyCanBanContent({ overrideUserId, overrideRole, isViewAs } = {}) {
   return <QuyCanBanInner overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
@@ -742,7 +752,6 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
                           padding:'2px 8px', borderRadius:8, fontSize:11, fontWeight:600, whiteSpace:'nowrap',
                         }}>{item.Phi || 'Thu về'}</span>
                       </td>
-                      <td style={{...st.td, textAlign:'center', background: rowBg}}>{normalizeNoiThat(item.Noi_That)}</td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', background: rowBg}}>{item.SDT}</td>
                       <td style={{...st.td, textAlign:'center', background: rowBg}}>{item.Ten_Chu}</td>
                       <td style={{...st.td, textAlign:'center', cursor:'pointer', background: rowBg}}
