@@ -772,7 +772,11 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
                           padding:'2px 8px', borderRadius:8, fontSize:11, fontWeight:600, whiteSpace:'nowrap',
                         }}>{item.Phi || 'Thu về'}</span>
                       </td>
-                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', background: rowBg}}>{item.SDT}</td>
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', background: rowBg}}>
+                        {(item.SDT||'').split(/[\n,/;]+|\s{2,}|\s-\s/).map(s=>s.trim()).filter(Boolean).map((sd,idx)=>(
+                          <div key={idx}>{sd}</div>
+                        ))}
+                      </td>
                       <td style={{...st.td, textAlign:'center', background: rowBg}}>{item.Ten_Chu}</td>
                       <td style={{...st.td, textAlign:'center', cursor:'pointer', background: rowBg}}
                         onClick={() => {
