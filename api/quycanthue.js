@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 
 const SHEET_NAME = 'Quy_Can_Thue';
-// 18 columns: STT, Ngay_Update, Ma_Can, Thiet_Ke, Dien_Tich, Slot_Xe, Huong_BC, Gia, Phi_MG, Noi_That, Thoi_Gian_Vao, Lien_He, Hinh_Anh, Nguon, Ghi_Chu, Mau_Ma_Can, Owner_Id, Ten_Chu
-const COLUMNS = 'A:R';
+// 19 columns: STT, Ngay_Update, Ma_Can, Thiet_Ke, Dien_Tich, Slot_Xe, Huong_BC, Gia, Phi_MG, Noi_That, Thoi_Gian_Vao, Lien_He, Hinh_Anh, Nguon, Ghi_Chu, Mau_Ma_Can, Owner_Id, Ten_Chu, Gia_Net
+const COLUMNS = 'A:S';
 
 export default async function handler(req, res) {
   try {
@@ -65,6 +65,7 @@ async function handleGet(req, res, sheetId, email, key) {
     Mau_Ma_Can:    row[15] || '',
     Owner_Id:      row[16] || '',
     Ten_Chu:       row[17] || '',
+    Gia_Net:       row[18] || '',
     _rowIndex: i + 2,
   }));
 
@@ -103,6 +104,7 @@ async function handlePost(req, res, sheetId, email, key) {
       p.Mau_Ma_Can    || '',
       p.Owner_Id      || '',
       p.Ten_Chu       || '',
+      p.Gia_Net       || '',
     ];
   }
 
@@ -119,7 +121,7 @@ async function handlePost(req, res, sheetId, email, key) {
 
   if (payload.action === 'update') {
     if (!payload._rowIndex) return res.status(400).json({ error: 'Missing _rowIndex' });
-    const range = `${SHEET_NAME}!A${payload._rowIndex}:R${payload._rowIndex}`;
+    const range = `${SHEET_NAME}!A${payload._rowIndex}:S${payload._rowIndex}`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?valueInputOption=USER_ENTERED`;
     const response = await fetch(url, {
       method: 'PUT',
@@ -150,7 +152,7 @@ async function handlePost(req, res, sheetId, email, key) {
       const data = updates
         .filter(p => p._rowIndex)
         .map(p => ({
-          range: `${SHEET_NAME}!A${p._rowIndex}:R${p._rowIndex}`,
+          range: `${SHEET_NAME}!A${p._rowIndex}:S${p._rowIndex}`,
           values: [buildRow(p, { keepDate: true })],
         }));
       if (data.length) {
@@ -200,14 +202,14 @@ async function createSheetWithHeaders(sheetId, token) {
   const HEADERS = [
     'STT', 'Ngay_Update', 'Ma_Can', 'Thiet_Ke', 'Dien_Tich', 'Slot_Xe',
     'Huong_BC', 'Gia', 'Phi_MG', 'Noi_That', 'Thoi_Gian_Vao',
-    'Lien_He', 'Hinh_Anh', 'Nguon', 'Ghi_Chu', 'Mau_Ma_Can', 'Owner_Id', 'Ten_Chu',
+    'Lien_He', 'Hinh_Anh', 'Nguon', 'Ghi_Chu', 'Mau_Ma_Can', 'Owner_Id', 'Ten_Chu', 'Gia_Net',
   ];
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ requests: [{ addSheet: { properties: { title: SHEET_NAME } } }] }),
   });
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!A1:R1?valueInputOption=USER_ENTERED`, {
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!A1:S1?valueInputOption=USER_ENTERED`, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ values: [HEADERS] }),

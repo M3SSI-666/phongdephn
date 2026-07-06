@@ -72,7 +72,7 @@ function resolveMauMaCan(incoming, existing) {
 
 const EMPTY_FORM = {
   Ma_Can: '', Thiet_Ke: '', Dien_Tich: '', Slot_Xe: 'Không',
-  Huong_BC: '', Gia: '', Phi_MG: '', Noi_That: 'Đồ cơ bản',
+  Huong_BC: '', Gia: '', Gia_Net: '', Phi_MG: '', Noi_That: 'Đồ cơ bản',
   Thoi_Gian_Vao: '', Ten_Chu: '', Lien_He: '', Hinh_Anh: '', Nguon: '', Ghi_Chu: '', Mau_Ma_Can: '',
 };
 
@@ -172,7 +172,7 @@ function buildCustomerMessage(item) {
   const ht = hienTrangText(item);
   if (ht) lines.push(`- Hiện trạng: ${ht}`);
   if (item.Thoi_Gian_Vao) lines.push(`- Thời gian vào: ${item.Thoi_Gian_Vao}`);
-  const gia = giaText(item.Gia);
+  const gia = giaText(item.Gia_Net || item.Gia); // ưu tiên giá nét (giá đã làm với chủ) nếu có
   if (gia) lines.push(`- Giá: ${gia}`);
   return lines.join('\n');
 }
@@ -264,9 +264,9 @@ const IMPORT_CONFIG_THUE = {
 
 const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
-  'Hướng BC', 'Giá', 'Phí MG', 'Nội Thất', 'Thời Gian Vào', 'Tên Chủ', 'Liên Hệ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
+  'Hướng BC', 'Giá', 'Giá Nét', 'Phí MG', 'Nội Thất', 'Thời Gian Vào', 'Tên Chủ', 'Liên Hệ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
 ];
-const COL_WIDTHS = [92, 100, 72, 66, 76, 85, 70, 90, 110, 100, 100, 100, 80, 100, 270, 104];
+const COL_WIDTHS = [92, 100, 72, 66, 76, 85, 70, 80, 90, 110, 100, 100, 100, 80, 100, 270, 104];
 
 export function QuyCanThueContent({ overrideUserId, overrideRole, isViewAs } = {}) {
   return <QuyCanThueInner overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
@@ -591,6 +591,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       Slot_Xe:       item.Slot_Xe       || 'Không',
       Huong_BC:      item.Huong_BC      || '',
       Gia:           item.Gia           || '',
+      Gia_Net:       item.Gia_Net       || '',
       Phi_MG:        item.Phi_MG        || '',
       Noi_That:      item.Noi_That      || '',
       Thoi_Gian_Vao: item.Thoi_Gian_Vao || '',
@@ -653,7 +654,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       setSaving(true);
       const { existing, payload } = dupTarget;
       const mergedHinh = payload.Hinh_Anh || existing.Hinh_Anh || '';
-      await postQuyCanThue({ action: 'update', _rowIndex: existing._rowIndex, STT: existing.STT, Owner_Id: existing.Owner_Id || userId || '', ...payload, Hinh_Anh: mergedHinh, Mau_Ma_Can: resolveMauMaCan(payload.Mau_Ma_Can, existing.Mau_Ma_Can) });
+      await postQuyCanThue({ action: 'update', _rowIndex: existing._rowIndex, STT: existing.STT, Owner_Id: existing.Owner_Id || userId || '', ...payload, Hinh_Anh: mergedHinh, Gia_Net: payload.Gia_Net || existing.Gia_Net || '', Mau_Ma_Can: resolveMauMaCan(payload.Mau_Ma_Can, existing.Mau_Ma_Can) });
       pushImportLog(payload.Ma_Can);
       showToast('Đã cập nhật căn ' + payload.Ma_Can + '!');
       setDupTarget(null);
@@ -709,6 +710,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
         updates.push({
           ...p,
           Hinh_Anh: p.Hinh_Anh || existing.Hinh_Anh || '',
+          Gia_Net: existing.Gia_Net || '', // Giá Nét user tự nhập — import không đụng vào
           Mau_Ma_Can: resolveMauMaCan(p.Mau_Ma_Can, existing.Mau_Ma_Can),
           _rowIndex: existing._rowIndex,
           STT: existing.STT,
@@ -891,6 +893,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                       </td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'normal', background: rowBg}}>{huongText(item.Huong_BC)}</td>
                       <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap', background: rowBg}}>{item.Gia}</td>
+                      <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', color:'#34D399', background: rowBg}}>{item.Gia_Net}</td>
                       <td style={{...st.td, textAlign:'center', fontSize:12, background: rowBg}}>{item.Phi_MG}</td>
                       <td style={{...st.td, textAlign:'center', background: rowBg}}>{normalizeNoiThat(item.Noi_That)}</td>
                       <td style={{...st.td, textAlign:'center', fontSize:12, background: isSoonMoveIn(item.Thoi_Gian_Vao) ? 'rgba(34, 211, 238, 0.20)' : undefined}}>{item.Thoi_Gian_Vao}</td>
@@ -1009,6 +1012,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                 </div>
 
                 <FormField label="Giá" value={form.Gia} onChange={v => set('Gia', v)} placeholder="VD: 23 triệu" />
+                <FormField label="Giá Nét" value={form.Gia_Net} onChange={v => set('Gia_Net', v)} placeholder="VD: 15 triệu (giá đã làm với chủ)" />
                 <FormField label="Phí Môi Giới" value={form.Phi_MG} onChange={v => set('Phi_MG', v)} placeholder="VD: Phí đủ, 1 tháng" />
 
                 {/* Nội Thất */}
