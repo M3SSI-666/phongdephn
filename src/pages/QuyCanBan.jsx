@@ -310,11 +310,12 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
     return v < 1000 ? v * 1000 : v;
   }
 
-  // Nếu Giá ghi sẵn ĐƠN GIÁ /m² (VD "200tr/m", "85-90tr") -> trả về số đơn giá (đầu thấp);
-  // ngược lại trả null. Nhận diện: có "tr"/"triệu" và giá trị nhỏ (< 500).
+  // Nếu Giá ghi sẵn ĐƠN GIÁ /m² (VD "200tr/m", "85-90tr", "100/m") -> trả về số đơn giá (đầu thấp);
+  // ngược lại trả null. Nhận diện: có "tr"/"triệu" HOẶC hậu tố "/m" (VD "100/m" = 100tr/m²),
+  // và giá trị nhỏ (< 500).
   function perM2Price(item) {
     const s = (item.Gia||'').toLowerCase().replace(/\s+/g,'').replace(/,/g,'.');
-    if (!/tr|triệu/.test(s)) return null;
+    if (!/tr|triệu/.test(s) && !/\/m/.test(s)) return null; // "/m" = per m² dù không ghi "tr"
     const nums = (s.match(/[\d.]+/g) || []).map(parseFloat).filter(v => !isNaN(v));
     const low = nums.length ? Math.min(...nums) : null;
     return (low != null && low < 500) ? Math.round(low) : null;
