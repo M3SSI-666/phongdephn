@@ -111,18 +111,26 @@ function isRecentUpdate(val) {
   return d >= from && d <= now;
 }
 
+// Giá bán bị lỗi khi ô Excel định dạng NGÀY (VD "d.m") -> lưu thành số serial ngày
+// (43831 ≈ 2020-01-01, ~47500 ≈ 2030). Giá bán thật tính bằng tỷ nên chỉ vài chữ số
+// (VD "6.7", "85"). Bất kỳ số nguyên >= 1000 nào ở ô Giá đều KHÔNG phải giá -> loại.
+// Áp cho cả chuỗi đã có/ chưa có chữ "tỷ" (dữ liệu cũ import trước khi có guard, VD "45800 tỷ").
+function isDateSerialGia(val) {
+  const s = (val || '').toString().trim();
+  if (!s) return false;
+  const num = parseFloat(s.replace(/[^\d.,-]/g, '').replace(/,/g, '.'));
+  return Number.isInteger(num) && num >= 1000;
+}
+
 // Giá bán từ bảng công ty là số tỷ (VD "6.7"). Gắn " tỷ" để đơn vị rõ ràng
 // (parseGiaValue/tr per m² đọc đúng). Nếu đã có chữ "tỷ"/"tr" thì giữ nguyên.
 function formatGiaTy(val) {
   const s = (val || '').toString().trim();
   if (!s) return '';
+  if (isDateSerialGia(s)) return ''; // ô Giá là serial ngày Excel -> bỏ
   if (/t[ỷy]|tr|triệu/i.test(s)) return s;
   const n = s.match(/^[\d.,]+$/);
   if (!n) return s;
-  // Bỏ giá trị vô nghĩa: ô Giá bị Excel định dạng thành số serial ngày (VD 45815)
-  // -> không phải giá bán. Số nguyên >= 40000 (không có phần thập phân) coi là lỗi ngày.
-  const num = parseFloat(s.replace(/,/g, '.'));
-  if (Number.isInteger(num) && num >= 40000) return '';
   return `${s} tỷ`;
 }
 
@@ -288,15 +296,15 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
   }, [fetchFn, userId, role]);
 
   function parseGiaValue(gia) {
+    if (isDateSerialGia(gia)) return null; // ô Giá là serial ngày Excel (VD "45800", "45800 tỷ") -> không phải giá
     // Chuẩn hoá: bỏ khoảng trắng, đổi dấu phẩy thập phân -> chấm ("5,8" == "5.8").
     const s = (gia||'').toLowerCase().replace(/\s+/g,'').replace(/,/g,'.');
     const ty = s.match(/([\d.]+)t[ỷy]/);
-    if (ty) { const t = parseFloat(ty[1]); return t >= 40000 ? null : t * 1000; } // >=40000 tỷ = serial ngày lỗi
+    if (ty) return parseFloat(ty[1]) * 1000;
     const tr = s.match(/([\d.]+)tr|triệu/); if (tr && tr[1]) return parseFloat(tr[1]);
     const n = s.match(/([\d.]+)/);
     if (!n) return null;
     const v = parseFloat(n[1]);
-    if (Number.isInteger(v) && v >= 40000) return null; // số serial ngày Excel, không phải giá
     // Số trần không đơn vị: giá bán tính bằng tỷ (VD "5.8" = 5.8 tỷ = 5800 triệu).
     // Ngưỡng < 1000 để phân biệt với giá đã ghi bằng triệu (hiếm khi số trần).
     return v < 1000 ? v * 1000 : v;
@@ -800,7 +808,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
                         }}>{item.Slot_Xe || 'Không'}</span>
                       </td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'normal', background: rowBg}}>{huongText(item.Huong_BC)}</td>
-                      <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap', background: rowBg}}>{perM2Price(item) != null ? '' : item.Gia}</td>
+                      <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap', background: rowBg}}>{(perM2Price(item) != null || isDateSerialGia(item.Gia)) ? '' : item.Gia}</td>
                       <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', color:'#34D399', background: rowBg}}>{item.Gia_Net}</td>
                       <td style={{...st.td, textAlign:'center', fontSize:12, color:'#38b274', fontWeight:700, background: rowBg}}>
                         {trPerM2(item) ?? ''}
