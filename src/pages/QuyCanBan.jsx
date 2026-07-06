@@ -91,6 +91,7 @@ function mapPhi(val) {
 const IMPORT_CONFIG_BAN = {
   title: 'Import bảng hàng công ty → Căn Bán',
   tabMatch: /b[aá]n/i,
+  multiSheet: true, // gộp cả 3 sheet (Căn Bán T / Park Hill / G4) trong 1 lần import
   keyField: 'Ma_Can',
   previewCols: [
     { key: 'Ma_Can', label: 'Mã Căn' },

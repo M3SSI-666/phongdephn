@@ -55,15 +55,13 @@ export default function ImportSheetModal({ open, onClose, config, existingItems 
     return set;
   }, [existingItems, keyField]);
 
-  // Parse sheet đang chọn -> danh sách payload + phân loại thêm/cập nhật.
-  const parsed = useMemo(() => {
-    if (!workbook || !activeSheet) return null;
-    const ws = workbook.Sheets[activeSheet];
-    if (!ws) return null;
+  // Parse 1 sheet -> danh sách payload thô (chưa phân loại thêm/cập nhật).
+  const parseSheet = useCallback((ws) => {
+    if (!ws) return [];
     // Giữ blankrows:true để index dòng khớp đúng với hàng thật trong sheet
     // (cần đọc màu nền ô theo đúng địa chỉ ô).
     const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false, blankrows: true });
-    if (!rows.length) return { headers: [], payloads: [], adds: 0, updates: 0, skipped: 0 };
+    if (!rows.length) return [];
 
     // Tìm dòng header: dòng chứa ô chuẩn hóa === 'ma can'
     let headerIdx = rows.findIndex(r => r.some(c => normHeader(c) === 'ma can'));
@@ -71,14 +69,13 @@ export default function ImportSheetModal({ open, onClose, config, existingItems 
     const headers = rows[headerIdx].map(normHeader);
     const maCanCol = headers.findIndex(h => h === 'ma can');
 
-    const payloads = [];
-    let skipped = 0, adds = 0, updates = 0;
+    const out = [];
     for (let i = headerIdx + 1; i < rows.length; i++) {
       const r = rows[i];
       const rowObj = {};
       headers.forEach((h, idx) => { if (h) rowObj[h] = r[idx]; });
       const ma = (rowObj['ma can'] || '').toString().trim();
-      if (!MA_CAN_RE.test(ma)) { skipped++; continue; } // bỏ banner/thiếu mã
+      if (!MA_CAN_RE.test(ma)) continue; // bỏ banner/thiếu mã
       // Đọc màu nền ô Mã Căn (nếu có) để suy ra trạng thái căn.
       let statusRgb;
       if (maCanCol >= 0) {
@@ -86,14 +83,40 @@ export default function ImportSheetModal({ open, onClose, config, existingItems 
         statusRgb = cell?.s?.fgColor?.rgb;
       }
       const payload = config.mapRow(rowObj, { statusRgb });
-      if (!payload || !(payload[keyField] || '').toString().trim()) { skipped++; continue; }
-      const isDup = existingKeys.has((payload[keyField] || '').toString().trim().toUpperCase());
-      payload.__dup = isDup;
-      if (isDup) updates++; else adds++;
-      payloads.push(payload);
+      if (!payload || !(payload[keyField] || '').toString().trim()) continue;
+      out.push(payload);
     }
-    return { headers, payloads, adds, updates, skipped };
-  }, [workbook, activeSheet, config, existingKeys, keyField]);
+    return out;
+  }, [config, keyField]);
+
+  // Danh sách sheet sẽ gộp: multiSheet -> mọi sheet khớp tabMatch; ngược lại -> sheet đang chọn.
+  const mergeSheetNames = useMemo(() => {
+    if (!workbook) return [];
+    if (config.multiSheet && config.tabMatch) {
+      return (workbook.SheetNames || []).filter(n => config.tabMatch.test(n));
+    }
+    return activeSheet ? [activeSheet] : [];
+  }, [workbook, activeSheet, config.multiSheet, config.tabMatch]);
+
+  // Gộp payload từ (các) sheet -> phân loại thêm/cập nhật, khử trùng Mã Căn giữa các sheet.
+  const parsed = useMemo(() => {
+    if (!workbook || !mergeSheetNames.length) return null;
+    const seen = new Set();
+    const payloads = [];
+    let adds = 0, updates = 0;
+    for (const name of mergeSheetNames) {
+      for (const payload of parseSheet(workbook.Sheets[name])) {
+        const key = (payload[keyField] || '').toString().trim().toUpperCase();
+        if (seen.has(key)) continue; // trùng giữa các sheet -> giữ bản đầu
+        seen.add(key);
+        const isDup = existingKeys.has(key);
+        payload.__dup = isDup;
+        if (isDup) updates++; else adds++;
+        payloads.push(payload);
+      }
+    }
+    return { payloads, adds, updates };
+  }, [workbook, mergeSheetNames, parseSheet, existingKeys, keyField]);
 
   const reset = useCallback(() => {
     setStep('file'); setSheetNames([]); setActiveSheet(''); setWorkbook(null);
@@ -183,7 +206,11 @@ export default function ImportSheetModal({ open, onClose, config, existingItems 
             <div>
               <div style={s.fileRow}>
                 <span style={{ fontSize: 13, color: C.textMuted }}>📄 {fileName}</span>
-                {sheetNames.length > 1 && (
+                {config.multiSheet ? (
+                  <span style={{ fontSize: 13, color: C.textMuted }}>
+                    Gộp {mergeSheetNames.length} sheet: <strong>{mergeSheetNames.join(', ')}</strong>
+                  </span>
+                ) : sheetNames.length > 1 && (
                   <label style={{ fontSize: 13, color: C.textMuted, display: 'flex', alignItems: 'center', gap: 6 }}>
                     Tab:
                     <select
