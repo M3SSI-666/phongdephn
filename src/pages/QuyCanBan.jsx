@@ -264,6 +264,21 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
     const n = s.match(/([\d.]+)/); return n ? parseFloat(n[1]) : null;
   }
 
+  // Đơn giá tr/m². Nếu Giá đã ghi sẵn đơn giá (VD "85-90tr" = 85tr/m²) thì lấy trực tiếp
+  // (đầu thấp của khoảng). Ngược lại (Giá là tổng, tính bằng tỷ) thì chia cho diện tích.
+  function trPerM2(item) {
+    const s = (item.Gia||'').toLowerCase().replace(/\s+/g,'');
+    // per-m²: có "tr"/"triệu" và giá trị nhỏ (< 500) -> đơn giá /m², không phải tổng
+    if (/tr|triệu/.test(s)) {
+      const nums = (s.match(/[\d.]+/g) || []).map(parseFloat).filter(v => !isNaN(v));
+      const low = nums.length ? Math.min(...nums) : null;
+      if (low != null && low < 500) return Math.round(low);
+    }
+    const g = parseGiaValue(item.Gia);
+    const dt = parseFloat((item.Dien_Tich||'').replace(/[^\d.]/g,''));
+    return (g && dt) ? Math.round(g / dt) : null;
+  }
+
   function buildFilterSummary(f) {
     if (f._exactMaCan) return `Mã căn: ${f._exactMaCan}`;
     const parts = [];
@@ -337,6 +352,11 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
       arr.sort((a, b) => {
         const pn = parsePN(a.Thiet_Ke) - parsePN(b.Thiet_Ke);
         if (pn !== 0) return pn;
+        // sắp xếp theo đơn giá Tr/m² từ thấp -> cao
+        const ta = trPerM2(a), tb = trPerM2(b);
+        const va = ta == null ? Infinity : ta;
+        const vb = tb == null ? Infinity : tb;
+        if (va !== vb) return va - vb;
         const gia = parseGia(a.Gia) - parseGia(b.Gia);
         if (gia !== 0) return gia;
         return parseDT(b.Dien_Tich) - parseDT(a.Dien_Tich); // diện tích lớn hơn lên trên
@@ -743,7 +763,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
                       <td style={{...st.td, textAlign:'center', background: rowBg}}>{item.Huong_BC}</td>
                       <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap', background: rowBg}}>{item.Gia}</td>
                       <td style={{...st.td, textAlign:'center', fontSize:12, color:'#38b274', fontWeight:700, background: rowBg}}>
-                        {(() => { const g = parseGiaValue(item.Gia); const dt = parseFloat((item.Dien_Tich||'').replace(/[^\d.]/g,'')); return (g && dt) ? Math.round(g / dt) : ''; })()}
+                        {trPerM2(item) ?? ''}
                       </td>
                       <td style={{...st.td, textAlign:'center', fontSize:12, background: rowBg}}>
                         <span style={{
