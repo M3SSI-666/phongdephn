@@ -86,6 +86,20 @@ function mapPhi(val) {
   return s;
 }
 
+// Viết tắt hướng ban công -> tên đầy đủ. T=Tây, B=Bắc, N=Nam, Đ=Đông;
+// 2 ký tự ghép lại: TB=Tây Bắc, ĐN=Đông Nam... Nếu đã là tên đầy đủ thì giữ nguyên.
+const HUONG_MAP = { T: 'Tây', B: 'Bắc', N: 'Nam', D: 'Đông', Đ: 'Đông' };
+function huongText(val) {
+  const s = (val || '').toString().trim();
+  if (!s) return '';
+  const key = s.toUpperCase().replace(/[\s.]/g, '');
+  if (/^[TBNDĐ]{1,2}$/.test(key)) {
+    const words = key.split('').map(ch => HUONG_MAP[ch]).filter(Boolean);
+    if (words.length) return words.join(' ');
+  }
+  return s;
+}
+
 // Giá bán từ bảng công ty là số tỷ (VD "6.7"). Gắn " tỷ" để đơn vị rõ ràng
 // (parseGiaValue/tr per m² đọc đúng). Nếu đã có chữ "tỷ"/"tr" thì giữ nguyên.
 function formatGiaTy(val) {
@@ -760,7 +774,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
                           padding:'2px 8px', borderRadius:10, fontSize:11, fontWeight:700,
                         }}>{item.Slot_Xe || 'Không'}</span>
                       </td>
-                      <td style={{...st.td, textAlign:'center', background: rowBg}}>{item.Huong_BC}</td>
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'normal', background: rowBg}}>{huongText(item.Huong_BC)}</td>
                       <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap', background: rowBg}}>{item.Gia}</td>
                       <td style={{...st.td, textAlign:'center', fontSize:12, color:'#38b274', fontWeight:700, background: rowBg}}>
                         {trPerM2(item) ?? ''}
