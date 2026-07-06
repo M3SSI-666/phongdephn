@@ -1294,7 +1294,7 @@ const lb = {
   thumbRow:    { display:'flex', gap:8, justifyContent:'center', flexWrap:'wrap', paddingTop:4 },
 };
 
-const D = '1.5px solid #2d3240';
+const D = '1.5px solid rgba(255,255,255,0.22)';
 const st = {
   addBtn:      { background:C.gradient, color:'#fff', border:'none', borderRadius:10, padding:'10px 20px', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:F, boxShadow:C.shadowGreen, whiteSpace:'nowrap' },
   importBtn:   { background:'#22263a', color:C.primaryLight, border:'1.5px solid #3a3f52', borderRadius:10, padding:'10px 16px', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
@@ -1306,11 +1306,11 @@ const st = {
   tableWrap:   { background:'#1a1d27', borderRadius:12, border:'1px solid #2d3240', boxShadow:'0 4px 24px rgba(0,0,0,0.4)' },
   table:       { width:'100%', borderCollapse:'collapse', fontSize:13, tableLayout:'fixed' },
   th:          { textAlign:'center', padding:'10px 8px', fontWeight:700, fontSize:11, textTransform:'uppercase', color:'#8a9bb8', borderBottom:'2px solid #2d3240', borderRight:D, whiteSpace:'nowrap', background:'#13151e' },
-  tr:          { borderBottom:'1.5px solid #2d3240', transition:'background 0.12s' },
+  tr:          { borderBottom:'1.5px solid rgba(255,255,255,0.22)', transition:'background 0.12s' },
   td:          { padding:'8px 8px', verticalAlign:'middle', fontSize:13, borderRight:D, color:'#e2e8f0' },
   emptyTd:     { textAlign:'center', padding:40, color:'#8a9bb8', fontSize:14 },
   toaHeader:   { background:'#EF4444', padding:'7px 0', textAlign:'center', borderTop:'1px solid rgba(255,255,255,0.18)', borderBottom:'1px solid rgba(255,255,255,0.18)' },
-  toaLabel:    { fontWeight:700, fontSize:13, color:'rgba(255,255,255,0.75)', letterSpacing:3, textTransform:'uppercase' },
+  toaLabel:    { fontWeight:700, fontSize:13, color:'#fff', letterSpacing:3, textTransform:'uppercase' },
   actionBtn:   { background:'none', border:'none', cursor:'pointer', fontSize:16, padding:'4px 6px', borderRadius:6, color:C.textMuted },
   overlay:     { position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 },
   modal:       { background:'#fff', borderRadius:16, width:620, maxWidth:'100%', maxHeight:'92vh', display:'flex', flexDirection:'column', boxShadow:C.shadowLg, animation:'cbSlideUp 0.25s ease', overflow:'hidden' },
