@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
 import { fetchQuyCanBan, postQuyCanBan, fetchQuyDapThong, postQuyDapThong, parseBan, uploadToCloudinary, parseSearchQuery } from '../utils/api';
+import ImportSheetModal from '../components/ImportSheetModal';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -29,6 +30,109 @@ function normalizeNoiThat(val) {
   if (s.includes('khong') || s.includes('trong') || s.includes('tho')) return 'Không đồ';
   return 'Đồ cơ bản';
 }
+
+// ── Trạng thái căn qua màu nền ô Mã Căn (import từ bảng công ty) ──
+const STATUS_SOLD   = '#9CA3AF'; // xám  -> Đã bán
+const STATUS_PAUSED = '#FFF000'; // vàng -> Dừng bán
+const STATUS_COLORS = new Set([STATUS_SOLD, STATUS_PAUSED]);
+const LEGACY_STATUS_COLORS = new Set(['#FF3B30']); // đỏ "căn giá tốt" cũ -> bỏ
+
+// fgColor.rgb từ file công ty -> màu trạng thái chuẩn, hoặc '' (bình thường).
+function canonicalStatusColor(rgb) {
+  if (!rgb) return '';
+  let h = rgb.toString().replace('#', '').toUpperCase();
+  if (h.length === 8) h = h.slice(2);   // bỏ alpha AARRGGBB
+  if (h.length !== 6) return '';
+  if (h === 'FFFFFF') return '';         // trắng = bình thường
+  if (h === 'FFFF00') return STATUS_PAUSED;
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  if (max - min <= 16 && min >= 0x60 && max <= 0xF0) return STATUS_SOLD; // dải xám trung tính
+  return '';
+}
+
+// Nền mờ hàng theo màu trạng thái (dark theme).
+function statusRowBg(mau) {
+  if (mau === STATUS_SOLD)   return 'rgba(148,163,184,0.16)';
+  if (mau === STATUS_PAUSED) return 'rgba(250,204,21,0.16)';
+  return undefined;
+}
+
+// Màu user CHỦ ĐỘNG tô (ColorPicker) — khác màu trạng thái/màu cũ đã bỏ.
+function isUserPickedColor(c) {
+  return !!c && !STATUS_COLORS.has(c) && !LEGACY_STATUS_COLORS.has(c);
+}
+
+// Khi import đè: màu user tự tô LUÔN THẮNG; màu trạng thái công ty chỉ lớp dưới.
+function resolveMauMaCan(incoming, existing) {
+  const inc = incoming || '', ex = existing || '';
+  if (isUserPickedColor(ex)) return ex;
+  return inc || ex;
+}
+
+// "2N" -> "2PN"; giữ nguyên nếu không phải dạng số + N.
+function normalizeThietKe(val) {
+  const s = (val || '').toString().trim();
+  const m = s.match(/^(\d+)\s*n$/i);
+  return m ? `${m[1]}PN` : s;
+}
+
+// "TV" -> "Thu về", "BP" -> "Bao phí"; giữ nguyên phần còn lại.
+function mapPhi(val) {
+  const s = (val || '').toString().trim();
+  const key = s.toUpperCase();
+  if (key === 'TV') return 'Thu về';
+  if (key === 'BP') return 'Bao phí';
+  return s;
+}
+
+// Cấu hình import bảng hàng công ty (tab Bán) -> schema Quỹ Căn Bán.
+// Gộp nhiều tên header vì 3 sheet (T / Park Hill / G4) đặt tên lệch nhau.
+const IMPORT_CONFIG_BAN = {
+  title: 'Import bảng hàng công ty → Căn Bán',
+  tabMatch: /b[aá]n/i,
+  keyField: 'Ma_Can',
+  previewCols: [
+    { key: 'Ma_Can', label: 'Mã Căn' },
+    { key: 'Thiet_Ke', label: 'Thiết Kế' },
+    { key: 'Dien_Tich', label: 'DT' },
+    { key: 'Huong_BC', label: 'BC' },
+    { key: 'Huong_Cua', label: 'Cửa' },
+    { key: 'Gia', label: 'Giá (tỷ)' },
+    { key: 'Phi', label: 'Phí' },
+    { key: 'Slot_Xe', label: 'Xe' },
+    { key: 'Ten_Chu', label: 'Tên Chủ' },
+    { key: 'SDT', label: 'SDT' },
+    { key: 'Nguon', label: 'Nguồn' },
+    { key: 'Ngay_Update', label: 'Ngày CN' },
+  ],
+  // r: object khoá theo header đã chuẩn hoá (không dấu, thường).
+  // extra.statusRgb: màu nền ô Mã Căn (fgColor.rgb) từ file công ty.
+  mapRow(r, extra = {}) {
+    const g = (...keys) => {
+      for (const k of keys) { if (r[k] != null && r[k] !== '') return r[k].toString().trim(); }
+      return '';
+    };
+    return {
+      Ma_Can:      g('ma can').toUpperCase(),
+      Thiet_Ke:    normalizeThietKe(g('so pn', 'pn')),
+      Dien_Tich:   g('m2', 'dt (m2)', 'dt m2', 'dt'),
+      Huong_BC:    g('bc'),
+      Huong_Cua:   g('cua'),
+      Gia:         g('gia ty', 'gia tỷ', 'gia'),
+      Phi:         mapPhi(g('phi', 'tv or bp')),
+      Slot_Xe:     g('xe') ? 'Có' : 'Không',
+      Noi_That:    '',
+      SDT:         g('sdt chu nha', 'sdt chu', 'sdt', 'sđt'),
+      Ten_Chu:     g('ten chu nha', 'ten chu', 'tên chủ'),
+      Nguon:       g('nguon'),
+      Ghi_Chu:     g('ghi chu'),
+      Ngay_Update: g('ngay cap nhat'),
+      Hinh_Anh:    '',
+      Mau_Ma_Can:  canonicalStatusColor(extra.statusRgb),
+    };
+  },
+};
 
 const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
@@ -83,6 +187,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
   const [modalMode, setModalMode]   = useState('closed');
   const [editItem, setEditItem]     = useState(null);
   const [form, setForm]             = useState({ ...EMPTY_FORM });
+  const [showImport, setShowImport] = useState(false);
 
   const [rawText, setRawText]       = useState('');
   const [parsing, setParsing]       = useState(false);
@@ -440,6 +545,33 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
     finally { setSaving(false); }
   }
 
+  const handleImportRows = useCallback(async (payloads) => {
+    const byMa = new Map();
+    items.forEach(it => { const k = (it.Ma_Can||'').trim().toUpperCase(); if (k) byMa.set(k, it); });
+    const adds = [], updates = [];
+    for (const p of payloads) {
+      const key = (p.Ma_Can||'').trim().toUpperCase();
+      const existing = key ? byMa.get(key) : null;
+      if (existing) {
+        // Giữ ảnh cũ (sheet công ty không có ảnh); màu user tự tô thắng, trạng thái công ty lớp dưới.
+        updates.push({
+          ...p,
+          Hinh_Anh: p.Hinh_Anh || existing.Hinh_Anh || '',
+          Mau_Ma_Can: resolveMauMaCan(p.Mau_Ma_Can, existing.Mau_Ma_Can),
+          _rowIndex: existing._rowIndex,
+          Owner_Id: existing.Owner_Id || userId || '',
+        });
+      } else {
+        adds.push({ ...p, Owner_Id: userId || '' });
+      }
+    }
+    const res = await postFn({ action: 'bulk', adds, updates });
+    payloads.slice(0, 5).forEach(p => pushImportLog(p.Ma_Can));
+    await loadData();
+    showToast(`Đã thêm ${res.added||adds.length}, cập nhật ${res.updated||updates.length} căn!`);
+    return { added: res.added ?? adds.length, updated: res.updated ?? updates.length };
+  }, [items, userId, loadData, postFn]);
+
   function isVideo(url) {
     return /\.(mp4|mov|avi|webm|mkv|m4v)(\?|$)/i.test(url) || url.includes('/video/upload/');
   }
@@ -479,6 +611,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, gap:12, flexWrap:'wrap' }}>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
           <button onClick={openAdd} style={st.addBtn} className="cb-btn">+ Thêm Căn</button>
+          <button onClick={() => setShowImport(true)} style={st.importBtn} className="cb-btn" title="Import bảng hàng công ty">⬇ Import</button>
           <button onClick={loadData} disabled={loading} style={st.reloadBtn} className="cb-btn" title="Tải lại">
             {loading ? '...' : '↻'}
           </button>
@@ -572,48 +705,60 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
                       <span style={st.toaLabel}>{toa}</span>
                     </td>
                   </tr>
-                  {toaItems.map(item => (
+                  {toaItems.map(item => {
+                    const mau = item.Mau_Ma_Can || '';
+                    const isStatus = STATUS_COLORS.has(mau);
+                    // Dừng bán (vàng): chỉ tô ô Mã Căn (giống bảng công ty).
+                    const cellOnlyBg = mau === STATUS_PAUSED ? '#EAB308' : undefined;
+                    // Nền cả hàng CHỈ cho xám (Đã bán).
+                    const rowBg = cellOnlyBg ? undefined : statusRowBg(mau);
+                    // Nền ô Mã Căn: cell-only -> đậm; xám -> theo nền hàng; user tô -> hex.
+                    const maCanBg = cellOnlyBg || (isStatus ? rowBg : (mau || 'transparent'));
+                    const maCanWhiteText = !isStatus && mau; // chữ trắng khi có màu user
+                    const isPaused = !!cellOnlyBg;
+                    return (
                     <tr key={item._rowIndex} id={`cb-row-${item.Ma_Can}`} className="cb-row" style={st.tr}>
-                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', fontSize:12}}>{item.Ngay_Update}</td>
-                      <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', background:item.Mau_Ma_Can||'transparent', color:'#fff', borderRadius: item.Mau_Ma_Can ? 6 : 0}}>{item.Ma_Can}</td>
-                      <td style={{...st.td, textAlign:'center'}}>{item.Thiet_Ke}</td>
-                      <td style={{...st.td, textAlign:'center'}}>{(item.Dien_Tich||'').replace(/\s*m²|m2|m$/i,'').trim()}</td>
-                      <td style={{...st.td, textAlign:'center'}}>
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', fontSize:12, background: rowBg}}>{item.Ngay_Update}</td>
+                      <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', background: maCanBg, color: (maCanWhiteText || isPaused) ? '#fff' : undefined, borderRadius: (isPaused || maCanWhiteText) ? 6 : 0}}>{item.Ma_Can}</td>
+                      <td style={{...st.td, textAlign:'center', background: rowBg}}>{item.Thiet_Ke}</td>
+                      <td style={{...st.td, textAlign:'center', background: rowBg}}>{(item.Dien_Tich||'').replace(/\s*m²|m2|m$/i,'').trim()}</td>
+                      <td style={{...st.td, textAlign:'center', background: rowBg}}>
                         <span style={{
                           background: item.Slot_Xe === 'Có' ? '#C6F6D5' : '#FED7D7',
                           color: item.Slot_Xe === 'Có' ? '#276749' : '#9B2C2C',
                           padding:'2px 8px', borderRadius:10, fontSize:11, fontWeight:700,
                         }}>{item.Slot_Xe || 'Không'}</span>
                       </td>
-                      <td style={{...st.td, textAlign:'center'}}>{item.Huong_BC}</td>
-                      <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap'}}>{item.Gia}</td>
-                      <td style={{...st.td, textAlign:'center', fontSize:12, color:'#38b274', fontWeight:700}}>
+                      <td style={{...st.td, textAlign:'center', background: rowBg}}>{item.Huong_BC}</td>
+                      <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap', background: rowBg}}>{item.Gia}</td>
+                      <td style={{...st.td, textAlign:'center', fontSize:12, color:'#38b274', fontWeight:700, background: rowBg}}>
                         {(() => { const g = parseGiaValue(item.Gia); const dt = parseFloat((item.Dien_Tich||'').replace(/[^\d.]/g,'')); return (g && dt) ? Math.round(g / dt) : ''; })()}
                       </td>
-                      <td style={{...st.td, textAlign:'center', fontSize:12}}>
+                      <td style={{...st.td, textAlign:'center', fontSize:12, background: rowBg}}>
                         <span style={{
                           background: item.Phi === 'Bao phí' ? 'rgba(56,178,116,0.15)' : 'rgba(49,130,206,0.15)',
                           color: item.Phi === 'Bao phí' ? '#38b274' : '#63b3ed',
                           padding:'2px 8px', borderRadius:8, fontSize:11, fontWeight:600, whiteSpace:'nowrap',
                         }}>{item.Phi || 'Thu về'}</span>
                       </td>
-                      <td style={{...st.td, textAlign:'center'}}>{normalizeNoiThat(item.Noi_That)}</td>
-                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap'}}>{item.SDT}</td>
-                      <td style={{...st.td, textAlign:'center'}}>{item.Ten_Chu}</td>
-                      <td style={{...st.td, textAlign:'center', cursor:'pointer'}}
+                      <td style={{...st.td, textAlign:'center', background: rowBg}}>{normalizeNoiThat(item.Noi_That)}</td>
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', background: rowBg}}>{item.SDT}</td>
+                      <td style={{...st.td, textAlign:'center', background: rowBg}}>{item.Ten_Chu}</td>
+                      <td style={{...st.td, textAlign:'center', cursor:'pointer', background: rowBg}}
                         onClick={() => {
                           const urls = item.Hinh_Anh ? item.Hinh_Anh.split(',').map(u=>u.trim()).filter(Boolean) : [];
                           setLightbox({ urls: sortMedia(urls), index: 0, maCan: item.Ma_Can || 'media', defaultTab: urls.length ? 'anh' : 'matbang' });
                         }}
                       ><ThumbCell value={item.Hinh_Anh} /></td>
-                      <td style={{...st.td, textAlign:'center', fontSize:12}}>{item.Nguon}</td>
-                      <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8'}}>{item.Ghi_Chu}</td>
-                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none', padding:'4px 2px'}}>
+                      <td style={{...st.td, textAlign:'center', fontSize:12, background: rowBg}}>{item.Nguon}</td>
+                      <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8', background: rowBg}}>{item.Ghi_Chu}</td>
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none', padding:'4px 2px', background: rowBg}}>
                         <button onClick={() => openEdit(item)} style={{...st.actionBtn, padding:'2px 3px'}} title="Sửa">&#9998;</button>
                         <button onClick={() => setDeleteTarget(item)} style={{...st.actionBtn, color:C.error, padding:'2px 3px'}} title="Xoá">&#128465;</button>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </>
               ))}
             </tbody>
@@ -881,6 +1026,14 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
           onClose={() => setLightbox(null)}
         />
       )}
+
+      <ImportSheetModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        config={IMPORT_CONFIG_BAN}
+        existingItems={items}
+        onImport={handleImportRows}
+      />
     </div>
   );
 }
@@ -1069,6 +1222,7 @@ const lb = {
 const D = '1.5px solid #2d3240';
 const st = {
   addBtn:      { background:C.gradient, color:'#fff', border:'none', borderRadius:10, padding:'10px 20px', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:F, boxShadow:C.shadowGreen, whiteSpace:'nowrap' },
+  importBtn:   { background:'#22263a', color:C.primaryLight, border:'1.5px solid #3a3f52', borderRadius:10, padding:'10px 16px', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
   reloadBtn:   { background:'#22263a', border:'1.5px solid #3a3f52', borderRadius:10, width:40, height:40, fontSize:20, color:C.primary, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontFamily:F },
   searchInput: { width:'100%', padding:'10px 36px', border:'1.5px solid #3a3f52', borderRadius:10, fontSize:13, fontFamily:F, outline:'none', background:'#1e2130', color:'#e2e8f0', boxSizing:'border-box' },
   clearBtn:    { position:'absolute', right:10, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', fontSize:18, color:'#8a9bb8', cursor:'pointer' },
