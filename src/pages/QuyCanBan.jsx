@@ -19,7 +19,7 @@ const RAINBOW_COLORS = [
 
 const EMPTY_FORM = {
   Ma_Can: '', Thiet_Ke: '', Dien_Tich: '', Slot_Xe: 'Không',
-  Huong_BC: '', Huong_Cua: '', Gia: '', Phi: 'Thu về',
+  Huong_BC: '', Huong_Cua: '', Gia: '', Gia_Net: '', Phi: 'Thu về',
   Noi_That: 'Đồ cơ bản', SDT: '', Ten_Chu: '', Hinh_Anh: '', Nguon: '', Ghi_Chu: '', Mau_Ma_Can: '',
 };
 
@@ -177,9 +177,9 @@ const IMPORT_CONFIG_BAN = {
 
 const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
-  'Hướng BC', 'Giá', 'Tr/m²', 'Phí', 'SDT', 'Tên Chủ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
+  'Hướng BC', 'Giá', 'Giá Nét', 'Tr/m²', 'Phí', 'SDT', 'Tên Chủ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
 ];
-const COL_WIDTHS = [92, 100, 72, 66, 76, 80, 72, 80, 110, 100, 110, 100, 80, 320, 44];
+const COL_WIDTHS = [92, 100, 72, 66, 76, 80, 72, 80, 80, 110, 100, 110, 100, 80, 320, 44];
 
 export function QuyCanBanContent({ overrideUserId, overrideRole, isViewAs } = {}) {
   return <QuyCanBanInner overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
@@ -315,10 +315,15 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
   // Đơn giá tr/m². Nếu Giá đã ghi sẵn đơn giá thì lấy trực tiếp; ngược lại (Giá là tổng,
   // tính bằng tỷ) thì chia cho diện tích.
   function trPerM2(item) {
+    const dt = parseFloat((item.Dien_Tich||'').replace(/[^\d.]/g,''));
+    // Ưu tiên Giá Nét (giá đã làm với chủ): chia cho diện tích ra đơn giá.
+    if ((item.Gia_Net||'').toString().trim()) {
+      const gn = parseGiaValue(item.Gia_Net);
+      if (gn && dt) return Math.round(gn / dt);
+    }
     const direct = perM2Price(item);
     if (direct != null) return direct;
     const g = parseGiaValue(item.Gia);
-    const dt = parseFloat((item.Dien_Tich||'').replace(/[^\d.]/g,''));
     return (g && dt) ? Math.round(g / dt) : null;
   }
 
@@ -527,6 +532,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
       Huong_BC:  item.Huong_BC  || '',
       Huong_Cua: item.Huong_Cua || '',
       Gia:       item.Gia       || '',
+      Gia_Net:   item.Gia_Net   || '',
       Phi:       item.Phi       || 'Thu về',
       Noi_That:  item.Noi_That  || '',
       SDT:       item.SDT       || '',
@@ -586,7 +592,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
       setSaving(true);
       const { existing, payload } = dupTarget;
       const mergedHinh = payload.Hinh_Anh || existing.Hinh_Anh || '';
-      await postFn({ action: 'update', _rowIndex: existing._rowIndex, Owner_Id: existing.Owner_Id || userId || '', ...payload, Hinh_Anh: mergedHinh });
+      await postFn({ action: 'update', _rowIndex: existing._rowIndex, Owner_Id: existing.Owner_Id || userId || '', ...payload, Hinh_Anh: mergedHinh, Gia_Net: payload.Gia_Net || existing.Gia_Net || '' });
       pushImportLog(payload.Ma_Can);
       showToast('Đã cập nhật căn ' + payload.Ma_Can + '!');
       setDupTarget(null);
@@ -621,6 +627,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
           ...p,
           Hinh_Anh: p.Hinh_Anh || existing.Hinh_Anh || '',
           Mau_Ma_Can: resolveMauMaCan(p.Mau_Ma_Can, existing.Mau_Ma_Can),
+          Gia_Net: existing.Gia_Net || '', // giữ nguyên giá nét user nhập, import không đụng
           _rowIndex: existing._rowIndex,
           Owner_Id: existing.Owner_Id || userId || '',
         });
@@ -794,6 +801,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
                       </td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'normal', background: rowBg}}>{huongText(item.Huong_BC)}</td>
                       <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap', background: rowBg}}>{perM2Price(item) != null ? '' : item.Gia}</td>
+                      <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', color:'#34D399', background: rowBg}}>{item.Gia_Net}</td>
                       <td style={{...st.td, textAlign:'center', fontSize:12, color:'#38b274', fontWeight:700, background: rowBg}}>
                         {trPerM2(item) ?? ''}
                       </td>
@@ -940,6 +948,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
 
                 <div style={{ gridColumn:'1/-1' }}>
                   <FormField label="Giá" value={form.Gia} onChange={v => set('Gia', v)} placeholder="VD: 5.5 tỷ" />
+                  <FormField label="Giá Nét" value={form.Gia_Net} onChange={v => set('Gia_Net', v)} placeholder="VD: 5.3 tỷ (giá đã làm với chủ)" />
                 </div>
 
                 {/* Nội Thất */}
