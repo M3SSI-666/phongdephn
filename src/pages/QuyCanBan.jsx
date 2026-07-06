@@ -942,10 +942,10 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
                       ><ThumbCell value={item.Hinh_Anh} /></td>
                       <td style={{...st.td, textAlign:'center', fontSize:12, background: rowBg}}>{item.Nguon}</td>
                       <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8', background: rowBg}}>{item.Ghi_Chu}</td>
-                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none', padding:'4px 2px', background: rowBg}}>
-                        <button onClick={() => copyCustomerInfo(item)} style={{...st.actionBtn, color:C.primary, padding:'2px 3px'}} title="Copy thông tin gửi khách">&#128203;</button>
-                        <button onClick={() => openEdit(item)} style={{...st.actionBtn, padding:'2px 3px'}} title="Sửa">&#9998;</button>
-                        <button onClick={() => setDeleteTarget(item)} style={{...st.actionBtn, color:C.error, padding:'2px 3px'}} title="Xoá">&#128465;</button>
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none', background: rowBg}}>
+                        <button onClick={() => copyCustomerInfo(item)} style={{...st.actionBtn, color:C.primary}} title="Copy thông tin gửi khách">&#128203;</button>
+                        <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>
+                        <button onClick={() => setDeleteTarget(item)} style={{...st.actionBtn, color:C.error}} title="Xoá">&#128465;</button>
                       </td>
                     </tr>
                     );
