@@ -100,6 +100,17 @@ function huongText(val) {
   return s;
 }
 
+// Ngày Update "mới": trong vòng 2 tháng trở lại tính từ hôm nay (dd/mm/yyyy).
+function isRecentUpdate(val) {
+  const m = (val || '').toString().trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return false;
+  const d = new Date(+m[3], +m[2] - 1, +m[1]);
+  if (isNaN(d)) return false;
+  const now = new Date();
+  const from = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
+  return d >= from && d <= now;
+}
+
 // Giá bán từ bảng công ty là số tỷ (VD "6.7"). Gắn " tỷ" để đơn vị rõ ràng
 // (parseGiaValue/tr per m² đọc đúng). Nếu đã có chữ "tỷ"/"tr" thì giữ nguyên.
 function formatGiaTy(val) {
@@ -770,7 +781,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
                     const isPaused = !!cellOnlyBg;
                     return (
                     <tr key={item._rowIndex} id={`cb-row-${item.Ma_Can}`} className="cb-row" style={st.tr}>
-                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', fontSize:12, background: rowBg}}>{item.Ngay_Update}</td>
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', fontSize:12, background: isRecentUpdate(item.Ngay_Update) ? 'rgba(250, 204, 21, 0.22)' : rowBg}}>{item.Ngay_Update}</td>
                       <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', background: maCanBg, color: (maCanWhiteText || isPaused) ? '#fff' : undefined, borderRadius: (isPaused || maCanWhiteText) ? 6 : 0}}>{item.Ma_Can}</td>
                       <td style={{...st.td, textAlign:'center', background: rowBg}}>{item.Thiet_Ke}</td>
                       <td style={{...st.td, textAlign:'center', background: rowBg}}>{(item.Dien_Tich||'').replace(/\s*m²|m2|m$/i,'').trim()}</td>
