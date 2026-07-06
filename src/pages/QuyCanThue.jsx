@@ -147,6 +147,13 @@ function giaText(val) {
   const s = (val || '').toString().trim();
   if (!s) return '';
   const lower = s.toLowerCase();
+  // Đơn giá /m² (VD "115tr/m2", "115/m", "115tr/m²") -> giữ dạng "<số> triệu/m²",
+  // KHÔNG đổi thành "triệu/tháng".
+  if (/\/\s*m/.test(lower)) {
+    const pm = lower.match(/([\d.,]+)/);
+    if (pm) return `${pm[1]} triệu/m²`;
+    return s;
+  }
   // Có đơn vị "tỷ" -> giữ nguyên dạng tỷ (chỉ chuẩn hoá chữ).
   const ty = lower.match(/([\d.,]+)\s*t[ỷy]/);
   if (ty) return `${ty[1]} tỷ`;
