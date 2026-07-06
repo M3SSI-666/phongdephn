@@ -284,16 +284,21 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
     return v < 1000 ? v * 1000 : v;
   }
 
-  // Đơn giá tr/m². Nếu Giá đã ghi sẵn đơn giá (VD "85-90tr" = 85tr/m²) thì lấy trực tiếp
-  // (đầu thấp của khoảng). Ngược lại (Giá là tổng, tính bằng tỷ) thì chia cho diện tích.
-  function trPerM2(item) {
+  // Nếu Giá ghi sẵn ĐƠN GIÁ /m² (VD "200tr/m", "85-90tr") -> trả về số đơn giá (đầu thấp);
+  // ngược lại trả null. Nhận diện: có "tr"/"triệu" và giá trị nhỏ (< 500).
+  function perM2Price(item) {
     const s = (item.Gia||'').toLowerCase().replace(/\s+/g,'').replace(/,/g,'.');
-    // per-m²: có "tr"/"triệu" và giá trị nhỏ (< 500) -> đơn giá /m², không phải tổng
-    if (/tr|triệu/.test(s)) {
-      const nums = (s.match(/[\d.]+/g) || []).map(parseFloat).filter(v => !isNaN(v));
-      const low = nums.length ? Math.min(...nums) : null;
-      if (low != null && low < 500) return Math.round(low);
-    }
+    if (!/tr|triệu/.test(s)) return null;
+    const nums = (s.match(/[\d.]+/g) || []).map(parseFloat).filter(v => !isNaN(v));
+    const low = nums.length ? Math.min(...nums) : null;
+    return (low != null && low < 500) ? Math.round(low) : null;
+  }
+
+  // Đơn giá tr/m². Nếu Giá đã ghi sẵn đơn giá thì lấy trực tiếp; ngược lại (Giá là tổng,
+  // tính bằng tỷ) thì chia cho diện tích.
+  function trPerM2(item) {
+    const direct = perM2Price(item);
+    if (direct != null) return direct;
     const g = parseGiaValue(item.Gia);
     const dt = parseFloat((item.Dien_Tich||'').replace(/[^\d.]/g,''));
     return (g && dt) ? Math.round(g / dt) : null;
@@ -346,17 +351,6 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
       const m = (thietKe || '').match(/(\d+)\s*[Pp][Nn]/);
       return m ? parseInt(m[1]) : 99;
     }
-    function parseGia(gia) {
-      const s = (gia || '').toLowerCase().replace(/,/g, '.').replace(/\s+/g, '');
-      const ty = s.match(/([\d.]+)\s*t[ỷy]/);
-      if (ty) return parseFloat(ty[1]) * 1000;
-      const tr = s.match(/([\d.]+)\s*tr/);
-      if (tr) return parseFloat(tr[1]);
-      const n = s.match(/([\d.]+)/);
-      if (!n) return 99999;
-      const v = parseFloat(n[1]);
-      return v < 1000 ? v * 1000 : v; // số trần = tỷ
-    }
     function parseDT(dt) {
       const n = (dt || '').replace(/[^\d.]/g, '');
       return n ? parseFloat(n) : 0;
@@ -372,15 +366,13 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
     const entries = Array.from(map.entries());
     entries.forEach(([, arr]) => {
       arr.sort((a, b) => {
-        const pn = parsePN(a.Thiet_Ke) - parsePN(b.Thiet_Ke);
-        if (pn !== 0) return pn;
-        // sắp xếp theo đơn giá Tr/m² từ thấp -> cao
+        // sắp xếp CHÍNH theo đơn giá Tr/m² từ thấp -> cao (bất kể số PN)
         const ta = trPerM2(a), tb = trPerM2(b);
         const va = ta == null ? Infinity : ta;
         const vb = tb == null ? Infinity : tb;
         if (va !== vb) return va - vb;
-        const gia = parseGia(a.Gia) - parseGia(b.Gia);
-        if (gia !== 0) return gia;
+        const pn = parsePN(a.Thiet_Ke) - parsePN(b.Thiet_Ke);
+        if (pn !== 0) return pn;
         return parseDT(b.Dien_Tich) - parseDT(a.Dien_Tich); // diện tích lớn hơn lên trên
       });
     });
@@ -783,7 +775,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
                         }}>{item.Slot_Xe || 'Không'}</span>
                       </td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'normal', background: rowBg}}>{huongText(item.Huong_BC)}</td>
-                      <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap', background: rowBg}}>{item.Gia}</td>
+                      <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap', background: rowBg}}>{perM2Price(item) != null ? '' : item.Gia}</td>
                       <td style={{...st.td, textAlign:'center', fontSize:12, color:'#38b274', fontWeight:700, background: rowBg}}>
                         {trPerM2(item) ?? ''}
                       </td>
