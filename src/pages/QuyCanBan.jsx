@@ -107,7 +107,12 @@ function formatGiaTy(val) {
   if (!s) return '';
   if (/t[ỷy]|tr|triệu/i.test(s)) return s;
   const n = s.match(/^[\d.,]+$/);
-  return n ? `${s} tỷ` : s;
+  if (!n) return s;
+  // Bỏ giá trị vô nghĩa: ô Giá bị Excel định dạng thành số serial ngày (VD 45815)
+  // -> không phải giá bán. Số nguyên >= 40000 (không có phần thập phân) coi là lỗi ngày.
+  const num = parseFloat(s.replace(/,/g, '.'));
+  if (Number.isInteger(num) && num >= 40000) return '';
+  return `${s} tỷ`;
 }
 
 // Cấu hình import bảng hàng công ty (tab Bán) -> schema Quỹ Căn Bán.
@@ -274,11 +279,13 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
   function parseGiaValue(gia) {
     // Chuẩn hoá: bỏ khoảng trắng, đổi dấu phẩy thập phân -> chấm ("5,8" == "5.8").
     const s = (gia||'').toLowerCase().replace(/\s+/g,'').replace(/,/g,'.');
-    const ty = s.match(/([\d.]+)t[ỷy]/); if (ty) return parseFloat(ty[1]) * 1000;
+    const ty = s.match(/([\d.]+)t[ỷy]/);
+    if (ty) { const t = parseFloat(ty[1]); return t >= 40000 ? null : t * 1000; } // >=40000 tỷ = serial ngày lỗi
     const tr = s.match(/([\d.]+)tr|triệu/); if (tr && tr[1]) return parseFloat(tr[1]);
     const n = s.match(/([\d.]+)/);
     if (!n) return null;
     const v = parseFloat(n[1]);
+    if (Number.isInteger(v) && v >= 40000) return null; // số serial ngày Excel, không phải giá
     // Số trần không đơn vị: giá bán tính bằng tỷ (VD "5.8" = 5.8 tỷ = 5800 triệu).
     // Ngưỡng < 1000 để phân biệt với giá đã ghi bằng triệu (hiếm khi số trần).
     return v < 1000 ? v * 1000 : v;
