@@ -122,6 +122,15 @@ function isDateSerialGia(val) {
   return Number.isInteger(num) && num >= 1000;
 }
 
+// Diện tích có thể ghi cộng gộp (VD "75 + 25" = 100 = phần chính + logia). Cộng các phần lại
+// thay vì nối chuỗi số ("75+25" -> 7525). Bỏ đơn vị (m², m2, m). Rỗng/không parse được -> 0.
+function parseDienTich(val) {
+  const s = (val || '').toString().replace(/,/g, '.');
+  const nums = s.match(/[\d.]+/g);
+  if (!nums) return 0;
+  return nums.reduce((sum, n) => sum + (parseFloat(n) || 0), 0);
+}
+
 // Giá bán từ bảng công ty là số tỷ (VD "6.7"). Gắn " tỷ" để đơn vị rõ ràng
 // (parseGiaValue/tr per m² đọc đúng). Nếu đã có chữ "tỷ"/"tr" thì giữ nguyên.
 function formatGiaTy(val) {
@@ -324,7 +333,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
   // Đơn giá tr/m². Nếu Giá đã ghi sẵn đơn giá thì lấy trực tiếp; ngược lại (Giá là tổng,
   // tính bằng tỷ) thì chia cho diện tích.
   function trPerM2(item) {
-    const dt = parseFloat((item.Dien_Tich||'').replace(/[^\d.]/g,''));
+    const dt = parseDienTich(item.Dien_Tich);
     // Ưu tiên Giá Nét (giá đã làm với chủ): chia cho diện tích ra đơn giá.
     if ((item.Gia_Net||'').toString().trim()) {
       const gn = parseGiaValue(item.Gia_Net);
@@ -384,8 +393,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
       return m ? parseInt(m[1]) : 99;
     }
     function parseDT(dt) {
-      const n = (dt || '').replace(/[^\d.]/g, '');
-      return n ? parseFloat(n) : 0;
+      return parseDienTich(dt);
     }
 
     const map = new Map();
