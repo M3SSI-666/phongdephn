@@ -433,6 +433,10 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       const n = (dt || '').replace(/[^\d.]/g, '');
       return n ? parseFloat(n) : 0;
     }
+    // Giá dùng để sắp xếp: ưu tiên Giá Nét (giá đã làm với chủ); trống thì lấy Giá gốc.
+    function effGia(item) {
+      return parseGia((item.Gia_Net || '').trim() || item.Gia);
+    }
 
     const map = new Map();
     for (const item of filtered) {
@@ -446,7 +450,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       arr.sort((a, b) => {
         const pn = parsePN(a.Thiet_Ke) - parsePN(b.Thiet_Ke);
         if (pn !== 0) return pn;
-        const gia = parseGia(a.Gia) - parseGia(b.Gia);
+        const gia = effGia(a) - effGia(b);
         if (gia !== 0) return gia;
         return parseDT(b.Dien_Tich) - parseDT(a.Dien_Tich);
       });
