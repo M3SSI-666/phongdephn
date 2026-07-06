@@ -272,16 +272,22 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
   }, [fetchFn, userId, role]);
 
   function parseGiaValue(gia) {
-    const s = (gia||'').toLowerCase().replace(/\s+/g,'');
+    // Chuẩn hoá: bỏ khoảng trắng, đổi dấu phẩy thập phân -> chấm ("5,8" == "5.8").
+    const s = (gia||'').toLowerCase().replace(/\s+/g,'').replace(/,/g,'.');
     const ty = s.match(/([\d.]+)t[ỷy]/); if (ty) return parseFloat(ty[1]) * 1000;
-    const tr = s.match(/([\d.]+)tr/); if (tr) return parseFloat(tr[1]);
-    const n = s.match(/([\d.]+)/); return n ? parseFloat(n[1]) : null;
+    const tr = s.match(/([\d.]+)tr|triệu/); if (tr && tr[1]) return parseFloat(tr[1]);
+    const n = s.match(/([\d.]+)/);
+    if (!n) return null;
+    const v = parseFloat(n[1]);
+    // Số trần không đơn vị: giá bán tính bằng tỷ (VD "5.8" = 5.8 tỷ = 5800 triệu).
+    // Ngưỡng < 1000 để phân biệt với giá đã ghi bằng triệu (hiếm khi số trần).
+    return v < 1000 ? v * 1000 : v;
   }
 
   // Đơn giá tr/m². Nếu Giá đã ghi sẵn đơn giá (VD "85-90tr" = 85tr/m²) thì lấy trực tiếp
   // (đầu thấp của khoảng). Ngược lại (Giá là tổng, tính bằng tỷ) thì chia cho diện tích.
   function trPerM2(item) {
-    const s = (item.Gia||'').toLowerCase().replace(/\s+/g,'');
+    const s = (item.Gia||'').toLowerCase().replace(/\s+/g,'').replace(/,/g,'.');
     // per-m²: có "tr"/"triệu" và giá trị nhỏ (< 500) -> đơn giá /m², không phải tổng
     if (/tr|triệu/.test(s)) {
       const nums = (s.match(/[\d.]+/g) || []).map(parseFloat).filter(v => !isNaN(v));
@@ -347,7 +353,9 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
       const tr = s.match(/([\d.]+)\s*tr/);
       if (tr) return parseFloat(tr[1]);
       const n = s.match(/([\d.]+)/);
-      return n ? parseFloat(n[1]) : 99999;
+      if (!n) return 99999;
+      const v = parseFloat(n[1]);
+      return v < 1000 ? v * 1000 : v; // số trần = tỷ
     }
     function parseDT(dt) {
       const n = (dt || '').replace(/[^\d.]/g, '');
