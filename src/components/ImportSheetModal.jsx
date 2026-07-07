@@ -42,6 +42,8 @@ export default function ImportSheetModal({ open, onClose, config, existingItems 
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState(null);
+  // Ghi đè cột Ghi Chú từ bảng công ty lên bảng cá nhân? Mặc định KHÔNG (giữ ghi chú cá nhân).
+  const [importGhiChu, setImportGhiChu] = useState(false);
   const fileInputRef = useRef();
 
   const keyField = config.keyField || 'Ma_Can';
@@ -121,6 +123,7 @@ export default function ImportSheetModal({ open, onClose, config, existingItems 
   const reset = useCallback(() => {
     setStep('file'); setSheetNames([]); setActiveSheet(''); setWorkbook(null);
     setFileName(''); setError(''); setImporting(false); setProgress(0); setResult(null);
+    setImportGhiChu(false);
   }, []);
 
   const handleClose = useCallback(() => { reset(); onClose(); }, [reset, onClose]);
@@ -153,7 +156,7 @@ export default function ImportSheetModal({ open, onClose, config, existingItems 
       setImporting(true); setProgress(10);
       const clean = parsed.payloads.map(({ __dup, ...rest }) => rest);
       setProgress(40);
-      const res = await onImport(clean);
+      const res = await onImport(clean, { importGhiChu });
       setProgress(100);
       setResult(res || { added: parsed.adds, updated: parsed.updates });
     } catch (e) {
@@ -229,6 +232,19 @@ export default function ImportSheetModal({ open, onClose, config, existingItems 
                 <span style={{ ...s.chip, background: C.primaryBg, color: C.primaryDark }}>➕ Thêm mới: {parsed.adds}</span>
                 <span style={{ ...s.chip, background: '#FEF3C7', color: '#92400E' }}>♻ Cập nhật đè: {parsed.updates}</span>
               </div>
+
+              <label style={s.ghiChuToggle}>
+                <input
+                  type="checkbox"
+                  checked={importGhiChu}
+                  onChange={e => setImportGhiChu(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: C.primary, cursor: 'pointer' }}
+                />
+                <span>
+                  Import cả cột <strong>Ghi Chú</strong> (ghi đè lên ghi chú cá nhân).{' '}
+                  <span style={{ color: C.textDim }}>Bỏ tick = giữ nguyên ghi chú của bạn.</span>
+                </span>
+              </label>
 
               {parsed.payloads.length === 0 ? (
                 <div style={{ padding: 24, textAlign: 'center', color: C.textMuted }}>
@@ -313,6 +329,7 @@ const s = {
   select:    { padding:'6px 10px', border:`1.5px solid ${C.border}`, borderRadius:8, fontSize:13, fontFamily:F, background:'#fff', color:C.text },
   linkBtn:   { marginLeft:'auto', background:'none', border:'none', color:C.blue, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:F },
   statRow:   { display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 },
+  ghiChuToggle: { display:'flex', alignItems:'center', gap:8, marginBottom:12, padding:'9px 12px', background:C.bgInput, border:`1.5px solid ${C.border}`, borderRadius:10, fontSize:13, color:C.text, cursor:'pointer', lineHeight:1.4 },
   chip:      { padding:'5px 12px', borderRadius:20, fontSize:12, fontWeight:700 },
   tableWrap: { border:`1px solid ${C.border}`, borderRadius:10, overflow:'auto', maxHeight:'44vh' },
   table:     { width:'100%', borderCollapse:'collapse', fontSize:12.5 },
