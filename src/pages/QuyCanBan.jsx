@@ -731,7 +731,8 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
   }
 
   const handleImportRows = useCallback(async (payloads, opts = {}) => {
-    const { importGhiChu = false } = opts; // mặc định giữ ghi chú cá nhân, chỉ ghi đè khi tick
+    // mặc định giữ ghi chú/ngày cá nhân, chỉ ghi đè khi tick
+    const { importGhiChu = false, importNgayUpdate = false } = opts;
     const byMa = new Map();
     items.forEach(it => { const k = (it.Ma_Can||'').trim().toUpperCase(); if (k) byMa.set(k, it); });
     const adds = [], updates = [];
@@ -745,8 +746,9 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
           Hinh_Anh: p.Hinh_Anh || existing.Hinh_Anh || '',
           Mau_Ma_Can: resolveMauMaCan(p.Mau_Ma_Can, existing.Mau_Ma_Can),
           Gia_Net: existing.Gia_Net || '', // giữ nguyên giá nét user nhập, import không đụng
-          // Ghi Chú: mặc định giữ ghi chú cá nhân; chỉ ghi đè bằng ghi chú công ty khi tick.
+          // Ghi Chú / Ngày Update: mặc định giữ dữ liệu cá nhân; chỉ ghi đè bằng bảng công ty khi tick.
           Ghi_Chu: importGhiChu ? (p.Ghi_Chu || '') : (existing.Ghi_Chu || ''),
+          Ngay_Update: importNgayUpdate ? (p.Ngay_Update || '') : (existing.Ngay_Update || ''),
           _rowIndex: existing._rowIndex,
           Owner_Id: existing.Owner_Id || userId || '',
         });

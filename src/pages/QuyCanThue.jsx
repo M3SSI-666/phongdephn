@@ -709,7 +709,8 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
   // ── Import bảng hàng công ty ──
   // Chia payload theo Mã Căn trùng (cập nhật đè) / mới (thêm), ghi theo lô 1 request.
   const handleImportRows = useCallback(async (payloads, opts = {}) => {
-    const { importGhiChu = false } = opts; // mặc định giữ ghi chú cá nhân, chỉ ghi đè khi tick
+    // mặc định giữ ghi chú/ngày cá nhân, chỉ ghi đè khi tick
+    const { importGhiChu = false, importNgayUpdate = false } = opts;
     const byMa = new Map();
     items.forEach(it => { const k = (it.Ma_Can||'').trim().toUpperCase(); if (k) byMa.set(k, it); });
     let maxSTT = items.reduce((m,i) => Math.max(m, Number(i.STT)||0), 0);
@@ -723,8 +724,9 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
           ...p,
           Hinh_Anh: p.Hinh_Anh || existing.Hinh_Anh || '',
           Gia_Net: existing.Gia_Net || '', // Giá Nét user tự nhập — import không đụng vào
-          // Ghi Chú: mặc định giữ ghi chú cá nhân; chỉ ghi đè bằng ghi chú công ty khi tick.
+          // Ghi Chú / Ngày Update: mặc định giữ dữ liệu cá nhân; chỉ ghi đè bằng bảng công ty khi tick.
           Ghi_Chu: importGhiChu ? (p.Ghi_Chu || '') : (existing.Ghi_Chu || ''),
+          Ngay_Update: importNgayUpdate ? (p.Ngay_Update || '') : (existing.Ngay_Update || ''),
           Mau_Ma_Can: resolveMauMaCan(p.Mau_Ma_Can, existing.Mau_Ma_Can),
           _rowIndex: existing._rowIndex,
           STT: existing.STT,

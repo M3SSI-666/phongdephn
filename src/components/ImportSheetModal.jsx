@@ -44,6 +44,8 @@ export default function ImportSheetModal({ open, onClose, config, existingItems 
   const [result, setResult] = useState(null);
   // Ghi đè cột Ghi Chú từ bảng công ty lên bảng cá nhân? Mặc định KHÔNG (giữ ghi chú cá nhân).
   const [importGhiChu, setImportGhiChu] = useState(false);
+  // Ghi đè cột Ngày Update từ bảng công ty? Mặc định KHÔNG (giữ ngày cá nhân).
+  const [importNgayUpdate, setImportNgayUpdate] = useState(false);
   const fileInputRef = useRef();
 
   const keyField = config.keyField || 'Ma_Can';
@@ -123,7 +125,7 @@ export default function ImportSheetModal({ open, onClose, config, existingItems 
   const reset = useCallback(() => {
     setStep('file'); setSheetNames([]); setActiveSheet(''); setWorkbook(null);
     setFileName(''); setError(''); setImporting(false); setProgress(0); setResult(null);
-    setImportGhiChu(false);
+    setImportGhiChu(false); setImportNgayUpdate(false);
   }, []);
 
   const handleClose = useCallback(() => { reset(); onClose(); }, [reset, onClose]);
@@ -156,7 +158,7 @@ export default function ImportSheetModal({ open, onClose, config, existingItems 
       setImporting(true); setProgress(10);
       const clean = parsed.payloads.map(({ __dup, ...rest }) => rest);
       setProgress(40);
-      const res = await onImport(clean, { importGhiChu });
+      const res = await onImport(clean, { importGhiChu, importNgayUpdate });
       setProgress(100);
       setResult(res || { added: parsed.adds, updated: parsed.updates });
     } catch (e) {
@@ -243,6 +245,19 @@ export default function ImportSheetModal({ open, onClose, config, existingItems 
                 <span>
                   Import cả cột <strong>Ghi Chú</strong> (ghi đè lên ghi chú cá nhân).{' '}
                   <span style={{ color: C.textDim }}>Bỏ tick = giữ nguyên ghi chú của bạn.</span>
+                </span>
+              </label>
+
+              <label style={s.ghiChuToggle}>
+                <input
+                  type="checkbox"
+                  checked={importNgayUpdate}
+                  onChange={e => setImportNgayUpdate(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: C.primary, cursor: 'pointer' }}
+                />
+                <span>
+                  Import cả cột <strong>Ngày Update</strong> (ghi đè lên ngày cá nhân).{' '}
+                  <span style={{ color: C.textDim }}>Bỏ tick = giữ nguyên ngày của bạn.</span>
                 </span>
               </label>
 
