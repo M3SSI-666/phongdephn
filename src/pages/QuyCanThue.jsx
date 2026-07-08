@@ -178,7 +178,6 @@ function buildCustomerMessage(item) {
   if (hbc) lines.push(`- Hướng ban công: ${hbc}`);
   const ht = hienTrangText(item);
   if (ht) lines.push(`- Hiện trạng: ${ht}`);
-  if (item.Thoi_Gian_Vao) lines.push(`- Thời gian vào: ${item.Thoi_Gian_Vao}`);
   const gia = giaText(item.Gia_Net || item.Gia); // ưu tiên giá nét (giá đã làm với chủ) nếu có
   if (gia) lines.push(`- Giá: ${gia}`);
   return lines.join('\n');
