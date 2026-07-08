@@ -183,6 +183,29 @@ function buildCustomerMessage(item) {
   return lines.join('\n');
 }
 
+// Tin nhắn gửi Sales: như gửi khách nhưng thêm Thời gian vào + Phí MG (thông tin nội bộ).
+function buildSalesMessage(item) {
+  const { toa, tang } = parseToaTang(item.Ma_Can);
+  const header = toa
+    ? `Em gửi chị căn hộ tòa ${toa}${tang ? ` – tầng ${tang}` : ''}:`
+    : `Em gửi chị thông tin căn hộ ${item.Ma_Can || ''}:`;
+  const lines = [header];
+  const tk = thietKeText(item.Thiet_Ke);
+  if (tk) lines.push(`- Thiết kế: ${tk}`);
+  const dt = (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim();
+  if (dt) lines.push(`- Diện tích: ${dt} m²`);
+  const hbc = huongText(item.Huong_BC);
+  if (hbc) lines.push(`- Hướng ban công: ${hbc}`);
+  const ht = hienTrangText(item);
+  if (ht) lines.push(`- Hiện trạng: ${ht}`);
+  if (item.Thoi_Gian_Vao) lines.push(`- Thời gian vào: ${item.Thoi_Gian_Vao}`);
+  const gia = giaText(item.Gia_Net || item.Gia); // ưu tiên giá nét (giá đã làm với chủ) nếu có
+  if (gia) lines.push(`- Giá: ${gia}`);
+  const phiMg = (item.Phi_MG || '').toString().trim();
+  if (phiMg) lines.push(`- Phí mg: ${phiMg}`);
+  return lines.join('\n');
+}
+
 // Chuẩn hoá cột "TT" của bảng công ty -> Nội Thất.
 // "Full"/"Có đồ"/typo -> Full đồ; "K đồ"/"Ko đồ"/"Không đồ" -> Không đồ; còn lại để trống.
 function importNoiThat(val) {
@@ -272,7 +295,7 @@ const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
   'Hướng BC', 'Giá', 'Giá Nét', 'Phí MG', 'Nội Thất', 'Thời Gian Vào', 'Tên Chủ', 'Liên Hệ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
 ];
-const COL_WIDTHS = [92, 100, 72, 66, 76, 85, 70, 70, 90, 110, 100, 100, 100, 80, 100, 270, 104];
+const COL_WIDTHS = [92, 100, 72, 66, 76, 85, 70, 70, 90, 110, 100, 100, 100, 80, 100, 270, 140];
 
 export function QuyCanThueContent({ overrideUserId, overrideRole, isViewAs } = {}) {
   return <QuyCanThueInner overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
@@ -686,11 +709,10 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     finally { setSaving(false); }
   }
 
-  async function copyCustomerInfo(item) {
-    const msg = buildCustomerMessage(item);
+  async function copyText(msg, okMsg) {
     try {
       await navigator.clipboard.writeText(msg);
-      showToast(`Đã copy thông tin căn ${item.Ma_Can} — dán vào tin nhắn gửi khách`);
+      showToast(okMsg);
     } catch {
       // Fallback khi clipboard API bị chặn (http/không có quyền).
       const ta = document.createElement('textarea');
@@ -699,10 +721,18 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       ta.style.opacity = '0';
       document.body.appendChild(ta);
       ta.select();
-      try { document.execCommand('copy'); showToast(`Đã copy thông tin căn ${item.Ma_Can}`); }
+      try { document.execCommand('copy'); showToast(okMsg); }
       catch { showToast('Không copy được, vui lòng thử lại', 'error'); }
       document.body.removeChild(ta);
     }
+  }
+
+  function copyCustomerInfo(item) {
+    copyText(buildCustomerMessage(item), `Đã copy thông tin căn ${item.Ma_Can} — dán vào tin nhắn gửi khách`);
+  }
+
+  function copySalesInfo(item) {
+    copyText(buildSalesMessage(item), `Đã copy thông tin căn ${item.Ma_Can} — dán vào tin nhắn gửi Sales`);
   }
 
   // ── Import bảng hàng công ty ──
@@ -923,6 +953,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                       <td style={{...st.td, textAlign:'center', fontSize:12, background: rowBg}}>{item.Nguon}</td>
                       <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8', background: rowBg}}>{item.Ghi_Chu}</td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none', background: rowBg}}>
+                        <button onClick={() => copySalesInfo(item)} style={{...st.actionBtn, color:'#F59E0B'}} title="Copy thông tin gửi Sales">&#128188;</button>
                         <button onClick={() => copyCustomerInfo(item)} style={{...st.actionBtn, color:C.primary}} title="Copy thông tin gửi khách">&#128203;</button>
                         <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>
                         <button onClick={() => setDeleteTarget(item)} style={{...st.actionBtn, color:C.error}} title="Xoá">&#128465;</button>
