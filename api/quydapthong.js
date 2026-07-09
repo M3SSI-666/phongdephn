@@ -81,10 +81,10 @@ async function handlePost(req, res, sheetId, email, key) {
 
   const token = await getAccessToken(email, key, true);
 
-  function buildRow(p) {
+  function buildRow(p, { keepDate = false } = {}) {
     const today = new Date().toLocaleDateString('vi-VN');
     return [
-      today,
+      keepDate ? (p.Ngay_Update || today) : today,
       p.Ma_Can     || '',
       p.Thiet_Ke   || '',
       p.Dien_Tich  || '',
@@ -126,6 +126,44 @@ async function handlePost(req, res, sheetId, email, key) {
     });
     if (!response.ok) return res.status(500).json({ error: 'sheets_update', detail: await response.text() });
     return res.status(200).json({ success: true });
+  }
+
+  if (payload.action === 'bulk') {
+    const adds = Array.isArray(payload.adds) ? payload.adds : [];
+    const updates = Array.isArray(payload.updates) ? payload.updates : [];
+    let added = 0, updated = 0;
+
+    if (adds.length) {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!${COLUMNS}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: adds.map(p => buildRow(p, { keepDate: true })) }),
+      });
+      if (!response.ok) return res.status(500).json({ error: 'sheets_bulk_append', detail: await response.text() });
+      added = adds.length;
+    }
+
+    if (updates.length) {
+      const data = updates
+        .filter(p => p._rowIndex)
+        .map(p => ({
+          range: `${SHEET_NAME}!A${p._rowIndex}:Q${p._rowIndex}`,
+          values: [buildRow(p, { keepDate: true })],
+        }));
+      if (data.length) {
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchUpdate`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data }),
+        });
+        if (!response.ok) return res.status(500).json({ error: 'sheets_bulk_update', detail: await response.text() });
+        updated = data.length;
+      }
+    }
+
+    return res.status(200).json({ success: true, added, updated });
   }
 
   if (payload.action === 'delete') {

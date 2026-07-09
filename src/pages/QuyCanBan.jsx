@@ -272,6 +272,53 @@ const IMPORT_CONFIG_BAN = {
   },
 };
 
+// Cấu hình import sheet "Quỹ Đập Thông" -> tab Quỹ Đập Thông (căn đập thông = gộp 2 căn).
+// Cùng schema Quỹ Căn Bán nhưng: chỉ 1 sheet (không multiSheet), header phí là "PHÍ BP TV",
+// sheet công ty không có cột "Xe".
+const IMPORT_CONFIG_DAPTHONG = {
+  title: 'Import bảng hàng công ty → Quỹ Đập Thông',
+  tabMatch: /(đ[aậ]p|dap)\s*th[oô]ng/i,
+  multiSheet: false,
+  keyField: 'Ma_Can',
+  previewCols: [
+    { key: 'Ma_Can', label: 'Mã Căn' },
+    { key: 'Thiet_Ke', label: 'Thiết Kế' },
+    { key: 'Dien_Tich', label: 'DT' },
+    { key: 'Huong_BC', label: 'BC' },
+    { key: 'Huong_Cua', label: 'Cửa' },
+    { key: 'Gia', label: 'Giá (tỷ)' },
+    { key: 'Phi', label: 'Phí' },
+    { key: 'Ten_Chu', label: 'Tên Chủ' },
+    { key: 'SDT', label: 'SDT' },
+    { key: 'Nguon', label: 'Nguồn' },
+    { key: 'Ngay_Update', label: 'Ngày CN' },
+  ],
+  mapRow(r, extra = {}) {
+    const g = (...keys) => {
+      for (const k of keys) { if (r[k] != null && r[k] !== '') return r[k].toString().trim(); }
+      return '';
+    };
+    return {
+      Ma_Can:      g('ma can').toUpperCase(),
+      Thiet_Ke:    normalizeThietKe(g('so pn', 'pn')),
+      Dien_Tich:   g('m2', 'dt (m2)', 'dt m2', 'dt'),
+      Huong_BC:    g('bc'),
+      Huong_Cua:   g('cua'),
+      Gia:         formatGiaTy(g('gia ty', 'gia tỷ', 'gia')),
+      Phi:         mapPhi(g('phi bp tv', 'phi', 'tv or bp')),
+      Slot_Xe:     g('xe') ? 'Có' : 'Không',
+      Noi_That:    '',
+      SDT:         g('sdt chu nha', 'sdt chu', 'sdt', 'sđt'),
+      Ten_Chu:     g('ten chu nha', 'ten chu', 'tên chủ'),
+      Nguon:       g('nguon'),
+      Ghi_Chu:     g('ghi chu'),
+      Ngay_Update: g('ngay cap nhat'),
+      Hinh_Anh:    '',
+      Mau_Ma_Can:  canonicalStatusColor(extra.statusRgb),
+    };
+  },
+};
+
 const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
   'Hướng BC', 'Giá', 'Giá Nét', 'Tr/m²', 'Phí', 'SDT', 'Tên Chủ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
@@ -296,6 +343,8 @@ export function QuyDapThongContent({ overrideUserId, overrideRole, isViewAs } = 
       isViewAs={isViewAs}
       fetchFn={fetchQuyDapThong}
       postFn={postQuyDapThong}
+      importConfig={IMPORT_CONFIG_DAPTHONG}
+      importLogKey="importLog_dapthong"
     />
   );
 }
@@ -309,14 +358,14 @@ function formatTs(iso) {
   return `${dd}/${mm} ${hh}:${mn}`;
 }
 
-function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchFn = fetchQuyCanBan, postFn = postQuyCanBan } = {}) {
+function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchFn = fetchQuyCanBan, postFn = postQuyCanBan, importConfig = IMPORT_CONFIG_BAN, importLogKey = 'importLog_ban' } = {}) {
   const { user } = useUser();
   const userId = overrideUserId || user?.id;
   const role   = overrideRole   || user?.publicMetadata?.role || 'staff';
   const [items, setItems]           = useState([]);
   const [loading, setLoading]       = useState(true);
   const [saving, setSaving]         = useState(false);
-  const [importLog, setImportLog]   = useState(() => { try { return JSON.parse(localStorage.getItem('importLog_ban') || '[]'); } catch { return []; } });
+  const [importLog, setImportLog]   = useState(() => { try { return JSON.parse(localStorage.getItem(importLogKey) || '[]'); } catch { return []; } });
   const [error, setError]           = useState('');
   const [aiQuery, setAiQuery]       = useState('');
   const [aiFilter, setAiFilter]     = useState(null);
@@ -649,7 +698,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
     const entry = { Ma_Can: maCan, ts: new Date().toISOString() };
     setImportLog(prev => {
       const next = [entry, ...prev].slice(0, 20);
-      localStorage.setItem('importLog_ban', JSON.stringify(next));
+      localStorage.setItem(importLogKey, JSON.stringify(next));
       return next;
     });
   }
@@ -1227,7 +1276,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
       <ImportSheetModal
         open={showImport}
         onClose={() => setShowImport(false)}
-        config={IMPORT_CONFIG_BAN}
+        config={importConfig}
         existingItems={items}
         onImport={handleImportRows}
       />
