@@ -78,10 +78,11 @@ function normalizeThietKe(val) {
 }
 
 // Sheet Đập Thông không có cột Xe riêng — số slot xe nằm trong Ghi Chú (VD "Có đồ, 2 slot xe").
-// Trích số slot: "1 slot" -> "1", "2 slot xe" -> "2". Không đề cập -> "Không".
+// Trích số slot: "1 slot" -> "1", "2 slot xe" -> "2". Bắt cả biến thể gõ thiếu (sot/slt/slot).
+// Không đề cập -> "Không".
 function parseSlotXe(ghiChu) {
   const s = (ghiChu || '').toString().toLowerCase();
-  const m = s.match(/(\d+)\s*slot/);
+  const m = s.match(/(\d+)\s*s(?:lot|ot|lt)/);
   return m ? m[1] : 'Không';
 }
 
