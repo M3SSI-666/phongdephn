@@ -972,11 +972,17 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
                       <td style={{...st.td, textAlign:'center', background: rowBg}}>{item.Thiet_Ke}</td>
                       <td style={{...st.td, textAlign:'center', background: rowBg}}>{(item.Dien_Tich||'').replace(/\s*m²|m2|m$/i,'').trim()}</td>
                       <td style={{...st.td, textAlign:'center', background: rowBg}}>
-                        <span style={{
-                          background: item.Slot_Xe === 'Có' ? '#C6F6D5' : '#FED7D7',
-                          color: item.Slot_Xe === 'Có' ? '#276749' : '#9B2C2C',
-                          padding:'2px 8px', borderRadius:10, fontSize:11, fontWeight:700,
-                        }}>{item.Slot_Xe || 'Không'}</span>
+                        {(() => {
+                          // Có slot (Có / 1 / 2 ...) -> xanh lá; Không/rỗng -> hồng.
+                          const hasSlot = item.Slot_Xe && item.Slot_Xe !== 'Không';
+                          return (
+                            <span style={{
+                              background: hasSlot ? '#C6F6D5' : '#FED7D7',
+                              color: hasSlot ? '#276749' : '#9B2C2C',
+                              padding:'2px 8px', borderRadius:10, fontSize:11, fontWeight:700,
+                            }}>{item.Slot_Xe || 'Không'}</span>
+                          );
+                        })()}
                       </td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'normal', background: rowBg}}>{huongText(item.Huong_BC)}</td>
                       <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap', background: rowBg}}>{(perM2Price(item) != null || isDateSerialGia(item.Gia)) ? '' : item.Gia}</td>
