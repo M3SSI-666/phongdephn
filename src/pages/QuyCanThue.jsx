@@ -348,6 +348,9 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
   const [dupTarget, setDupTarget]   = useState(null); // { existing, payload }
   const [showImport, setShowImport] = useState(false);
   const [lightbox, setLightbox]     = useState(null); // { urls:[], index:0 }
+  // Ẩn căn theo trạng thái (mỗi checkbox độc lập).
+  const [hideRented, setHideRented] = useState(false); // ẩn "đã cho thuê" (xám)
+  const [hidePaused, setHidePaused] = useState(false); // ẩn "dừng cho thuê" (vàng)
   const toastTimer                  = useRef(null);
 
   useEffect(() => {
@@ -433,8 +436,11 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       if (aiFilter.Toa_List) list = list.filter(it => aiFilter.Toa_List.some(t => (it.Ma_Can||'').toUpperCase().startsWith(t)));
       else if (aiFilter.Toa) list = list.filter(it => (it.Ma_Can||'').toUpperCase().startsWith(aiFilter.Toa.toUpperCase()));
     }
+    // Ẩn căn theo trạng thái (2 checkbox độc lập).
+    if (hideRented) list = list.filter(it => cleanMauMaCan(it.Mau_Ma_Can) !== STATUS_RENTED);
+    if (hidePaused) list = list.filter(it => cleanMauMaCan(it.Mau_Ma_Can) !== STATUS_PAUSED);
     return list;
-  }, [items, aiFilter]);
+  }, [items, aiFilter, hideRented, hidePaused]);
 
   // Thứ tự tòa cố định: T01-T11, P01-P03, T18(=P04), P05-P12
   const TOA_ORDER = [
@@ -844,6 +850,16 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
               ))}
             </>
           )}
+          <label style={st.hideToggle} title="Ẩn các căn đã cho thuê">
+            <input type="checkbox" checked={hideRented} onChange={e => setHideRented(e.target.checked)}
+              style={{ width:14, height:14, accentColor:'#38b274', cursor:'pointer' }} />
+            <span>Ẩn đã cho thuê</span>
+          </label>
+          <label style={st.hideToggle} title="Ẩn các căn dừng cho thuê">
+            <input type="checkbox" checked={hidePaused} onChange={e => setHidePaused(e.target.checked)}
+              style={{ width:14, height:14, accentColor:'#38b274', cursor:'pointer' }} />
+            <span>Ẩn dừng cho thuê</span>
+          </label>
           <span style={{ fontSize:12, color:C.textMuted, whiteSpace:'nowrap' }}>{filtered.length} / {items.length} căn</span>
         </div>
       </div>
@@ -1437,6 +1453,7 @@ const st = {
   reloadBtn:   { background:'#22263a', border:'1.5px solid #3a3f52', borderRadius:10, width:40, height:40, fontSize:20, color:C.primary, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontFamily:F },
   searchInput: { width:'100%', padding:'10px 36px', border:'1.5px solid #3a3f52', borderRadius:10, fontSize:13, fontFamily:F, outline:'none', background:'#1e2130', color:'#e2e8f0', boxSizing:'border-box' },
   clearBtn:    { position:'absolute', right:10, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', fontSize:18, color:'#8a9bb8', cursor:'pointer' },
+  hideToggle:  { display:'flex', alignItems:'center', gap:5, fontSize:12, color:'#8a9bb8', whiteSpace:'nowrap', cursor:'pointer', userSelect:'none' },
   errorBox:    { background:'#FEF2F2', color:C.error, padding:'12px 16px', borderRadius:10, fontSize:13, marginBottom:16 },
   loadingBox:  { textAlign:'center', padding:40, color:'#8a9bb8', fontSize:14 },
   tableWrap:   { background:'#1a1d27', borderRadius:12, border:'1px solid #2d3240', boxShadow:'0 4px 24px rgba(0,0,0,0.4)' },
