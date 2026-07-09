@@ -36,6 +36,9 @@ const STATUS_SOLD   = '#9CA3AF'; // xám  -> Đã bán
 const STATUS_PAUSED = '#FFF000'; // vàng -> Dừng bán
 const STATUS_COLORS = new Set([STATUS_SOLD, STATUS_PAUSED]);
 const LEGACY_STATUS_COLORS = new Set(['#FF3B30']); // đỏ "căn giá tốt" cũ -> bỏ
+// Hồng nhạt: đánh dấu căn import từ sheet "Hàng Đầu Tư" (dễ phân biệt với căn bán thường).
+// Không phải màu user tô, không phải trạng thái -> có thể bị ghi đè khi import lại.
+const INVEST_COLOR = '#F9A8D4';
 
 // fgColor.rgb từ file công ty -> màu trạng thái chuẩn, hoặc '' (bình thường).
 function canonicalStatusColor(rgb) {
@@ -58,9 +61,9 @@ function statusRowBg(mau) {
   return undefined;
 }
 
-// Màu user CHỦ ĐỘNG tô (ColorPicker) — khác màu trạng thái/màu cũ đã bỏ.
+// Màu user CHỦ ĐỘNG tô (ColorPicker) — khác màu trạng thái/màu cũ đã bỏ/màu đánh dấu Đầu Tư.
 function isUserPickedColor(c) {
-  return !!c && !STATUS_COLORS.has(c) && !LEGACY_STATUS_COLORS.has(c);
+  return !!c && !STATUS_COLORS.has(c) && !LEGACY_STATUS_COLORS.has(c) && c !== INVEST_COLOR;
 }
 
 // Khi import đè: màu user tự tô LUÔN THẮNG; màu trạng thái công ty chỉ lớp dưới.
@@ -267,6 +270,9 @@ const IMPORT_CONFIG_BAN = {
       for (const k of keys) { if (r[k] != null && r[k] !== '') return r[k].toString().trim(); }
       return '';
     };
+    // Căn từ sheet "Hàng Đầu Tư" -> đánh dấu hồng nhạt (nếu ô không có màu trạng thái riêng).
+    const isDauTu = /dau\s*tu/i.test((extra.sheetName || '').normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+    const statusColor = canonicalStatusColor(extra.statusRgb);
     return {
       Ma_Can:      g('ma can').toUpperCase(),
       Thiet_Ke:    normalizeThietKe(g('so pn', 'pn')),
@@ -284,7 +290,7 @@ const IMPORT_CONFIG_BAN = {
       Ghi_Chu:     g('ghi chu'),
       Ngay_Update: g('ngay cap nhat'),
       Hinh_Anh:    '',
-      Mau_Ma_Can:  canonicalStatusColor(extra.statusRgb),
+      Mau_Ma_Can:  statusColor || (isDauTu ? INVEST_COLOR : ''),
     };
   },
 };

@@ -60,7 +60,7 @@ export default function ImportSheetModal({ open, onClose, config, existingItems 
   }, [existingItems, keyField]);
 
   // Parse 1 sheet -> danh sách payload thô (chưa phân loại thêm/cập nhật).
-  const parseSheet = useCallback((ws) => {
+  const parseSheet = useCallback((ws, sheetName = '') => {
     if (!ws) return [];
     // Giữ blankrows:true để index dòng khớp đúng với hàng thật trong sheet
     // (cần đọc màu nền ô theo đúng địa chỉ ô).
@@ -86,7 +86,7 @@ export default function ImportSheetModal({ open, onClose, config, existingItems 
         const cell = ws[XLSX.utils.encode_cell({ r: i, c: maCanCol })];
         statusRgb = cell?.s?.fgColor?.rgb;
       }
-      const payload = config.mapRow(rowObj, { statusRgb });
+      const payload = config.mapRow(rowObj, { statusRgb, sheetName });
       if (!payload || !(payload[keyField] || '').toString().trim()) continue;
       out.push(payload);
     }
@@ -109,7 +109,7 @@ export default function ImportSheetModal({ open, onClose, config, existingItems 
     const payloads = [];
     let adds = 0, updates = 0;
     for (const name of mergeSheetNames) {
-      for (const payload of parseSheet(workbook.Sheets[name])) {
+      for (const payload of parseSheet(workbook.Sheets[name], name)) {
         const key = (payload[keyField] || '').toString().trim().toUpperCase();
         if (seen.has(key)) continue; // trùng giữa các sheet -> giữ bản đầu
         seen.add(key);
