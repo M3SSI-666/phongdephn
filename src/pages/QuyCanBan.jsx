@@ -161,8 +161,8 @@ function giaTextBan(val) {
 function buildCustomerMessage(item) {
   const { toa, tang } = parseToaTang(item.Ma_Can);
   const header = toa
-    ? `Em gửi anh/chị căn hộ tòa ${toa}${tang ? ` – tầng ${tang}` : ''}:`
-    : `Em gửi anh/chị thông tin căn hộ ${item.Ma_Can || ''}:`;
+    ? `Thông tin căn hộ tòa ${toa}${tang ? ` – tầng ${tang}` : ''}:`
+    : `Thông tin căn hộ ${item.Ma_Can || ''}:`;
   const lines = [header];
   const tk = thietKeText(item.Thiet_Ke);
   if (tk) lines.push(`- Thiết kế: ${tk}`);
