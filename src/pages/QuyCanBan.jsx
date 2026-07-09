@@ -77,6 +77,14 @@ function normalizeThietKe(val) {
   return m ? `${m[1]}PN` : s;
 }
 
+// Sheet Đập Thông không có cột Xe riêng — số slot xe nằm trong Ghi Chú (VD "Có đồ, 2 slot xe").
+// Trích số slot: "1 slot" -> "1", "2 slot xe" -> "2". Không đề cập -> "Không".
+function parseSlotXe(ghiChu) {
+  const s = (ghiChu || '').toString().toLowerCase();
+  const m = s.match(/(\d+)\s*slot/);
+  return m ? m[1] : 'Không';
+}
+
 // "TV" -> "Thu về", "BP" -> "Bao phí"; giữ nguyên phần còn lại.
 function mapPhi(val) {
   const s = (val || '').toString().trim();
@@ -306,7 +314,7 @@ const IMPORT_CONFIG_DAPTHONG = {
       Huong_Cua:   g('cua'),
       Gia:         formatGiaTy(g('gia ty', 'gia tỷ', 'gia')),
       Phi:         mapPhi(g('phi bp tv', 'phi', 'tv or bp')),
-      Slot_Xe:     g('xe') ? 'Có' : 'Không',
+      Slot_Xe:     parseSlotXe(g('ghi chu')),
       Noi_That:    '',
       SDT:         g('sdt chu nha', 'sdt chu', 'sdt', 'sđt'),
       Ten_Chu:     g('ten chu nha', 'ten chu', 'tên chủ'),
