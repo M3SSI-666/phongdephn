@@ -271,7 +271,7 @@ const IMPORT_CONFIG_BAN = {
       return '';
     };
     // Căn từ sheet "Hàng Đầu Tư" -> đánh dấu hồng nhạt (nếu ô không có màu trạng thái riêng).
-    const isDauTu = /dau\s*tu/i.test((extra.sheetName || '').normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+    const isDauTu = /dau\s*tu/i.test((extra.sheetName || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd'));
     const statusColor = canonicalStatusColor(extra.statusRgb);
     return {
       Ma_Can:      g('ma can').toUpperCase(),
