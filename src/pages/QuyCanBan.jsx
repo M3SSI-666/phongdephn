@@ -243,7 +243,7 @@ function formatGiaTy(val) {
 // Gộp nhiều tên header vì các sheet (T / Park Hill / G4 / Hàng Đầu Tư) đặt tên lệch nhau.
 const IMPORT_CONFIG_BAN = {
   title: 'Import bảng hàng công ty → Căn Bán',
-  tabMatch: /b[aá]n|[dđ][aâ]u\s*t[uư]/i,
+  tabMatch: /ban|dau\s*tu/i, // test trên tên sheet đã bỏ dấu (normHeader) -> khớp cả "Hàng Đầu Tư"
   multiSheet: true, // gộp 3 sheet Bán (T / Park Hill / G4) + sheet Hàng Đầu Tư trong 1 lần import
   keyField: 'Ma_Can',
   previewCols: [
@@ -294,7 +294,7 @@ const IMPORT_CONFIG_BAN = {
 // sheet công ty không có cột "Xe".
 const IMPORT_CONFIG_DAPTHONG = {
   title: 'Import bảng hàng công ty → Quỹ Đập Thông',
-  tabMatch: /(đ[aậ]p|dap)\s*th[oô]ng/i,
+  tabMatch: /dap\s*thong/i, // test trên tên sheet đã bỏ dấu (normHeader)
   multiSheet: false,
   keyField: 'Ma_Can',
   previewCols: [

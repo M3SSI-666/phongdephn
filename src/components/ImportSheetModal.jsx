@@ -97,7 +97,7 @@ export default function ImportSheetModal({ open, onClose, config, existingItems 
   const mergeSheetNames = useMemo(() => {
     if (!workbook) return [];
     if (config.multiSheet && config.tabMatch) {
-      return (workbook.SheetNames || []).filter(n => config.tabMatch.test(n));
+      return (workbook.SheetNames || []).filter(n => config.tabMatch.test(normHeader(n)));
     }
     return activeSheet ? [activeSheet] : [];
   }, [workbook, activeSheet, config.multiSheet, config.tabMatch]);
@@ -141,7 +141,7 @@ export default function ImportSheetModal({ open, onClose, config, existingItems 
       const wb = XLSX.read(buf, { type: 'array', cellStyles: true });
       const names = wb.SheetNames || [];
       if (!names.length) { setError('File không có sheet nào'); return; }
-      const match = config.tabMatch ? names.find(n => config.tabMatch.test(n)) : null;
+      const match = config.tabMatch ? names.find(n => config.tabMatch.test(normHeader(n))) : null;
       setWorkbook(wb);
       setSheetNames(names);
       setActiveSheet(match || names[0]);
