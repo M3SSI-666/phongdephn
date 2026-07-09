@@ -86,6 +86,13 @@ function parseSlotXe(ghiChu) {
   return m ? m[1] : 'Không';
 }
 
+// Sheet Hàng Đầu Tư (và một số sheet Bán) không có cột Xe riêng — slot xe ghi trong Ghi Chú.
+// Trả về "Có"/"Không" (khác Đập Thông trả về số slot). Nhận diện "slot"/"sot"/"slt".
+function hasSlotXe(ghiChu) {
+  const s = (ghiChu || '').toString().toLowerCase();
+  return /\d+\s*s(?:lot|ot|lt)|s(?:lot|ot|lt)\s*xe/.test(s) ? 'Có' : 'Không';
+}
+
 // "TV" -> "Thu về", "BP" -> "Bao phí"; giữ nguyên phần còn lại.
 function mapPhi(val) {
   const s = (val || '').toString().trim();
@@ -233,11 +240,11 @@ function formatGiaTy(val) {
 }
 
 // Cấu hình import bảng hàng công ty (tab Bán) -> schema Quỹ Căn Bán.
-// Gộp nhiều tên header vì 3 sheet (T / Park Hill / G4) đặt tên lệch nhau.
+// Gộp nhiều tên header vì các sheet (T / Park Hill / G4 / Hàng Đầu Tư) đặt tên lệch nhau.
 const IMPORT_CONFIG_BAN = {
   title: 'Import bảng hàng công ty → Căn Bán',
-  tabMatch: /b[aá]n/i,
-  multiSheet: true, // gộp cả 3 sheet (Căn Bán T / Park Hill / G4) trong 1 lần import
+  tabMatch: /b[aá]n|[dđ][aâ]u\s*t[uư]/i,
+  multiSheet: true, // gộp 3 sheet Bán (T / Park Hill / G4) + sheet Hàng Đầu Tư trong 1 lần import
   keyField: 'Ma_Can',
   previewCols: [
     { key: 'Ma_Can', label: 'Mã Căn' },
@@ -268,7 +275,8 @@ const IMPORT_CONFIG_BAN = {
       Huong_Cua:   g('cua'),
       Gia:         formatGiaTy(g('gia ty', 'gia tỷ', 'gia')),
       Phi:         mapPhi(g('phi', 'tv or bp')),
-      Slot_Xe:     g('xe') ? 'Có' : 'Không',
+      // Có cột Xe -> dùng luôn; sheet không có cột Xe (Park Hill/G4/Đầu Tư) -> suy từ Ghi Chú.
+      Slot_Xe:     g('xe') ? 'Có' : hasSlotXe(g('ghi chu')),
       Noi_That:    '',
       SDT:         g('sdt chu nha', 'sdt chu', 'sdt', 'sđt'),
       Ten_Chu:     g('ten chu nha', 'ten chu', 'tên chủ'),
