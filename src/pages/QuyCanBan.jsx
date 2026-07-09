@@ -412,6 +412,9 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [dupTarget, setDupTarget]   = useState(null); // { existing, payload }
   const [lightbox, setLightbox]     = useState(null);
+  // Ẩn căn theo trạng thái (mỗi checkbox độc lập).
+  const [hideSold, setHideSold]     = useState(false); // ẩn "đã bán" (xám)
+  const [hidePausedRow, setHidePausedRow] = useState(false); // ẩn "dừng bán" (vàng)
   const toastTimer                  = useRef(null);
 
   useEffect(() => {
@@ -530,8 +533,11 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
       if (aiFilter.Toa_List) list = list.filter(it => aiFilter.Toa_List.some(t => (it.Ma_Can||'').toUpperCase().startsWith(t)));
       else if (aiFilter.Toa) list = list.filter(it => (it.Ma_Can||'').toUpperCase().startsWith(aiFilter.Toa.toUpperCase()));
     }
+    // Ẩn căn theo trạng thái (2 checkbox độc lập).
+    if (hideSold)      list = list.filter(it => (it.Mau_Ma_Can||'') !== STATUS_SOLD);
+    if (hidePausedRow) list = list.filter(it => (it.Mau_Ma_Can||'') !== STATUS_PAUSED);
     return list;
-  }, [items, aiFilter]);
+  }, [items, aiFilter, hideSold, hidePausedRow]);
 
   const TOA_ORDER = [
     'T01','T02','T03','T04','T05','T06','T07','T08','T09','T10','T11',
@@ -903,6 +909,16 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
               ))}
             </>
           )}
+          <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, color:'#8a9bb8', whiteSpace:'nowrap', cursor:'pointer', userSelect:'none' }} title="Ẩn các căn đã bán">
+            <input type="checkbox" checked={hideSold} onChange={e => setHideSold(e.target.checked)}
+              style={{ width:14, height:14, accentColor:'#38b274', cursor:'pointer' }} />
+            <span>Ẩn đã bán</span>
+          </label>
+          <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, color:'#8a9bb8', whiteSpace:'nowrap', cursor:'pointer', userSelect:'none' }} title="Ẩn các căn dừng bán">
+            <input type="checkbox" checked={hidePausedRow} onChange={e => setHidePausedRow(e.target.checked)}
+              style={{ width:14, height:14, accentColor:'#38b274', cursor:'pointer' }} />
+            <span>Ẩn dừng bán</span>
+          </label>
           <span style={{ fontSize:12, color:C.textMuted, whiteSpace:'nowrap' }}>{filtered.length} / {items.length} căn</span>
         </div>
       </div>
