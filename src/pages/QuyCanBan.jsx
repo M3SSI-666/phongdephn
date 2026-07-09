@@ -834,11 +834,23 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
         adds.push({ ...p, Owner_Id: userId || '' });
       }
     }
-    const res = await postFn({ action: 'bulk', adds, updates });
+
+    // Đồng bộ xoá: căn "màu bình thường" (chưa đính màu user) KHÔNG còn trong bảng công ty vừa import
+    // -> xoá đi. Căn đã đính màu user tự tô -> LUÔN giữ lại.
+    const importedKeys = new Set(payloads.map(p => (p.Ma_Can||'').trim().toUpperCase()).filter(Boolean));
+    const deletes = items.filter(it => {
+      const key = (it.Ma_Can||'').trim().toUpperCase();
+      if (!key || importedKeys.has(key)) return false;      // còn trong bảng công ty -> giữ
+      if (isUserPickedColor(it.Mau_Ma_Can)) return false; // user đính màu -> giữ
+      return true;                                          // màu bình thường + vắng mặt -> xoá
+    }).map(it => ({ _rowIndex: it._rowIndex }));
+
+    const res = await postFn({ action: 'bulk', adds, updates, deletes });
     payloads.slice(0, 5).forEach(p => pushImportLog(p.Ma_Can));
     await loadData();
-    showToast(`Đã thêm ${res.added||adds.length}, cập nhật ${res.updated||updates.length} căn!`);
-    return { added: res.added ?? adds.length, updated: res.updated ?? updates.length };
+    const delMsg = (res.deleted ?? deletes.length) ? `, xoá ${res.deleted ?? deletes.length}` : '';
+    showToast(`Đã thêm ${res.added||adds.length}, cập nhật ${res.updated||updates.length}${delMsg} căn!`);
+    return { added: res.added ?? adds.length, updated: res.updated ?? updates.length, deleted: res.deleted ?? deletes.length };
   }, [items, userId, loadData, postFn]);
 
   function isVideo(url) {

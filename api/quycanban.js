@@ -133,7 +133,8 @@ async function handlePost(req, res, sheetId, email, key) {
   if (payload.action === 'bulk') {
     const adds = Array.isArray(payload.adds) ? payload.adds : [];
     const updates = Array.isArray(payload.updates) ? payload.updates : [];
-    let added = 0, updated = 0;
+    const deletes = Array.isArray(payload.deletes) ? payload.deletes : [];
+    let added = 0, updated = 0, deleted = 0;
 
     if (adds.length) {
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!${COLUMNS}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
@@ -165,7 +166,37 @@ async function handlePost(req, res, sheetId, email, key) {
       }
     }
 
-    return res.status(200).json({ success: true, added, updated });
+    // Xoá các dòng theo _rowIndex. Xoá TỪ DƯỚI LÊN (giảm dần) để index không bị dịch giữa chừng.
+    if (deletes.length) {
+      const rowIdx = deletes
+        .map(d => (typeof d === 'number' ? d : d._rowIndex))
+        .filter(n => Number.isInteger(n) && n >= 2)
+        .sort((a, b) => b - a); // giảm dần
+      if (rowIdx.length) {
+        const metaRes = await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const metaData = await metaRes.json();
+        const targetSheet = metaData.sheets.find(s => s.properties.title === SHEET_NAME);
+        if (targetSheet) {
+          const requests = rowIdx.map(i => ({
+            deleteDimension: {
+              range: { sheetId: targetSheet.properties.sheetId, dimension: 'ROWS', startIndex: i - 1, endIndex: i },
+            },
+          }));
+          const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ requests }),
+          });
+          if (!response.ok) return res.status(500).json({ error: 'sheets_bulk_delete', detail: await response.text() });
+          deleted = rowIdx.length;
+        }
+      }
+    }
+
+    return res.status(200).json({ success: true, added, updated, deleted });
   }
 
   if (payload.action === 'delete') {
