@@ -187,8 +187,8 @@ function buildCustomerMessage(item) {
 function buildSalesMessage(item) {
   const { toa, tang } = parseToaTang(item.Ma_Can);
   const header = toa
-    ? `Em gửi chị căn hộ tòa ${toa}${tang ? ` – tầng ${tang}` : ''}:`
-    : `Em gửi chị thông tin căn hộ ${item.Ma_Can || ''}:`;
+    ? `Thông tin căn hộ tòa ${toa}${tang ? ` – tầng ${tang}` : ''}:`
+    : `Thông tin căn hộ ${item.Ma_Can || ''}:`;
   const lines = [header];
   const tk = thietKeText(item.Thiet_Ke);
   if (tk) lines.push(`- Thiết kế: ${tk}`);
@@ -198,11 +198,11 @@ function buildSalesMessage(item) {
   if (hbc) lines.push(`- Hướng ban công: ${hbc}`);
   const ht = hienTrangText(item);
   if (ht) lines.push(`- Hiện trạng: ${ht}`);
-  if (item.Thoi_Gian_Vao) lines.push(`- Thời gian vào: ${item.Thoi_Gian_Vao}`);
   const gia = giaText(item.Gia_Net || item.Gia); // ưu tiên giá nét (giá đã làm với chủ) nếu có
   if (gia) lines.push(`- Giá: ${gia}`);
   const phiMg = (item.Phi_MG || '').toString().trim();
   if (phiMg) lines.push(`- Phí mg: ${phiMg}`);
+  if (item.Thoi_Gian_Vao) lines.push(`- Thời gian vào: ${item.Thoi_Gian_Vao}`);
   return lines.join('\n');
 }
 
