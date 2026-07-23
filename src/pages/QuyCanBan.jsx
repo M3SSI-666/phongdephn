@@ -896,7 +896,8 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
       const key = (it.Ma_Can||'').trim().toUpperCase();
       if (!key || importedKeys.has(key)) return false;      // còn trong bảng công ty -> giữ
       if (isUserPickedColor(it.Mau_Ma_Can)) return false; // user đính màu -> giữ
-      return true;                                          // màu bình thường + vắng mặt -> xoá
+      if (parseBangCon(it.Bang_Con).length) return false;  // đã gắn bảng con -> giữ (lưu trữ cá nhân)
+      return true;                                          // màu bình thường + vắng mặt + không tag -> xoá
     }).map(it => ({ _rowIndex: it._rowIndex }));
 
     const res = await postFn({ action: 'bulk', adds, updates, deletes });
