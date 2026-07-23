@@ -23,6 +23,15 @@ const EMPTY_FORM = {
   Noi_That: 'Đồ cơ bản', SDT: '', Ten_Chu: '', Hinh_Anh: '', Nguon: '', Ghi_Chu: '', Mau_Ma_Can: '',
 };
 
+// Bảng hàng con (tag) cho Quỹ Căn Bán — 8 tag mặc định (không có "Đập thông").
+const DEFAULT_TAGS_BAN = [
+  '1N ko đồ', '1N full đồ', '2N ko đồ', '2N full đồ',
+  '3N ko đồ', '3N có đồ', '4N ko đồ', '4N có đồ',
+];
+function parseBangCon(v) {
+  return (v || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+
 function normalizeNoiThat(val) {
   const s = (val || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
   if (!s) return '';
@@ -415,6 +424,11 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
   // Ẩn căn theo trạng thái (mỗi checkbox độc lập).
   const [hideSold, setHideSold]     = useState(false); // ẩn "đã bán" (xám)
   const [hidePausedRow, setHidePausedRow] = useState(false); // ẩn "dừng bán" (vàng)
+  // Bảng hàng con (tag) — CHỈ bật ở tab Quỹ Căn Bán (không hiện ở Đập Thông).
+  const enableTags = importLogKey === 'importLog_ban';
+  const [activeTag, setActiveTag]   = useState(null);
+  const [customTags, setCustomTags] = useState(() => { try { return JSON.parse(localStorage.getItem('bangConTags_ban') || '[]'); } catch { return []; } });
+  const [tagMenuFor, setTagMenuFor] = useState(null);
   const toastTimer                  = useRef(null);
 
   useEffect(() => {
@@ -536,8 +550,47 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
     // Ẩn căn theo trạng thái (2 checkbox độc lập).
     if (hideSold)      list = list.filter(it => (it.Mau_Ma_Can||'') !== STATUS_SOLD);
     if (hidePausedRow) list = list.filter(it => (it.Mau_Ma_Can||'') !== STATUS_PAUSED);
+    // Lọc theo bảng hàng con đang chọn.
+    if (enableTags && activeTag) list = list.filter(it => parseBangCon(it.Bang_Con).includes(activeTag));
     return list;
-  }, [items, aiFilter, hideSold, hidePausedRow]);
+  }, [items, aiFilter, hideSold, hidePausedRow, enableTags, activeTag]);
+
+  // Danh sách tag (mặc định + tự thêm + tag đang có trong dữ liệu) và số lượng căn mỗi tag.
+  const { allTags, tagCounts } = useMemo(() => {
+    const counts = {};
+    for (const it of items) for (const t of parseBangCon(it.Bang_Con)) counts[t] = (counts[t] || 0) + 1;
+    const seen = new Set(), all = [];
+    for (const t of [...DEFAULT_TAGS_BAN, ...customTags, ...Object.keys(counts)]) {
+      if (!seen.has(t)) { seen.add(t); all.push(t); }
+    }
+    return { allTags: all, tagCounts: counts };
+  }, [items, customTags]);
+
+  function addCustomTag() {
+    const name = (window.prompt('Tên bảng hàng con mới:') || '').trim();
+    if (!name) return;
+    if (allTags.includes(name)) { setActiveTag(name); return; }
+    const next = [...customTags, name];
+    setCustomTags(next);
+    try { localStorage.setItem('bangConTags_ban', JSON.stringify(next)); } catch { /* ignore */ }
+  }
+
+  const toggleTag = useCallback(async (item, tag) => {
+    const cur = parseBangCon(item.Bang_Con);
+    const next = cur.includes(tag) ? cur.filter(t => t !== tag) : [...cur, tag];
+    const Bang_Con = next.join(', ');
+    setItems(prev => prev.map(x => x._rowIndex === item._rowIndex ? { ...x, Bang_Con } : x));
+    try {
+      await postFn({ action: 'bulk', adds: [], updates: [{
+        _rowIndex: item._rowIndex, Owner_Id: item.Owner_Id || userId || '',
+        Ma_Can: item.Ma_Can, Thiet_Ke: item.Thiet_Ke, Dien_Tich: item.Dien_Tich, Slot_Xe: item.Slot_Xe,
+        Huong_BC: item.Huong_BC, Huong_Cua: item.Huong_Cua, Gia: item.Gia, Phi: item.Phi,
+        Noi_That: item.Noi_That, SDT: item.SDT, Ten_Chu: item.Ten_Chu, Hinh_Anh: item.Hinh_Anh,
+        Nguon: item.Nguon, Ghi_Chu: item.Ghi_Chu, Mau_Ma_Can: item.Mau_Ma_Can,
+        Gia_Net: item.Gia_Net, Ngay_Update: item.Ngay_Update, Bang_Con,
+      }] });
+    } catch (e) { showToast(e.message, 'error'); loadData(); }
+  }, [userId, postFn, showToast, loadData]);
 
   const TOA_ORDER = [
     'T01','T02','T03','T04','T05','T06','T07','T08','T09','T10','T11',
@@ -739,7 +792,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
       const payload = Object.fromEntries(Object.entries(form).map(([k,v]) => [k, typeof v==='string' ? v.trim() : v]));
       payload.Owner_Id = userId || '';
       if (modalMode === 'edit') {
-        await postFn({ action: 'update', _rowIndex: editItem._rowIndex, Owner_Id: editItem.Owner_Id || userId || '', ...payload });
+        await postFn({ action: 'update', _rowIndex: editItem._rowIndex, Owner_Id: editItem.Owner_Id || userId || '', ...payload, Bang_Con: editItem?.Bang_Con || '' });
         pushImportLog(payload.Ma_Can);
         showToast('Cập nhật thành công!');
         closeModal();
@@ -767,7 +820,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
       setSaving(true);
       const { existing, payload } = dupTarget;
       const mergedHinh = payload.Hinh_Anh || existing.Hinh_Anh || '';
-      await postFn({ action: 'update', _rowIndex: existing._rowIndex, Owner_Id: existing.Owner_Id || userId || '', ...payload, Hinh_Anh: mergedHinh, Gia_Net: payload.Gia_Net || existing.Gia_Net || '' });
+      await postFn({ action: 'update', _rowIndex: existing._rowIndex, Owner_Id: existing.Owner_Id || userId || '', ...payload, Hinh_Anh: mergedHinh, Gia_Net: payload.Gia_Net || existing.Gia_Net || '', Bang_Con: existing.Bang_Con || '' });
       pushImportLog(payload.Ma_Can);
       showToast('Đã cập nhật căn ' + payload.Ma_Can + '!');
       setDupTarget(null);
@@ -824,6 +877,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
           Hinh_Anh: p.Hinh_Anh || existing.Hinh_Anh || '',
           Mau_Ma_Can: resolveMauMaCan(p.Mau_Ma_Can, existing.Mau_Ma_Can),
           Gia_Net: existing.Gia_Net || '', // giữ nguyên giá nét user nhập, import không đụng
+          Bang_Con: existing.Bang_Con || '', // giữ nguyên tag bảng con user gắn, import không đụng
           // Ghi Chú / Ngày Update: mặc định giữ dữ liệu cá nhân; chỉ ghi đè bằng bảng công ty khi tick.
           Ghi_Chu: importGhiChu ? (p.Ghi_Chu || '') : (existing.Ghi_Chu || ''),
           Ngay_Update: importNgayUpdate ? (p.Ngay_Update || '') : (existing.Ngay_Update || ''),
@@ -934,6 +988,20 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
           <span style={{ fontSize:12, color:C.textMuted, whiteSpace:'nowrap' }}>{filtered.length} / {items.length} căn</span>
         </div>
       </div>
+
+      {/* Bảng hàng con (tag) — chỉ tab Quỹ Căn Bán */}
+      {enableTags && (
+        <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', marginBottom:12 }}>
+          <span style={{ fontSize:12, color:'#8a9bb8', fontWeight:700, whiteSpace:'nowrap' }}>Bảng con:</span>
+          <button onClick={() => setActiveTag(null)} style={activeTag === null ? st.tagChipActive : st.tagChip}>Tất cả</button>
+          {allTags.map(t => (
+            <button key={t} onClick={() => setActiveTag(activeTag === t ? null : t)} style={activeTag === t ? st.tagChipActive : st.tagChip}>
+              {t}{tagCounts[t] ? ` (${tagCounts[t]})` : ''}
+            </button>
+          ))}
+          <button onClick={addCustomTag} style={{ ...st.tagChip, borderStyle:'dashed', color:'#38b274' }}>+ Thẻ</button>
+        </div>
+      )}
 
       {/* AI Search */}
       <div style={{ marginBottom: aiFilter ? 8 : 16 }}>
@@ -1055,6 +1123,9 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
                       <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8', background: rowBg}}>{item.Ghi_Chu}</td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none', background: rowBg}}>
                         <button onClick={() => copyCustomerInfo(item)} style={{...st.actionBtn, color:C.primary}} title="Copy thông tin gửi khách">&#128203;</button>
+                        {enableTags && (
+                          <button onClick={() => setTagMenuFor(item)} style={{...st.actionBtn, color: parseBangCon(item.Bang_Con).length ? '#38b274' : undefined}} title="Thêm vào bảng con">&#127991;</button>
+                        )}
                         <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>
                         <button onClick={() => setDeleteTarget(item)} style={{...st.actionBtn, color:C.error}} title="Xoá">&#128465;</button>
                       </td>
@@ -1330,6 +1401,34 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
         />
       )}
 
+      {enableTags && tagMenuFor && (() => {
+        const cur = items.find(x => x._rowIndex === tagMenuFor._rowIndex) || tagMenuFor;
+        const set = new Set(parseBangCon(cur.Bang_Con));
+        return (
+          <div style={st.overlay} onClick={() => setTagMenuFor(null)}>
+            <div style={st.tagPopover} onClick={e => e.stopPropagation()}>
+              <div style={{ fontWeight:800, fontSize:15, marginBottom:4 }}>Bảng hàng con</div>
+              <div style={{ fontSize:12, color:'#8a9bb8', marginBottom:12 }}>Căn {cur.Ma_Can || '—'}</div>
+              <div style={{ display:'flex', flexDirection:'column', gap:2, maxHeight:'50vh', overflowY:'auto' }}>
+                {allTags.map(t => (
+                  <label key={t} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 6px', borderRadius:8, cursor:'pointer', fontSize:14 }}
+                    onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.05)'}
+                    onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                    <input type="checkbox" checked={set.has(t)} onChange={() => toggleTag(cur, t)}
+                      style={{ width:16, height:16, accentColor:'#38b274', cursor:'pointer' }} />
+                    <span>{t}</span>
+                  </label>
+                ))}
+              </div>
+              <div style={{ display:'flex', gap:8, marginTop:14 }}>
+                <button onClick={addCustomTag} style={{ ...st.tagChip, borderStyle:'dashed', color:'#38b274', flex:1, padding:'9px 12px' }}>+ Thẻ mới</button>
+                <button onClick={() => setTagMenuFor(null)} style={{ ...st.tagChipActive, flex:1, padding:'9px 12px' }}>Xong</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       <ImportSheetModal
         open={showImport}
         onClose={() => setShowImport(false)}
@@ -1541,6 +1640,9 @@ const st = {
   toaLabel:    { fontWeight:700, fontSize:13, color:'#fff', letterSpacing:3, textTransform:'uppercase' },
   actionBtn:   { background:'none', border:'none', cursor:'pointer', fontSize:16, padding:'4px 6px', borderRadius:6, color:C.textMuted },
   overlay:     { position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 },
+  tagChip:       { background:'#22263a', color:'#cbd5e1', border:'1.5px solid #3a3f52', borderRadius:16, padding:'5px 12px', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
+  tagChipActive: { background:'linear-gradient(135deg,#38b274,#2a8a5a)', color:'#fff', border:'1.5px solid #38b274', borderRadius:16, padding:'5px 12px', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
+  tagPopover:    { background:'#1a1e2e', color:'#e2e8f0', border:'1px solid #2d3240', borderRadius:16, width:340, maxWidth:'100%', padding:'18px 18px', boxShadow:'0 20px 60px rgba(0,0,0,0.5)', fontFamily:F, animation:'cbSlideUp 0.2s ease' },
   modal:       { background:'#fff', borderRadius:16, width:620, maxWidth:'100%', maxHeight:'92vh', display:'flex', flexDirection:'column', boxShadow:C.shadowLg, animation:'cbSlideUp 0.25s ease', overflow:'hidden' },
   modalHeader: { display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 20px', borderBottom:`1px solid ${C.border}`, background:`linear-gradient(135deg, ${C.primary}, #2a5a8c)` },
   modalTitle:  { fontSize:16, fontWeight:700, color:'#fff' },
