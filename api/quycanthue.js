@@ -1,6 +1,11 @@
 import crypto from 'crypto';
 
-const SHEET_NAME = 'Quy_Can_Thue';
+// 2 sheet cùng cấu trúc, chọn qua tham số `sheet`:
+//   (mặc định) 'Quy_Can_Thue'      — bảng chính, phản chiếu bảng hàng công ty
+//   sheet=con  'Quy_Can_Thue_Con'  — bảng con, bản lưu trữ độc lập của user
+// Gộp chung 1 serverless function để không vượt giới hạn function của Vercel.
+const MAIN_SHEET = 'Quy_Can_Thue';
+const CON_SHEET  = 'Quy_Can_Thue_Con';
 // 20 columns: STT, Ngay_Update, Ma_Can, Thiet_Ke, Dien_Tich, Slot_Xe, Huong_BC, Gia, Phi_MG, Noi_That, Thoi_Gian_Vao, Lien_He, Hinh_Anh, Nguon, Ghi_Chu, Mau_Ma_Can, Owner_Id, Ten_Chu, Gia_Net, Bang_Con
 const COLUMNS = 'A:T';
 
@@ -19,8 +24,11 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Google Sheets not configured' });
     }
 
-    if (req.method === 'GET') return handleGet(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
-    if (req.method === 'POST') return handlePost(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
+    const isCon = req.query?.sheet === 'con' || req.body?.sheet === 'con';
+    const SHEET_NAME = isCon ? CON_SHEET : MAIN_SHEET;
+
+    if (req.method === 'GET') return handleGet(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY, SHEET_NAME);
+    if (req.method === 'POST') return handlePost(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY, SHEET_NAME);
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     console.error(`[QuyCanThue] ${err.message}`);
@@ -28,7 +36,7 @@ export default async function handler(req, res) {
   }
 }
 
-async function handleGet(req, res, sheetId, email, key) {
+async function handleGet(req, res, sheetId, email, key, SHEET_NAME) {
   const token = await getAccessToken(email, key, true);
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!${COLUMNS}`;
   const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
@@ -36,7 +44,7 @@ async function handleGet(req, res, sheetId, email, key) {
   if (!response.ok) {
     const errText = await response.text();
     if (errText.includes('Unable to parse range')) {
-      await createSheetWithHeaders(sheetId, token);
+      await createSheetWithHeaders(sheetId, token, SHEET_NAME);
       return res.status(200).json([]);
     }
     return res.status(500).json({ error: 'sheets_read', detail: errText });
@@ -78,7 +86,7 @@ async function handleGet(req, res, sheetId, email, key) {
   return res.status(200).json(items);
 }
 
-async function handlePost(req, res, sheetId, email, key) {
+async function handlePost(req, res, sheetId, email, key, SHEET_NAME) {
   const payload = req.body;
   if (!payload?.action) return res.status(400).json({ error: 'Missing action' });
 
@@ -231,7 +239,7 @@ async function handlePost(req, res, sheetId, email, key) {
   return res.status(400).json({ error: `Unknown action: ${payload.action}` });
 }
 
-async function createSheetWithHeaders(sheetId, token) {
+async function createSheetWithHeaders(sheetId, token, SHEET_NAME) {
   const HEADERS = [
     'STT', 'Ngay_Update', 'Ma_Can', 'Thiet_Ke', 'Dien_Tich', 'Slot_Xe',
     'Huong_BC', 'Gia', 'Phi_MG', 'Noi_That', 'Thoi_Gian_Vao',

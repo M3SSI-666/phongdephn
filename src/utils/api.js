@@ -185,21 +185,23 @@ export async function postQuyCanThue(payload) {
 }
 
 // ============ Quỹ Căn Thuê Con (bảng con lưu trữ) ============
+// Dùng chung endpoint /api/quycanthue, chọn sheet con bằng tham số sheet=con
+// (gộp function để không vượt giới hạn Serverless Functions của Vercel).
 export async function fetchQuyCanThueCon(userId, role, isViewAs = false) {
-  const params = new URLSearchParams({ t: Date.now() });
+  const params = new URLSearchParams({ t: Date.now(), sheet: 'con' });
   if (userId) params.set('userId', userId);
   if (role)   params.set('role', role);
   if (isViewAs) params.set('viewAs', '1');
-  const res = await fetch(`/api/quycanthuecon?${params}`, { cache: 'no-store' });
+  const res = await fetch(`/api/quycanthue?${params}`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Fetch quy can thue con failed');
   return res.json();
 }
 
 export async function postQuyCanThueCon(payload) {
-  const res = await fetch('/api/quycanthuecon', {
+  const res = await fetch('/api/quycanthue?sheet=con', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, sheet: 'con' }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
