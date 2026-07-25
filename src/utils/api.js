@@ -184,6 +184,30 @@ export async function postQuyCanThue(payload) {
   return res.json();
 }
 
+// ============ Quỹ Căn Thuê Con (bảng con lưu trữ) ============
+export async function fetchQuyCanThueCon(userId, role, isViewAs = false) {
+  const params = new URLSearchParams({ t: Date.now() });
+  if (userId) params.set('userId', userId);
+  if (role)   params.set('role', role);
+  if (isViewAs) params.set('viewAs', '1');
+  const res = await fetch(`/api/quycanthuecon?${params}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Fetch quy can thue con failed');
+  return res.json();
+}
+
+export async function postQuyCanThueCon(payload) {
+  const res = await fetch('/api/quycanthuecon', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Action failed (${res.status})`);
+  }
+  return res.json();
+}
+
 // ============ Quỹ Căn Bán ============
 export async function fetchQuyCanBan(userId, role, isViewAs = false) {
   const params = new URLSearchParams({ t: Date.now() });

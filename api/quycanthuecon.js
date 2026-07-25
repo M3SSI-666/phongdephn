@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 
-const SHEET_NAME = 'Quy_Can_Thue';
+const SHEET_NAME = 'Quy_Can_Thue_Con';
+// Bảng hàng con (bản sao lưu trữ cá nhân, độc lập với Quy_Can_Thue).
 // 20 columns: STT, Ngay_Update, Ma_Can, Thiet_Ke, Dien_Tich, Slot_Xe, Huong_BC, Gia, Phi_MG, Noi_That, Thoi_Gian_Vao, Lien_He, Hinh_Anh, Nguon, Ghi_Chu, Mau_Ma_Can, Owner_Id, Ten_Chu, Gia_Net, Bang_Con
 const COLUMNS = 'A:T';
 
@@ -23,7 +24,7 @@ export default async function handler(req, res) {
     if (req.method === 'POST') return handlePost(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
-    console.error(`[QuyCanThue] ${err.message}`);
+    console.error(`[QuyCanThueCon] ${err.message}`);
     return res.status(500).json({ error: err.message });
   }
 }
