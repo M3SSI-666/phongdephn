@@ -135,7 +135,9 @@ async function handlePost(req, res, sheetId, email, key, SHEET_NAME, isCon) {
     const response = await fetch(url, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [buildRow(payload)] }),
+      // Bảng chính = dữ liệu công ty: Ngày Update do client quyết (giữ nguyên khi sửa).
+      // Bảng con = kho riêng: mọi thay đổi đều đóng dấu ngày hôm nay.
+      body: JSON.stringify({ values: [buildRow(payload, { keepDate: !isCon })] }),
     });
     if (!response.ok) return res.status(500).json({ error: 'sheets_append', detail: await response.text() });
     return res.status(200).json({ success: true });
@@ -148,7 +150,7 @@ async function handlePost(req, res, sheetId, email, key, SHEET_NAME, isCon) {
     const response = await fetch(url, {
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [buildRow(payload)] }),
+      body: JSON.stringify({ values: [buildRow(payload, { keepDate: !isCon })] }),
     });
     if (!response.ok) return res.status(500).json({ error: 'sheets_update', detail: await response.text() });
     return res.status(200).json({ success: true });

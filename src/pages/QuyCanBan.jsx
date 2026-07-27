@@ -199,6 +199,11 @@ function buildCustomerMessage(item) {
   return lines.join('\n');
 }
 
+// Ngày hôm nay dd/mm/yyyy theo máy user (server Vercel chạy UTC nên tính ở client).
+function todayVN() {
+  return new Date().toLocaleDateString('vi-VN');
+}
+
 // Ngày Update "mới": trong vòng 2 tháng trở lại tính từ hôm nay (dd/mm/yyyy).
 function isRecentUpdate(val) {
   const m = (val || '').toString().trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -621,9 +626,10 @@ function QuyCanBanInner({
           conPayloadFrom(existing, { _rowIndex: existing._rowIndex, Bang_Con: [...cur, tag].join(', ') }),
         ] });
       } else {
-        // Bản sao độc lập: bỏ màu user (để user tự đính bên con), giữ nguyên Ngày Update gốc.
+        // Bản sao độc lập: bỏ màu user (để user tự đính bên con).
+        // Chuyển từ bảng chính sang bảng con = 1 thay đổi -> đóng dấu ngày hôm nay (chỉ ở bản con).
         await postConFn({ action: 'bulk', updates: [],
-          adds: [conPayloadFrom(item, { Mau_Ma_Can: '', Bang_Con: tag })] });
+          adds: [conPayloadFrom(item, { Mau_Ma_Can: '', Bang_Con: tag, Ngay_Update: todayVN() })] });
       }
       await loadConData();
       showToast(existing ? 'Đã gộp vào bảng con' : 'Đã chuyển vào bảng con', 'success');
@@ -850,8 +856,10 @@ function QuyCanBanInner({
       const pf      = fromCon ? postConFn : postFn;
       const dataset = fromCon ? conItems  : items;
       const reload  = fromCon ? loadConData : loadData;
+      // Ngày Update: bảng chính giữ nguyên ngày của bảng hàng công ty; bảng con
+      // do server tự đóng dấu hôm nay (buildRow keepDate=false khi isCon).
       if (modalMode === 'edit') {
-        await pf({ action: 'update', _rowIndex: editItem._rowIndex, Owner_Id: editItem.Owner_Id || userId || '', ...payload, Bang_Con: editItem?.Bang_Con || '' });
+        await pf({ action: 'update', _rowIndex: editItem._rowIndex, Owner_Id: editItem.Owner_Id || userId || '', ...payload, Ngay_Update: editItem.Ngay_Update || '', Bang_Con: editItem?.Bang_Con || '' });
         pushImportLog(payload.Ma_Can);
         showToast('Cập nhật thành công!');
         closeModal();
@@ -863,7 +871,7 @@ function QuyCanBanInner({
           setDupTarget({ existing: { ...existing, _fromCon: fromCon }, payload });
           return;
         }
-        await pf({ action: 'add', ...payload, Bang_Con: fromCon && activeTag ? activeTag : '' });
+        await pf({ action: 'add', ...payload, Ngay_Update: todayVN(), Bang_Con: fromCon && activeTag ? activeTag : '' });
         pushImportLog(payload.Ma_Can);
         showToast('Thêm căn thành công!');
         closeModal();
@@ -882,7 +890,7 @@ function QuyCanBanInner({
       const pf      = fromCon ? postConFn : postFn;
       const reload  = fromCon ? loadConData : loadData;
       const mergedHinh = payload.Hinh_Anh || existing.Hinh_Anh || '';
-      await pf({ action: 'update', _rowIndex: existing._rowIndex, Owner_Id: existing.Owner_Id || userId || '', ...payload, Hinh_Anh: mergedHinh, Gia_Net: payload.Gia_Net || existing.Gia_Net || '', Bang_Con: existing.Bang_Con || '' });
+      await pf({ action: 'update', _rowIndex: existing._rowIndex, Owner_Id: existing.Owner_Id || userId || '', ...payload, Hinh_Anh: mergedHinh, Gia_Net: payload.Gia_Net || existing.Gia_Net || '', Ngay_Update: existing.Ngay_Update || '', Bang_Con: existing.Bang_Con || '' });
       pushImportLog(payload.Ma_Can);
       showToast('Đã cập nhật căn ' + payload.Ma_Can + '!');
       setDupTarget(null);
