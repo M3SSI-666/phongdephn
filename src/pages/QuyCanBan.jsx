@@ -7,7 +7,7 @@ import {
   parseBan, uploadToCloudinary, parseSearchQuery,
 } from '../utils/api';
 import {
-  canonicalStatusColor, normalizeThietKe, mapPhi, isDateSerialGia,
+  normalizeThietKe, mapPhi, isDateSerialGia,
   STATUS_GRAY, STATUS_PAUSED, INVEST_COLOR,
 } from '../utils/quyCanShared';
 import ImportSheetModal from '../components/ImportSheetModal';
@@ -57,22 +57,6 @@ function statusRowBg(mau) {
   if (mau === STATUS_SOLD)   return 'rgba(148,163,184,0.16)';
   if (mau === STATUS_PAUSED) return 'rgba(250,204,21,0.16)';
   return undefined;
-}
-
-// Sheet Đập Thông không có cột Xe riêng — số slot xe nằm trong Ghi Chú (VD "Có đồ, 2 slot xe").
-// Trích số slot: "1 slot" -> "1", "2 slot xe" -> "2". Bắt cả biến thể gõ thiếu (sot/slt/slot).
-// Không đề cập -> "Không".
-function parseSlotXe(ghiChu) {
-  const s = (ghiChu || '').toString().toLowerCase();
-  const m = s.match(/(\d+)\s*s(?:lot|ot|lt)/);
-  return m ? m[1] : 'Không';
-}
-
-// Sheet Hàng Đầu Tư (và một số sheet Bán) không có cột Xe riêng — slot xe ghi trong Ghi Chú.
-// Trả về "Có"/"Không" (khác Đập Thông trả về số slot). Nhận diện "slot"/"sot"/"slt".
-function hasSlotXe(ghiChu) {
-  const s = (ghiChu || '').toString().toLowerCase();
-  return /\d+\s*s(?:lot|ot|lt)|s(?:lot|ot|lt)\s*xe/.test(s) ? 'Có' : 'Không';
 }
 
 // Viết tắt hướng ban công -> tên đầy đủ. T=Tây, B=Bắc, N=Nam, Đ=Đông;
@@ -194,118 +178,6 @@ function parseDienTich(val) {
   return nums.reduce((sum, n) => sum + (parseFloat(n) || 0), 0);
 }
 
-// Giá bán từ bảng công ty là số tỷ (VD "6.7"). Gắn " tỷ" để đơn vị rõ ràng
-// (parseGiaValue/tr per m² đọc đúng). Nếu đã có chữ "tỷ"/"tr" thì giữ nguyên.
-function formatGiaTy(val) {
-  const s = (val || '').toString().trim();
-  if (!s) return '';
-  if (isDateSerialGia(s)) return ''; // ô Giá là serial ngày Excel -> bỏ
-  if (/t[ỷy]|tr|triệu/i.test(s)) return s;
-  const n = s.match(/^[\d.,]+$/);
-  if (!n) return s;
-  return `${s} tỷ`;
-}
-
-// Cấu hình import bảng hàng công ty (tab Bán) -> schema Quỹ Căn Bán.
-// Gộp nhiều tên header vì các sheet (T / Park Hill / G4 / Hàng Đầu Tư) đặt tên lệch nhau.
-const IMPORT_CONFIG_BAN = {
-  title: 'Import bảng hàng công ty → Căn Bán',
-  tabMatch: /ban|dau\s*tu/i, // test trên tên sheet đã bỏ dấu (normHeader) -> khớp cả "Hàng Đầu Tư"
-  multiSheet: true, // gộp 3 sheet Bán (T / Park Hill / G4) + sheet Hàng Đầu Tư trong 1 lần import
-  keyField: 'Ma_Can',
-  previewCols: [
-    { key: 'Ma_Can', label: 'Mã Căn' },
-    { key: 'Thiet_Ke', label: 'Thiết Kế' },
-    { key: 'Dien_Tich', label: 'DT' },
-    { key: 'Huong_BC', label: 'BC' },
-    { key: 'Huong_Cua', label: 'Cửa' },
-    { key: 'Gia', label: 'Giá (tỷ)' },
-    { key: 'Phi', label: 'Phí' },
-    { key: 'Slot_Xe', label: 'Xe' },
-    { key: 'Ten_Chu', label: 'Tên Chủ' },
-    { key: 'SDT', label: 'SDT' },
-    { key: 'Nguon', label: 'Nguồn' },
-    { key: 'Ngay_Update', label: 'Ngày CN' },
-  ],
-  // r: object khoá theo header đã chuẩn hoá (không dấu, thường).
-  // extra.statusRgb: màu nền ô Mã Căn (fgColor.rgb) từ file công ty.
-  mapRow(r, extra = {}) {
-    const g = (...keys) => {
-      for (const k of keys) { if (r[k] != null && r[k] !== '') return r[k].toString().trim(); }
-      return '';
-    };
-    // Căn từ sheet "Hàng Đầu Tư" -> đánh dấu hồng nhạt (nếu ô không có màu trạng thái riêng).
-    const isDauTu = /dau\s*tu/i.test((extra.sheetName || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd'));
-    const statusColor = canonicalStatusColor(extra.statusRgb);
-    return {
-      Ma_Can:      g('ma can').toUpperCase(),
-      Thiet_Ke:    normalizeThietKe(g('so pn', 'pn')),
-      Dien_Tich:   g('m2', 'dt (m2)', 'dt m2', 'dt'),
-      Huong_BC:    g('bc'),
-      Huong_Cua:   g('cua'),
-      Gia:         formatGiaTy(g('gia ty', 'gia tỷ', 'gia')),
-      Phi:         mapPhi(g('phi', 'tv or bp')),
-      // Có cột Xe -> dùng luôn; sheet không có cột Xe (Park Hill/G4/Đầu Tư) -> suy từ Ghi Chú.
-      Slot_Xe:     g('xe') ? 'Có' : hasSlotXe(g('ghi chu')),
-      Noi_That:    '',
-      SDT:         g('sdt chu nha', 'sdt chu', 'sdt', 'sđt'),
-      Ten_Chu:     g('ten chu nha', 'ten chu', 'tên chủ'),
-      Nguon:       g('nguon'),
-      Ghi_Chu:     g('ghi chu'),
-      Ngay_Update: g('ngay cap nhat'),
-      Hinh_Anh:    '',
-      Mau_Ma_Can:  statusColor || (isDauTu ? INVEST_COLOR : ''),
-    };
-  },
-};
-
-// Cấu hình import sheet "Quỹ Đập Thông" -> tab Quỹ Đập Thông (căn đập thông = gộp 2 căn).
-// Cùng schema Quỹ Căn Bán nhưng: chỉ 1 sheet (không multiSheet), header phí là "PHÍ BP TV",
-// sheet công ty không có cột "Xe".
-const IMPORT_CONFIG_DAPTHONG = {
-  title: 'Import bảng hàng công ty → Quỹ Đập Thông',
-  tabMatch: /dap\s*thong/i, // test trên tên sheet đã bỏ dấu (normHeader)
-  multiSheet: false,
-  keyField: 'Ma_Can',
-  previewCols: [
-    { key: 'Ma_Can', label: 'Mã Căn' },
-    { key: 'Thiet_Ke', label: 'Thiết Kế' },
-    { key: 'Dien_Tich', label: 'DT' },
-    { key: 'Huong_BC', label: 'BC' },
-    { key: 'Huong_Cua', label: 'Cửa' },
-    { key: 'Gia', label: 'Giá (tỷ)' },
-    { key: 'Phi', label: 'Phí' },
-    { key: 'Ten_Chu', label: 'Tên Chủ' },
-    { key: 'SDT', label: 'SDT' },
-    { key: 'Nguon', label: 'Nguồn' },
-    { key: 'Ngay_Update', label: 'Ngày CN' },
-  ],
-  mapRow(r, extra = {}) {
-    const g = (...keys) => {
-      for (const k of keys) { if (r[k] != null && r[k] !== '') return r[k].toString().trim(); }
-      return '';
-    };
-    return {
-      Ma_Can:      g('ma can').toUpperCase(),
-      Thiet_Ke:    normalizeThietKe(g('so pn', 'pn')),
-      Dien_Tich:   g('m2', 'dt (m2)', 'dt m2', 'dt'),
-      Huong_BC:    g('bc'),
-      Huong_Cua:   g('cua'),
-      Gia:         formatGiaTy(g('gia ty', 'gia tỷ', 'gia')),
-      Phi:         mapPhi(g('phi bp tv', 'phi', 'tv or bp')),
-      Slot_Xe:     parseSlotXe(g('ghi chu')),
-      Noi_That:    '',
-      SDT:         g('sdt chu nha', 'sdt chu', 'sdt', 'sđt'),
-      Ten_Chu:     g('ten chu nha', 'ten chu', 'tên chủ'),
-      Nguon:       g('nguon'),
-      Ghi_Chu:     g('ghi chu'),
-      Ngay_Update: g('ngay cap nhat'),
-      Hinh_Anh:    '',
-      Mau_Ma_Can:  canonicalStatusColor(extra.statusRgb),
-    };
-  },
-};
-
 const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
   'Hướng BC', 'Giá', 'Giá Nét', 'Tr/m²', 'Phí', 'SDT', 'Tên Chủ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
@@ -333,7 +205,7 @@ export function QuyDapThongContent({ overrideUserId, overrideRole, isViewAs } = 
       fetchConFn={fetchQuyDapThongCon}
       postConFn={postQuyDapThongCon}
       tagStorageKey="bangConTags_dapthong"
-      importConfig={IMPORT_CONFIG_DAPTHONG}
+      moduleKey="dapthong"
       importLogKey="importLog_dapthong"
     />
   );
@@ -353,7 +225,7 @@ function QuyCanBanInner({
   fetchFn = fetchQuyCanBan, postFn = postQuyCanBan,
   fetchConFn = fetchQuyCanBanCon, postConFn = postQuyCanBanCon,
   tagStorageKey = 'bangConTags_ban',
-  importConfig = IMPORT_CONFIG_BAN, importLogKey = 'importLog_ban',
+  moduleKey = 'ban', importLogKey = 'importLog_ban',
 } = {}) {
   const { user } = useUser();
   const userId = overrideUserId || user?.id;
@@ -891,58 +763,17 @@ function QuyCanBanInner({
     }
   }
 
-  // Import = đồng bộ bảng hàng CÔNG TY (dùng chung, chỉ admin). Dữ liệu cá nhân
-  // (Giá Nét / màu tự tô / tag) nằm ở sheet con nên ở đây ghi đè thẳng, không cần giữ.
-  const handleImportRows = useCallback(async (payloads, opts = {}) => {
-    // mặc định giữ ghi chú/ngày cá nhân, chỉ ghi đè khi tick
-    const { importGhiChu = false, importNgayUpdate = false } = opts;
-    // Sheet chính giờ DÙNG CHUNG -> đọc lại bản tươi để _rowIndex không lệch.
-    const fresh = await fetchFn(userId, role);
-    const byMa = new Map();
-    fresh.forEach(it => { const k = (it.Ma_Can||'').trim().toUpperCase(); if (k) byMa.set(k, it); });
-    const adds = [], updates = [];
-    for (const p of payloads) {
-      const key = (p.Ma_Can||'').trim().toUpperCase();
-      const existing = key ? byMa.get(key) : null;
-      if (existing) {
-        // Giữ ảnh cũ (sheet công ty không có ảnh); mọi thứ khác lấy theo bảng công ty.
-        updates.push({
-          ...p,
-          Hinh_Anh: p.Hinh_Anh || existing.Hinh_Anh || '',
-          Mau_Ma_Can: p.Mau_Ma_Can || '',
-          Gia_Net: '', Bang_Con: '',
-          // Ghi Chú / Ngày Update: mặc định giữ dữ liệu cũ; chỉ ghi đè bằng bảng công ty khi tick.
-          Ghi_Chu: importGhiChu ? (p.Ghi_Chu || '') : (existing.Ghi_Chu || ''),
-          Ngay_Update: importNgayUpdate ? (p.Ngay_Update || '') : (existing.Ngay_Update || ''),
-          _rowIndex: existing._rowIndex,
-        });
-      } else {
-        adds.push({ ...p, Mau_Ma_Can: p.Mau_Ma_Can || '', Gia_Net: '', Bang_Con: '' });
-      }
-    }
-
-    // Căn có trong sheet chính nhưng vắng mặt trong bảng công ty import -> xoá.
-    const importedKeys = new Set(payloads.map(p => (p.Ma_Can||'').trim().toUpperCase()).filter(Boolean));
-    const deletes = fresh
-      .filter(it => { const k = (it.Ma_Can||'').trim().toUpperCase(); return k && !importedKeys.has(k); })
-      .map(it => ({ _rowIndex: it._rowIndex }));
-
-    // Cảnh báo nếu import file sai/thiếu làm xoá quá nhiều căn của cả công ty.
-    if (fresh.length && deletes.length > fresh.length * 0.3) {
-      const ok = window.confirm(
-        `Cảnh báo: file import sẽ XOÁ ${deletes.length}/${fresh.length} căn khỏi bảng hàng công ty.\n` +
-        `Có thể bạn chọn nhầm file hoặc file thiếu dữ liệu. Vẫn tiếp tục?`
-      );
-      if (!ok) throw new Error('Đã huỷ import');
-    }
-
-    const res = await postFn({ action: 'bulk', adds, updates, deletes });
-    payloads.slice(0, 5).forEach(p => pushImportLog(p.Ma_Can));
+  // Modal ghi thẳng cả 3 bảng (Thuê / Bán / Đập Thông) từ 1 file; ở đây chỉ nạp lại
+  // bảng đang mở. Hai bảng kia tự fetch khi user chuyển tab (TimesCity chỉ mount 1 trang).
+  const handleImportDone = useCallback(async (res) => {
+    const mine = res?.[moduleKey];
     await loadData();
-    const delMsg = (res.deleted ?? deletes.length) ? `, xoá ${res.deleted ?? deletes.length}` : '';
-    showToast(`Đã thêm ${res.added||adds.length}, cập nhật ${res.updated||updates.length}${delMsg} căn!`);
-    return { added: res.added ?? adds.length, updated: res.updated ?? updates.length, deleted: res.deleted ?? deletes.length };
-  }, [userId, role, fetchFn, loadData, postFn]);
+    // Modal ghi nhật ký thẳng vào localStorage (2 trang kia không mount) -> đọc lại cho trang này.
+    try { setImportLog(JSON.parse(localStorage.getItem(importLogKey) || '[]')); } catch { /* bỏ qua */ }
+    if (!mine) return;
+    if (mine.error) showToast(`Import lỗi: ${mine.error}`, 'error');
+    else showToast(`Đã thêm ${mine.added}, cập nhật ${mine.updated}${mine.deleted ? `, xoá ${mine.deleted}` : ''} căn!`);
+  }, [moduleKey, importLogKey, loadData]);
 
   function isVideo(url) {
     return /\.(mp4|mov|avi|webm|mkv|m4v)(\?|$)/i.test(url) || url.includes('/video/upload/');
@@ -1480,9 +1311,9 @@ function QuyCanBanInner({
       <ImportSheetModal
         open={showImport && canEditMain}
         onClose={() => setShowImport(false)}
-        config={importConfig}
-        existingItems={items}
-        onImport={handleImportRows}
+        userId={userId}
+        role={role}
+        onDone={handleImportDone}
       />
     </div>
   );

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
 import { fetchQuyCanThue, postQuyCanThue, fetchQuyCanThueCon, postQuyCanThueCon, parseThue, uploadToCloudinary, parseSearchQuery } from '../utils/api';
-import { canonicalStatusColor, normalizeThietKe, STATUS_GRAY, STATUS_PAUSED } from '../utils/quyCanShared';
+import { normalizeThietKe, STATUS_GRAY, STATUS_PAUSED } from '../utils/quyCanShared';
 import ImportSheetModal from '../components/ImportSheetModal';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
@@ -195,17 +195,6 @@ function buildSalesMessage(item) {
   return lines.join('\n');
 }
 
-// Chuẩn hoá cột "TT" của bảng công ty -> Nội Thất.
-// "Full"/"Có đồ"/typo -> Full đồ; "K đồ"/"Ko đồ"/"Không đồ" -> Không đồ; còn lại để trống.
-function importNoiThat(val) {
-  const s = (val || '').toString().toLowerCase().normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').trim();
-  if (!s) return '';
-  if (/^k\b|^ko\b|khong|trong/.test(s)) return 'Không đồ';
-  if (s.includes('ful') || s.includes('fil') || s.includes('co do') || s.includes('day du') || s.includes('du do')) return 'Full đồ';
-  return '';
-}
-
 // Ngày hôm nay dd/mm/yyyy theo máy user (server Vercel chạy UTC nên tính ở client).
 function todayVN() {
   return new Date().toLocaleDateString('vi-VN');
@@ -232,58 +221,6 @@ function isSoonMoveIn(val) {
   const diff = (year - now.getFullYear()) * 12 + (month - 1 - now.getMonth());
   return Math.abs(diff) <= 3;
 }
-
-// Cấu hình import cho bảng hàng công ty (tab Căn Thuê) -> schema Quỹ Căn Thuê.
-const IMPORT_CONFIG_THUE = {
-  title: 'Import bảng hàng công ty → Căn Thuê',
-  tabMatch: /thu[eê]/i,
-  keyField: 'Ma_Can',
-  previewCols: [
-    { key: 'Ma_Can', label: 'Mã Căn' },
-    { key: 'Thiet_Ke', label: 'Thiết Kế' },
-    { key: 'Dien_Tich', label: 'DT' },
-    { key: 'Huong_BC', label: 'Hướng BC' },
-    { key: 'Gia', label: 'Giá' },
-    { key: 'Phi_MG', label: 'Phí MG' },
-    { key: 'Noi_That', label: 'Nội Thất' },
-    { key: 'Slot_Xe', label: 'Slot' },
-    { key: 'Thoi_Gian_Vao', label: 'TG Vào' },
-    { key: 'Ten_Chu', label: 'Tên Chủ' },
-    { key: 'Lien_He', label: 'Liên Hệ' },
-    { key: 'Nguon', label: 'Nguồn' },
-    { key: 'Ngay_Update', label: 'Ngày CN' },
-  ],
-  // r: object khoá theo header đã chuẩn hoá (không dấu, thường).
-  // extra.statusRgb: màu nền ô Mã Căn (fgColor.rgb) từ file công ty.
-  mapRow(r, extra = {}) {
-    const g = (...keys) => {
-      for (const k of keys) { if (r[k] != null && r[k] !== '') return r[k].toString().trim(); }
-      return '';
-    };
-    const thang = g('thang');
-    const nam = g('nam');
-    const tgVao = thang && nam ? `${thang}/${nam}` : (thang || nam || '');
-    const slot = g('slot xe');
-    return {
-      Ma_Can:        g('ma can').toUpperCase(),
-      Thiet_Ke:      normalizeThietKe(g('pn')),
-      Dien_Tich:     g('dt (m2)', 'dt', 'dt m2'),
-      Huong_BC:      g('bc'),
-      Gia:           g('gia'),
-      Phi_MG:        g('phi mg'),
-      Noi_That:      importNoiThat(g('tt')),
-      Slot_Xe:       slot ? 'Có' : 'Không',
-      Thoi_Gian_Vao: tgVao,
-      Ten_Chu:       g('ten chu', 'ten chu '),
-      Lien_He:       g('sdt chu', 'sdt chu '),
-      Nguon:         g('nguon'),
-      Ghi_Chu:       g('ghi chu'),
-      Ngay_Update:   g('ngay cap nhat'),
-      Hinh_Anh:      '',
-      Mau_Ma_Can:    canonicalStatusColor(extra.statusRgb),
-    };
-  },
-};
 
 const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
@@ -851,58 +788,17 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
   }
 
   // ── Import bảng hàng công ty ──
-  // Chia payload theo Mã Căn trùng (cập nhật đè) / mới (thêm), ghi theo lô 1 request.
-  const handleImportRows = useCallback(async (payloads) => {
-    // Tab "Tất cả" = phản chiếu bảng hàng công ty: ghi đè FULL (kể cả Ghi Chú, Ngày Update),
-    // KHÔNG giữ Giá Nét / màu user / tag; và XÓA căn không còn trong bảng công ty.
-    // Bảng con (sheet riêng) KHÔNG bị đụng tới.
-    // Sheet chính giờ DÙNG CHUNG -> đọc lại bản tươi để _rowIndex không lệch.
-    const fresh = await fetchQuyCanThue(userId, role);
-    const byMa = new Map();
-    fresh.forEach(it => { const k = (it.Ma_Can||'').trim().toUpperCase(); if (k) byMa.set(k, it); });
-    let maxSTT = fresh.reduce((m,i) => Math.max(m, Number(i.STT)||0), 0);
-    const adds = [], updates = [];
-    const importedKeys = new Set();
-    for (const p of payloads) {
-      const key = (p.Ma_Can||'').trim().toUpperCase();
-      if (key) importedKeys.add(key);
-      const existing = key ? byMa.get(key) : null;
-      if (existing) {
-        updates.push({
-          ...p,
-          Hinh_Anh: p.Hinh_Anh || existing.Hinh_Anh || '', // giữ ảnh cũ (sheet công ty không có ảnh)
-          Gia_Net: '',                    // Giá Nét chỉ tồn tại ở bảng con
-          Bang_Con: '',                   // tag chỉ ở sheet con
-          Ghi_Chu: p.Ghi_Chu || '',       // ghi đè full theo bảng công ty
-          Ngay_Update: p.Ngay_Update || '',
-          Mau_Ma_Can: p.Mau_Ma_Can || '', // chỉ giữ màu trạng thái công ty, bỏ màu user
-          _rowIndex: existing._rowIndex,
-          STT: existing.STT,
-        });
-      } else {
-        maxSTT += 1;
-        adds.push({ ...p, Gia_Net: '', Bang_Con: '', Mau_Ma_Can: p.Mau_Ma_Can || '', STT: maxSTT });
-      }
-    }
-    // Căn có trong sheet chính nhưng vắng mặt trong bảng công ty import -> xóa.
-    const deletes = fresh
-      .filter(it => { const k = (it.Ma_Can||'').trim().toUpperCase(); return k && !importedKeys.has(k); })
-      .map(it => it._rowIndex);
-    // Cảnh báo nếu import file sai/thiếu làm xoá quá nhiều căn của cả công ty.
-    if (fresh.length && deletes.length > fresh.length * 0.3) {
-      const ok = window.confirm(
-        `Cảnh báo: file import sẽ XOÁ ${deletes.length}/${fresh.length} căn khỏi bảng hàng công ty.\n` +
-        `Có thể bạn chọn nhầm file hoặc file thiếu dữ liệu. Vẫn tiếp tục?`
-      );
-      if (!ok) throw new Error('Đã huỷ import');
-    }
-    const res = await postQuyCanThue({ action: 'bulk', adds, updates, deletes });
-    payloads.slice(0, 5).forEach(p => pushImportLog(p.Ma_Can));
+  // Modal ghi thẳng cả 3 bảng (Thuê / Bán / Đập Thông) từ 1 file; ở đây chỉ nạp lại
+  // bảng đang mở. Hai bảng kia tự fetch khi user chuyển tab (TimesCity chỉ mount 1 trang).
+  const handleImportDone = useCallback(async (res) => {
+    const mine = res?.thue;
     await loadData();
-    const delN = res.deleted ?? deletes.length;
-    showToast(`Đã thêm ${res.added||adds.length}, cập nhật ${res.updated||updates.length}${delN?`, xóa ${delN}`:''} căn!`);
-    return { added: res.added ?? adds.length, updated: res.updated ?? updates.length, deleted: delN };
-  }, [userId, role, loadData, showToast]);
+    // Modal ghi nhật ký thẳng vào localStorage (2 trang kia không mount) -> đọc lại cho trang này.
+    try { setImportLog(JSON.parse(localStorage.getItem('importLog_thue') || '[]')); } catch { /* bỏ qua */ }
+    if (!mine) return;
+    if (mine.error) showToast(`Quỹ Căn Thuê: ${mine.error}`, 'error');
+    else showToast(`Đã thêm ${mine.added}, cập nhật ${mine.updated}${mine.deleted ? `, xóa ${mine.deleted}` : ''} căn!`);
+  }, [loadData, showToast]);
 
   // ── Media helpers ──
   function isVideo(url) {
@@ -1394,9 +1290,9 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       <ImportSheetModal
         open={showImport && canEditMain}
         onClose={() => setShowImport(false)}
-        config={IMPORT_CONFIG_THUE}
-        existingItems={items}
-        onImport={handleImportRows}
+        userId={userId}
+        role={role}
+        onDone={handleImportDone}
       />
 
       {/* Duplicate confirm */}

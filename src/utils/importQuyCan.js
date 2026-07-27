@@ -220,18 +220,24 @@ export const IMPORT_TARGETS = [
 export function claimSheets(sheetNames, overrides = {}) {
   const claims = {};
   const taken = new Set();
+
+  // Lượt 1: tab user ép chọn bằng dropdown — giữ chỗ TRƯỚC để bảng tự động
+  // (chạy sớm hơn trong mảng) không giành mất.
   for (const t of IMPORT_TARGETS) {
     const forced = overrides[t.key];
-    if (forced) {                       // user ép chọn tab bằng dropdown
-      claims[t.key] = [forced];
-      taken.add(forced);
-      continue;
-    }
-    if (forced === '') { claims[t.key] = []; continue; } // user ép "bỏ qua"
+    if (forced === undefined) continue;
+    claims[t.key] = forced ? [forced] : [];   // '' = user ép "bỏ qua"
+    if (forced) taken.add(forced);
+  }
+
+  // Lượt 2: tự nhận theo token, tab nào đã bị giành thì bỏ qua.
+  for (const t of IMPORT_TARGETS) {
+    if (claims[t.key]) continue;
     const hit = sheetNames.filter(n => !taken.has(n) && t.config.matchSheet(sheetTokens(n)));
     hit.forEach(n => taken.add(n));
     claims[t.key] = hit;
   }
+
   return { claims, unclaimed: sheetNames.filter(n => !taken.has(n)) };
 }
 
