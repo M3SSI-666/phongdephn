@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
 import { fetchQuyCanThue, postQuyCanThue, fetchQuyCanThueCon, postQuyCanThueCon, parseThue, uploadToCloudinary, parseSearchQuery } from '../utils/api';
+import { canonicalStatusColor, normalizeThietKe, STATUS_GRAY, STATUS_PAUSED } from '../utils/quyCanShared';
 import ImportSheetModal from '../components/ImportSheetModal';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
@@ -26,8 +27,7 @@ const RAINBOW_COLORS = [
 // LƯU Ý: các hex này phải KHÁC mọi giá trị trong RAINBOW_COLORS để phân biệt được
 // màu trạng thái với màu Mã Căn user tự tô (pill ô Mã Căn).
 // (Bỏ "Căn giá tốt" màu đỏ — không cần thể hiện lên bảng cá nhân.)
-const STATUS_RENTED = '#9CA3AF'; // xám  -> Đã cho thuê
-const STATUS_PAUSED = '#FFF000'; // vàng -> Dừng thuê
+const STATUS_RENTED = STATUS_GRAY; // xám  -> Đã cho thuê (bên Bán cùng màu này = Đã bán)
 const STATUS_COLORS = new Set([STATUS_RENTED, STATUS_PAUSED]);
 // Màu trạng thái CŨ đã bỏ (đỏ "Căn giá tốt") — coi như không màu để dữ liệu cũ hết đỏ.
 const LEGACY_STATUS_COLORS = new Set(['#FF3B30']);
@@ -35,20 +35,6 @@ const LEGACY_STATUS_COLORS = new Set(['#FF3B30']);
 // Bỏ màu trạng thái đã loại bỏ khỏi dữ liệu cũ (hiển thị như bình thường).
 function cleanMauMaCan(mau) {
   return LEGACY_STATUS_COLORS.has(mau) ? '' : (mau || '');
-}
-
-// Chuẩn hóa màu nền ô (fgColor.rgb) từ file công ty -> màu trạng thái, hoặc '' (bình thường/không dùng).
-function canonicalStatusColor(rgb) {
-  if (!rgb) return '';
-  let h = rgb.toString().replace('#', '').toUpperCase();
-  if (h.length === 8) h = h.slice(2);   // bỏ alpha AARRGGBB
-  if (h.length !== 6) return '';
-  if (h === 'FFFFFF') return '';         // trắng = bình thường
-  if (h === 'FFFF00') return STATUS_PAUSED;
-  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  if (max - min <= 16 && min >= 0x60 && max <= 0xF0) return STATUS_RENTED; // dải xám trung tính
-  return '';
 }
 
 // Nền mờ hiển thị theo màu trạng thái (dark theme).
@@ -92,13 +78,6 @@ function normalizeNoiThat(val) {
   if (s.includes('full') || s.includes('day du') || s.includes('du do') || s.includes('co đo') || s.includes('đu đo') || s.includes('đay đu')) return 'Full đồ';
   if (s.includes('khong') || s.includes('trong') || s.includes('tho')) return 'Không đồ';
   return 'Đồ cơ bản';
-}
-
-// "2N" -> "2PN"; giữ nguyên nếu không phải dạng số + N.
-function normalizeThietKe(val) {
-  const s = (val || '').toString().trim();
-  const m = s.match(/^(\d+)\s*n$/i);
-  return m ? `${m[1]}PN` : s;
 }
 
 // Tách "tòa" và "tầng" từ Mã Căn (VD: P11-1205 -> {toa:'P11', tang:'12'};

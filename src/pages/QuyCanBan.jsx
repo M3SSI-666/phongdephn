@@ -6,6 +6,10 @@ import {
   fetchQuyDapThong, postQuyDapThong, fetchQuyDapThongCon, postQuyDapThongCon,
   parseBan, uploadToCloudinary, parseSearchQuery,
 } from '../utils/api';
+import {
+  canonicalStatusColor, normalizeThietKe, mapPhi, isDateSerialGia,
+  STATUS_GRAY, STATUS_PAUSED, INVEST_COLOR,
+} from '../utils/quyCanShared';
 import ImportSheetModal from '../components/ImportSheetModal';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
@@ -45,39 +49,14 @@ function normalizeNoiThat(val) {
 }
 
 // ── Trạng thái căn qua màu nền ô Mã Căn (import từ bảng công ty) ──
-const STATUS_SOLD   = '#9CA3AF'; // xám  -> Đã bán
-const STATUS_PAUSED = '#FFF000'; // vàng -> Dừng bán
+const STATUS_SOLD   = STATUS_GRAY; // xám -> Đã bán (bên Thuê cùng màu này = Đã cho thuê)
 const STATUS_COLORS = new Set([STATUS_SOLD, STATUS_PAUSED]);
-// Hồng nhạt: đánh dấu căn import từ sheet "Hàng Đầu Tư" (dễ phân biệt với căn bán thường).
-// Không phải màu user tô, không phải trạng thái -> có thể bị ghi đè khi import lại.
-const INVEST_COLOR = '#F9A8D4';
-
-// fgColor.rgb từ file công ty -> màu trạng thái chuẩn, hoặc '' (bình thường).
-function canonicalStatusColor(rgb) {
-  if (!rgb) return '';
-  let h = rgb.toString().replace('#', '').toUpperCase();
-  if (h.length === 8) h = h.slice(2);   // bỏ alpha AARRGGBB
-  if (h.length !== 6) return '';
-  if (h === 'FFFFFF') return '';         // trắng = bình thường
-  if (h === 'FFFF00') return STATUS_PAUSED;
-  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  if (max - min <= 16 && min >= 0x60 && max <= 0xF0) return STATUS_SOLD; // dải xám trung tính
-  return '';
-}
 
 // Nền mờ hàng theo màu trạng thái (dark theme).
 function statusRowBg(mau) {
   if (mau === STATUS_SOLD)   return 'rgba(148,163,184,0.16)';
   if (mau === STATUS_PAUSED) return 'rgba(250,204,21,0.16)';
   return undefined;
-}
-
-// "2N" -> "2PN"; giữ nguyên nếu không phải dạng số + N.
-function normalizeThietKe(val) {
-  const s = (val || '').toString().trim();
-  const m = s.match(/^(\d+)\s*n$/i);
-  return m ? `${m[1]}PN` : s;
 }
 
 // Sheet Đập Thông không có cột Xe riêng — số slot xe nằm trong Ghi Chú (VD "Có đồ, 2 slot xe").
@@ -94,15 +73,6 @@ function parseSlotXe(ghiChu) {
 function hasSlotXe(ghiChu) {
   const s = (ghiChu || '').toString().toLowerCase();
   return /\d+\s*s(?:lot|ot|lt)|s(?:lot|ot|lt)\s*xe/.test(s) ? 'Có' : 'Không';
-}
-
-// "TV" -> "Thu về", "BP" -> "Bao phí"; giữ nguyên phần còn lại.
-function mapPhi(val) {
-  const s = (val || '').toString().trim();
-  const key = s.toUpperCase();
-  if (key === 'TV') return 'Thu về';
-  if (key === 'BP') return 'Bao phí';
-  return s;
 }
 
 // Viết tắt hướng ban công -> tên đầy đủ. T=Tây, B=Bắc, N=Nam, Đ=Đông;
@@ -213,17 +183,6 @@ function isRecentUpdate(val) {
   const now = new Date();
   const from = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
   return d >= from && d <= now;
-}
-
-// Giá bán bị lỗi khi ô Excel định dạng NGÀY (VD "d.m") -> lưu thành số serial ngày
-// (43831 ≈ 2020-01-01, ~47500 ≈ 2030). Giá bán thật tính bằng tỷ nên chỉ vài chữ số
-// (VD "6.7", "85"). Bất kỳ số nguyên >= 1000 nào ở ô Giá đều KHÔNG phải giá -> loại.
-// Áp cho cả chuỗi đã có/ chưa có chữ "tỷ" (dữ liệu cũ import trước khi có guard, VD "45800 tỷ").
-function isDateSerialGia(val) {
-  const s = (val || '').toString().trim();
-  if (!s) return false;
-  const num = parseFloat(s.replace(/[^\d.,-]/g, '').replace(/,/g, '.'));
-  return Number.isInteger(num) && num >= 1000;
 }
 
 // Diện tích có thể ghi cộng gộp (VD "75 + 25" = 100 = phần chính + logia). Cộng các phần lại
