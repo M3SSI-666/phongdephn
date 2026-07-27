@@ -27,8 +27,16 @@ export default async function handler(req, res) {
     const isCon = req.query?.sheet === 'con' || req.body?.sheet === 'con';
     const SHEET_NAME = isCon ? CON_SHEET : MAIN_SHEET;
 
-    if (req.method === 'GET') return handleGet(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY, SHEET_NAME);
-    if (req.method === 'POST') return handlePost(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY, SHEET_NAME);
+    if (req.method === 'GET') return handleGet(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY, SHEET_NAME, isCon);
+    if (req.method === 'POST') {
+      // Bảng chính = bảng hàng công ty dùng chung, chỉ admin được ghi.
+      // TODO: nên verify Clerk session token thay vì tin role client gửi lên.
+      const role = req.body?.role || req.query?.role || '';
+      if (!isCon && role !== 'admin') {
+        return res.status(403).json({ error: 'Chỉ admin được sửa bảng hàng công ty' });
+      }
+      return handlePost(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY, SHEET_NAME, isCon);
+    }
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     console.error(`[QuyCanThue] ${err.message}`);
@@ -36,7 +44,7 @@ export default async function handler(req, res) {
   }
 }
 
-async function handleGet(req, res, sheetId, email, key, SHEET_NAME) {
+async function handleGet(req, res, sheetId, email, key, SHEET_NAME, isCon) {
   const token = await getAccessToken(email, key, true);
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!${COLUMNS}`;
   const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
@@ -52,7 +60,7 @@ async function handleGet(req, res, sheetId, email, key, SHEET_NAME) {
 
   const data = await response.json();
   const rows = data.values || [];
-  const { userId, role, viewAs } = req.query;
+  const { userId } = req.query;
 
   let items = rows.slice(1).map((row, i) => ({
     STT:           row[0]  || '',
@@ -78,15 +86,17 @@ async function handleGet(req, res, sheetId, email, key, SHEET_NAME) {
     _rowIndex: i + 2,
   }));
 
-  if (userId) {
-    items = items.filter(it => it.Owner_Id === userId || (!viewAs && role === 'admin' && !it.Owner_Id));
+  // Bảng chính = bảng hàng công ty DÙNG CHUNG cho mọi user -> không lọc.
+  // Bảng con = kho riêng của từng user -> chỉ trả dòng của chính user đó.
+  if (isCon) {
+    items = userId ? items.filter(it => it.Owner_Id === userId) : [];
   }
 
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   return res.status(200).json(items);
 }
 
-async function handlePost(req, res, sheetId, email, key, SHEET_NAME) {
+async function handlePost(req, res, sheetId, email, key, SHEET_NAME, isCon) {
   const payload = req.body;
   if (!payload?.action) return res.status(400).json({ error: 'Missing action' });
 
@@ -94,6 +104,10 @@ async function handlePost(req, res, sheetId, email, key, SHEET_NAME) {
 
   function buildRow(p, { keepDate = false } = {}) {
     const today = new Date().toLocaleDateString('vi-VN');
+    // Bảng chính là dữ liệu công ty thuần: không mang Owner_Id / Giá Nét / tag bảng con.
+    const ownerId = isCon ? (p.Owner_Id || '') : '';
+    const giaNet  = isCon ? (p.Gia_Net  || '') : '';
+    const bangCon = isCon ? (p.Bang_Con || '') : '';
     return [
       p.STT          || '',
       keepDate ? (p.Ngay_Update || '') : today,
@@ -111,10 +125,10 @@ async function handlePost(req, res, sheetId, email, key, SHEET_NAME) {
       p.Nguon         || '',
       p.Ghi_Chu       || '',
       p.Mau_Ma_Can    || '',
-      p.Owner_Id      || '',
+      ownerId,
       p.Ten_Chu       || '',
-      p.Gia_Net       || '',
-      p.Bang_Con      || '',
+      giaNet,
+      bangCon,
     ];
   }
 

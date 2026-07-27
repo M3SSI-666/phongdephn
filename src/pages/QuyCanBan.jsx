@@ -1,7 +1,11 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
-import { fetchQuyCanBan, postQuyCanBan, fetchQuyDapThong, postQuyDapThong, parseBan, uploadToCloudinary, parseSearchQuery } from '../utils/api';
+import {
+  fetchQuyCanBan, postQuyCanBan, fetchQuyCanBanCon, postQuyCanBanCon,
+  fetchQuyDapThong, postQuyDapThong, fetchQuyDapThongCon, postQuyDapThongCon,
+  parseBan, uploadToCloudinary, parseSearchQuery,
+} from '../utils/api';
 import ImportSheetModal from '../components/ImportSheetModal';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
@@ -44,7 +48,6 @@ function normalizeNoiThat(val) {
 const STATUS_SOLD   = '#9CA3AF'; // xám  -> Đã bán
 const STATUS_PAUSED = '#FFF000'; // vàng -> Dừng bán
 const STATUS_COLORS = new Set([STATUS_SOLD, STATUS_PAUSED]);
-const LEGACY_STATUS_COLORS = new Set(['#FF3B30']); // đỏ "căn giá tốt" cũ -> bỏ
 // Hồng nhạt: đánh dấu căn import từ sheet "Hàng Đầu Tư" (dễ phân biệt với căn bán thường).
 // Không phải màu user tô, không phải trạng thái -> có thể bị ghi đè khi import lại.
 const INVEST_COLOR = '#F9A8D4';
@@ -68,18 +71,6 @@ function statusRowBg(mau) {
   if (mau === STATUS_SOLD)   return 'rgba(148,163,184,0.16)';
   if (mau === STATUS_PAUSED) return 'rgba(250,204,21,0.16)';
   return undefined;
-}
-
-// Màu user CHỦ ĐỘNG tô (ColorPicker) — khác màu trạng thái/màu cũ đã bỏ/màu đánh dấu Đầu Tư.
-function isUserPickedColor(c) {
-  return !!c && !STATUS_COLORS.has(c) && !LEGACY_STATUS_COLORS.has(c) && c !== INVEST_COLOR;
-}
-
-// Khi import đè: màu user tự tô LUÔN THẮNG; màu trạng thái công ty chỉ lớp dưới.
-function resolveMauMaCan(incoming, existing) {
-  const inc = incoming || '', ex = existing || '';
-  if (isUserPickedColor(ex)) return ex;
-  return inc || ex;
 }
 
 // "2N" -> "2PN"; giữ nguyên nếu không phải dạng số + N.
@@ -375,6 +366,9 @@ export function QuyDapThongContent({ overrideUserId, overrideRole, isViewAs } = 
       isViewAs={isViewAs}
       fetchFn={fetchQuyDapThong}
       postFn={postQuyDapThong}
+      fetchConFn={fetchQuyDapThongCon}
+      postConFn={postQuyDapThongCon}
+      tagStorageKey="bangConTags_dapthong"
       importConfig={IMPORT_CONFIG_DAPTHONG}
       importLogKey="importLog_dapthong"
     />
@@ -390,11 +384,18 @@ function formatTs(iso) {
   return `${dd}/${mm} ${hh}:${mn}`;
 }
 
-function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchFn = fetchQuyCanBan, postFn = postQuyCanBan, importConfig = IMPORT_CONFIG_BAN, importLogKey = 'importLog_ban' } = {}) {
+function QuyCanBanInner({
+  overrideUserId, overrideRole, isViewAs = false,
+  fetchFn = fetchQuyCanBan, postFn = postQuyCanBan,
+  fetchConFn = fetchQuyCanBanCon, postConFn = postQuyCanBanCon,
+  tagStorageKey = 'bangConTags_ban',
+  importConfig = IMPORT_CONFIG_BAN, importLogKey = 'importLog_ban',
+} = {}) {
   const { user } = useUser();
   const userId = overrideUserId || user?.id;
   const role   = overrideRole   || user?.publicMetadata?.role || 'staff';
   const [items, setItems]           = useState([]);
+  const [conItems, setConItems]     = useState([]);     // sheet con (kho riêng của user, độc lập)
   const [loading, setLoading]       = useState(true);
   const [saving, setSaving]         = useState(false);
   const [importLog, setImportLog]   = useState(() => { try { return JSON.parse(localStorage.getItem(importLogKey) || '[]'); } catch { return []; } });
@@ -424,10 +425,9 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
   // Ẩn căn theo trạng thái (mỗi checkbox độc lập).
   const [hideSold, setHideSold]     = useState(false); // ẩn "đã bán" (xám)
   const [hidePausedRow, setHidePausedRow] = useState(false); // ẩn "dừng bán" (vàng)
-  // Bảng hàng con (tag) — CHỈ bật ở tab Quỹ Căn Bán (không hiện ở Đập Thông).
-  const enableTags = importLogKey === 'importLog_ban';
+  // Bảng hàng con (tag) — kho riêng của từng user, bật ở cả Quỹ Căn Bán và Đập Thông.
   const [activeTag, setActiveTag]   = useState(null);
-  const [customTags, setCustomTags] = useState(() => { try { return JSON.parse(localStorage.getItem('bangConTags_ban') || '[]'); } catch { return []; } });
+  const [customTags, setCustomTags] = useState(() => { try { return JSON.parse(localStorage.getItem(tagStorageKey) || '[]'); } catch { return []; } });
   const [tagMenuFor, setTagMenuFor] = useState(null);
   const toastTimer                  = useRef(null);
 
@@ -466,12 +466,22 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
     finally { setLoading(false); }
   }, [userId, role, isViewAs, fetchFn]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  const loadConData = useCallback(async () => {
+    try {
+      const data = await fetchConFn(userId, role, isViewAs);
+      setConItems(Array.isArray(data) ? data : []);
+    } catch { /* sheet con có thể chưa tạo — bỏ qua */ }
+  }, [userId, role, isViewAs, fetchConFn]);
+
+  useEffect(() => { loadData(); loadConData(); }, [loadData, loadConData]);
 
   useEffect(() => {
-    const iv = setInterval(() => fetchFn(userId, role).then(d => setItems(Array.isArray(d)?d:[])).catch(()=>{}), 30000);
+    const iv = setInterval(() => {
+      fetchFn(userId, role).then(d => setItems(Array.isArray(d)?d:[])).catch(()=>{});
+      fetchConFn(userId, role).then(d => setConItems(Array.isArray(d)?d:[])).catch(()=>{});
+    }, 30000);
     return () => clearInterval(iv);
-  }, [fetchFn, userId, role]);
+  }, [fetchFn, fetchConFn, userId, role]);
 
   function parseGiaValue(gia) {
     if (isDateSerialGia(gia)) return null; // ô Giá là serial ngày Excel (VD "45800", "45800 tỷ") -> không phải giá
@@ -532,8 +542,20 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
     return parts.join(' · ');
   }
 
+  // Đang xem 1 tab con (bảng con) hay tab "Tất cả" (bảng chính công ty)?
+  const viewingCon = activeTag !== null;
+  // Cột "Giá Nét" (index 7) chỉ hiện ở tab con.
+  const headers   = viewingCon ? TABLE_HEADERS : TABLE_HEADERS.filter((_, i) => i !== 7);
+  const colWidths = viewingCon ? COL_WIDTHS    : COL_WIDTHS.filter((_, i) => i !== 7);
+  // Bảng hàng công ty dùng chung: chỉ admin được sửa. Bảng con là kho riêng nên ai cũng sửa được.
+  const canEditMain = role === 'admin';
+  const canEdit = viewingCon || canEditMain;
+
   const filtered = useMemo(() => {
-    let list = [...items];
+    // Tab con → dữ liệu từ sheet con, lọc theo tag. Tab Tất cả → bảng hàng chính công ty.
+    let list = viewingCon
+      ? conItems.filter(it => parseBangCon(it.Bang_Con).includes(activeTag))
+      : [...items];
     if (aiFilter) {
       if (aiFilter._exactMaCan) {
         return list.filter(it => (it.Ma_Can||'').toUpperCase().replace(/\s+/g,'') === aiFilter._exactMaCan);
@@ -550,21 +572,19 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
     // Ẩn căn theo trạng thái (2 checkbox độc lập).
     if (hideSold)      list = list.filter(it => (it.Mau_Ma_Can||'') !== STATUS_SOLD);
     if (hidePausedRow) list = list.filter(it => (it.Mau_Ma_Can||'') !== STATUS_PAUSED);
-    // Lọc theo bảng hàng con đang chọn.
-    if (enableTags && activeTag) list = list.filter(it => parseBangCon(it.Bang_Con).includes(activeTag));
     return list;
-  }, [items, aiFilter, hideSold, hidePausedRow, enableTags, activeTag]);
+  }, [items, conItems, viewingCon, activeTag, aiFilter, hideSold, hidePausedRow]);
 
   // Danh sách tag (mặc định + tự thêm + tag đang có trong dữ liệu) và số lượng căn mỗi tag.
   const { allTags, tagCounts } = useMemo(() => {
     const counts = {};
-    for (const it of items) for (const t of parseBangCon(it.Bang_Con)) counts[t] = (counts[t] || 0) + 1;
+    for (const it of conItems) for (const t of parseBangCon(it.Bang_Con)) counts[t] = (counts[t] || 0) + 1;
     const seen = new Set(), all = [];
     for (const t of [...DEFAULT_TAGS_BAN, ...customTags, ...Object.keys(counts)]) {
       if (!seen.has(t)) { seen.add(t); all.push(t); }
     }
     return { allTags: all, tagCounts: counts };
-  }, [items, customTags]);
+  }, [conItems, customTags]);
 
   function addCustomTag() {
     const name = (window.prompt('Tên bảng hàng con mới:') || '').trim();
@@ -572,25 +592,59 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
     if (allTags.includes(name)) { setActiveTag(name); return; }
     const next = [...customTags, name];
     setCustomTags(next);
-    try { localStorage.setItem('bangConTags_ban', JSON.stringify(next)); } catch { /* ignore */ }
+    try { localStorage.setItem(tagStorageKey, JSON.stringify(next)); } catch { /* ignore */ }
   }
 
-  const toggleTag = useCallback(async (item, tag) => {
-    const cur = parseBangCon(item.Bang_Con);
-    const next = cur.includes(tag) ? cur.filter(t => t !== tag) : [...cur, tag];
-    const Bang_Con = next.join(', ');
-    setItems(prev => prev.map(x => x._rowIndex === item._rowIndex ? { ...x, Bang_Con } : x));
+  // Tất cả cột dữ liệu (trừ _rowIndex) để copy 1 căn sang sheet con.
+  function conPayloadFrom(item, extra = {}) {
+    return {
+      Owner_Id: userId || '', // bảng con luôn thuộc về user hiện tại
+      Ma_Can: item.Ma_Can, Thiet_Ke: item.Thiet_Ke, Dien_Tich: item.Dien_Tich, Slot_Xe: item.Slot_Xe,
+      Huong_BC: item.Huong_BC, Huong_Cua: item.Huong_Cua, Gia: item.Gia, Phi: item.Phi,
+      Noi_That: item.Noi_That, SDT: item.SDT, Ten_Chu: item.Ten_Chu, Hinh_Anh: item.Hinh_Anh,
+      Nguon: item.Nguon, Ghi_Chu: item.Ghi_Chu, Mau_Ma_Can: item.Mau_Ma_Can || '',
+      Gia_Net: item.Gia_Net || '', Ngay_Update: item.Ngay_Update,
+      ...extra,
+    };
+  }
+
+  // Tab "Tất cả": chuyển 1 căn (từ bảng chính) vào sheet con dưới 1 tag.
+  // Đã có bản con cùng Ma_Can → gộp tag (không ghi đè field đã sửa). Chưa có → thêm dòng mới.
+  const copyToCon = useCallback(async (item, tag) => {
+    const key = (item.Ma_Can || '').trim().toUpperCase();
+    const existing = conItems.find(c => (c.Ma_Can || '').trim().toUpperCase() === key);
     try {
-      await postFn({ action: 'bulk', adds: [], updates: [{
-        _rowIndex: item._rowIndex, Owner_Id: item.Owner_Id || userId || '',
-        Ma_Can: item.Ma_Can, Thiet_Ke: item.Thiet_Ke, Dien_Tich: item.Dien_Tich, Slot_Xe: item.Slot_Xe,
-        Huong_BC: item.Huong_BC, Huong_Cua: item.Huong_Cua, Gia: item.Gia, Phi: item.Phi,
-        Noi_That: item.Noi_That, SDT: item.SDT, Ten_Chu: item.Ten_Chu, Hinh_Anh: item.Hinh_Anh,
-        Nguon: item.Nguon, Ghi_Chu: item.Ghi_Chu, Mau_Ma_Can: item.Mau_Ma_Can,
-        Gia_Net: item.Gia_Net, Ngay_Update: item.Ngay_Update, Bang_Con,
-      }] });
-    } catch (e) { showToast(e.message, 'error'); loadData(); }
-  }, [userId, postFn, showToast, loadData]);
+      if (existing) {
+        const cur = parseBangCon(existing.Bang_Con);
+        if (cur.includes(tag)) { showToast('Căn đã có trong bảng con này', 'info'); return; }
+        await postConFn({ action: 'bulk', adds: [], updates: [
+          conPayloadFrom(existing, { _rowIndex: existing._rowIndex, Bang_Con: [...cur, tag].join(', ') }),
+        ] });
+      } else {
+        // Bản sao độc lập: bỏ màu user (để user tự đính bên con), giữ nguyên Ngày Update gốc.
+        await postConFn({ action: 'bulk', updates: [],
+          adds: [conPayloadFrom(item, { Mau_Ma_Can: '', Bang_Con: tag })] });
+      }
+      await loadConData();
+      showToast(existing ? 'Đã gộp vào bảng con' : 'Đã chuyển vào bảng con', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
+  }, [conItems, userId, postConFn, loadConData, showToast]);
+
+  // Tab con: bật/tắt 1 tag trên 1 dòng con. Hết tag → xóa dòng con. Còn tag → cập nhật Bang_Con.
+  const toggleConTag = useCallback(async (conRow, tag) => {
+    const cur = parseBangCon(conRow.Bang_Con);
+    const next = cur.includes(tag) ? cur.filter(t => t !== tag) : [...cur, tag];
+    try {
+      if (next.length === 0) {
+        await postConFn({ action: 'delete', _rowIndex: conRow._rowIndex });
+      } else {
+        await postConFn({ action: 'bulk', adds: [], updates: [
+          conPayloadFrom(conRow, { _rowIndex: conRow._rowIndex, Bang_Con: next.join(', ') }),
+        ] });
+      }
+      await loadConData();
+    } catch (e) { showToast(e.message, 'error'); loadConData(); }
+  }, [userId, postConFn, loadConData, showToast]);
 
   const TOA_ORDER = [
     'T01','T02','T03','T04','T05','T06','T07','T08','T09','T10','T11',
@@ -751,7 +805,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
 
   function openEdit(item) {
     setRawText(''); setParsed(false);
-    setEditItem(item);
+    setEditItem({ ...item, _fromCon: viewingCon }); // nhớ sửa bản con hay bản chính
     setForm({
       Ma_Can:    item.Ma_Can    || '',
       Thiet_Ke:  item.Thiet_Ke  || '',
@@ -791,24 +845,29 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
       setSaving(true);
       const payload = Object.fromEntries(Object.entries(form).map(([k,v]) => [k, typeof v==='string' ? v.trim() : v]));
       payload.Owner_Id = userId || '';
+      // Sửa/thêm đúng sheet: tab con -> sheet con (độc lập), Tất cả -> sheet chính.
+      const fromCon = modalMode === 'edit' ? !!editItem._fromCon : viewingCon;
+      const pf      = fromCon ? postConFn : postFn;
+      const dataset = fromCon ? conItems  : items;
+      const reload  = fromCon ? loadConData : loadData;
       if (modalMode === 'edit') {
-        await postFn({ action: 'update', _rowIndex: editItem._rowIndex, Owner_Id: editItem.Owner_Id || userId || '', ...payload, Bang_Con: editItem?.Bang_Con || '' });
+        await pf({ action: 'update', _rowIndex: editItem._rowIndex, Owner_Id: editItem.Owner_Id || userId || '', ...payload, Bang_Con: editItem?.Bang_Con || '' });
         pushImportLog(payload.Ma_Can);
         showToast('Cập nhật thành công!');
         closeModal();
-        await loadData();
+        await reload();
       } else {
-        const existing = items.find(i => (i.Ma_Can||'').toUpperCase() === payload.Ma_Can.toUpperCase());
+        const existing = dataset.find(i => (i.Ma_Can||'').toUpperCase() === payload.Ma_Can.toUpperCase());
         if (existing) {
           setSaving(false);
-          setDupTarget({ existing, payload });
+          setDupTarget({ existing: { ...existing, _fromCon: fromCon }, payload });
           return;
         }
-        await postFn({ action: 'add', ...payload });
+        await pf({ action: 'add', ...payload, Bang_Con: fromCon && activeTag ? activeTag : '' });
         pushImportLog(payload.Ma_Can);
         showToast('Thêm căn thành công!');
         closeModal();
-        await loadData();
+        await reload();
       }
     } catch(e) { showToast(e.message, 'error'); }
     finally { setSaving(false); }
@@ -819,13 +878,16 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
     try {
       setSaving(true);
       const { existing, payload } = dupTarget;
+      const fromCon = !!existing._fromCon;
+      const pf      = fromCon ? postConFn : postFn;
+      const reload  = fromCon ? loadConData : loadData;
       const mergedHinh = payload.Hinh_Anh || existing.Hinh_Anh || '';
-      await postFn({ action: 'update', _rowIndex: existing._rowIndex, Owner_Id: existing.Owner_Id || userId || '', ...payload, Hinh_Anh: mergedHinh, Gia_Net: payload.Gia_Net || existing.Gia_Net || '', Bang_Con: existing.Bang_Con || '' });
+      await pf({ action: 'update', _rowIndex: existing._rowIndex, Owner_Id: existing.Owner_Id || userId || '', ...payload, Hinh_Anh: mergedHinh, Gia_Net: payload.Gia_Net || existing.Gia_Net || '', Bang_Con: existing.Bang_Con || '' });
       pushImportLog(payload.Ma_Can);
       showToast('Đã cập nhật căn ' + payload.Ma_Can + '!');
       setDupTarget(null);
       closeModal();
-      await loadData();
+      await reload();
     } catch(e) { showToast(e.message, 'error'); }
     finally { setSaving(false); }
   }
@@ -834,10 +896,11 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
     if (!deleteTarget) return;
     try {
       setSaving(true);
-      await postFn({ action: 'delete', _rowIndex: deleteTarget._rowIndex });
+      const fromCon = !!deleteTarget._fromCon;
+      await (fromCon ? postConFn : postFn)({ action: 'delete', _rowIndex: deleteTarget._rowIndex });
       showToast('Đã xoá!');
       setDeleteTarget(null);
-      await loadData();
+      await (fromCon ? loadConData() : loadData());
     } catch(e) { showToast(e.message, 'error'); }
     finally { setSaving(false); }
   }
@@ -861,44 +924,50 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
     }
   }
 
+  // Import = đồng bộ bảng hàng CÔNG TY (dùng chung, chỉ admin). Dữ liệu cá nhân
+  // (Giá Nét / màu tự tô / tag) nằm ở sheet con nên ở đây ghi đè thẳng, không cần giữ.
   const handleImportRows = useCallback(async (payloads, opts = {}) => {
     // mặc định giữ ghi chú/ngày cá nhân, chỉ ghi đè khi tick
     const { importGhiChu = false, importNgayUpdate = false } = opts;
+    // Sheet chính giờ DÙNG CHUNG -> đọc lại bản tươi để _rowIndex không lệch.
+    const fresh = await fetchFn(userId, role);
     const byMa = new Map();
-    items.forEach(it => { const k = (it.Ma_Can||'').trim().toUpperCase(); if (k) byMa.set(k, it); });
+    fresh.forEach(it => { const k = (it.Ma_Can||'').trim().toUpperCase(); if (k) byMa.set(k, it); });
     const adds = [], updates = [];
     for (const p of payloads) {
       const key = (p.Ma_Can||'').trim().toUpperCase();
       const existing = key ? byMa.get(key) : null;
       if (existing) {
-        // Giữ ảnh cũ (sheet công ty không có ảnh); màu user tự tô thắng, trạng thái công ty lớp dưới.
+        // Giữ ảnh cũ (sheet công ty không có ảnh); mọi thứ khác lấy theo bảng công ty.
         updates.push({
           ...p,
           Hinh_Anh: p.Hinh_Anh || existing.Hinh_Anh || '',
-          Mau_Ma_Can: resolveMauMaCan(p.Mau_Ma_Can, existing.Mau_Ma_Can),
-          Gia_Net: existing.Gia_Net || '', // giữ nguyên giá nét user nhập, import không đụng
-          Bang_Con: existing.Bang_Con || '', // giữ nguyên tag bảng con user gắn, import không đụng
-          // Ghi Chú / Ngày Update: mặc định giữ dữ liệu cá nhân; chỉ ghi đè bằng bảng công ty khi tick.
+          Mau_Ma_Can: p.Mau_Ma_Can || '',
+          Gia_Net: '', Bang_Con: '',
+          // Ghi Chú / Ngày Update: mặc định giữ dữ liệu cũ; chỉ ghi đè bằng bảng công ty khi tick.
           Ghi_Chu: importGhiChu ? (p.Ghi_Chu || '') : (existing.Ghi_Chu || ''),
           Ngay_Update: importNgayUpdate ? (p.Ngay_Update || '') : (existing.Ngay_Update || ''),
           _rowIndex: existing._rowIndex,
-          Owner_Id: existing.Owner_Id || userId || '',
         });
       } else {
-        adds.push({ ...p, Owner_Id: userId || '' });
+        adds.push({ ...p, Mau_Ma_Can: p.Mau_Ma_Can || '', Gia_Net: '', Bang_Con: '' });
       }
     }
 
-    // Đồng bộ xoá: căn "màu bình thường" (chưa đính màu user) KHÔNG còn trong bảng công ty vừa import
-    // -> xoá đi. Căn đã đính màu user tự tô -> LUÔN giữ lại.
+    // Căn có trong sheet chính nhưng vắng mặt trong bảng công ty import -> xoá.
     const importedKeys = new Set(payloads.map(p => (p.Ma_Can||'').trim().toUpperCase()).filter(Boolean));
-    const deletes = items.filter(it => {
-      const key = (it.Ma_Can||'').trim().toUpperCase();
-      if (!key || importedKeys.has(key)) return false;      // còn trong bảng công ty -> giữ
-      if (isUserPickedColor(it.Mau_Ma_Can)) return false; // user đính màu -> giữ
-      if (parseBangCon(it.Bang_Con).length) return false;  // đã gắn bảng con -> giữ (lưu trữ cá nhân)
-      return true;                                          // màu bình thường + vắng mặt + không tag -> xoá
-    }).map(it => ({ _rowIndex: it._rowIndex }));
+    const deletes = fresh
+      .filter(it => { const k = (it.Ma_Can||'').trim().toUpperCase(); return k && !importedKeys.has(k); })
+      .map(it => ({ _rowIndex: it._rowIndex }));
+
+    // Cảnh báo nếu import file sai/thiếu làm xoá quá nhiều căn của cả công ty.
+    if (fresh.length && deletes.length > fresh.length * 0.3) {
+      const ok = window.confirm(
+        `Cảnh báo: file import sẽ XOÁ ${deletes.length}/${fresh.length} căn khỏi bảng hàng công ty.\n` +
+        `Có thể bạn chọn nhầm file hoặc file thiếu dữ liệu. Vẫn tiếp tục?`
+      );
+      if (!ok) throw new Error('Đã huỷ import');
+    }
 
     const res = await postFn({ action: 'bulk', adds, updates, deletes });
     payloads.slice(0, 5).forEach(p => pushImportLog(p.Ma_Can));
@@ -906,7 +975,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
     const delMsg = (res.deleted ?? deletes.length) ? `, xoá ${res.deleted ?? deletes.length}` : '';
     showToast(`Đã thêm ${res.added||adds.length}, cập nhật ${res.updated||updates.length}${delMsg} căn!`);
     return { added: res.added ?? adds.length, updated: res.updated ?? updates.length, deleted: res.deleted ?? deletes.length };
-  }, [items, userId, loadData, postFn]);
+  }, [userId, role, fetchFn, loadData, postFn]);
 
   function isVideo(url) {
     return /\.(mp4|mov|avi|webm|mkv|m4v)(\?|$)/i.test(url) || url.includes('/video/upload/');
@@ -946,8 +1015,8 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
     <div style={{ fontFamily: F, color: '#e2e8f0' }}>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, gap:12, flexWrap:'wrap' }}>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-          <button onClick={openAdd} style={st.addBtn} className="cb-btn">+ Thêm Căn</button>
-          <button onClick={() => setShowImport(true)} style={st.importBtn} className="cb-btn" title="Import bảng hàng công ty">⬇ Import</button>
+          {canEdit && <button onClick={openAdd} style={st.addBtn} className="cb-btn">+ Thêm Căn</button>}
+          {canEditMain && <button onClick={() => setShowImport(true)} style={st.importBtn} className="cb-btn" title="Import bảng hàng công ty">⬇ Import</button>}
           <button onClick={loadData} disabled={loading} style={st.reloadBtn} className="cb-btn" title="Tải lại">
             {loading ? '...' : '↻'}
           </button>
@@ -986,23 +1055,21 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
               style={{ width:14, height:14, accentColor:'#38b274', cursor:'pointer' }} />
             <span>Ẩn dừng bán</span>
           </label>
-          <span style={{ fontSize:12, color:C.textMuted, whiteSpace:'nowrap' }}>{filtered.length} / {items.length} căn</span>
+          <span style={{ fontSize:12, color:C.textMuted, whiteSpace:'nowrap' }}>{filtered.length} / {viewingCon ? conItems.length : items.length} căn</span>
         </div>
       </div>
 
-      {/* Bảng hàng con (tag) — chỉ tab Quỹ Căn Bán */}
-      {enableTags && (
-        <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', marginBottom:12 }}>
-          <span style={{ fontSize:12, color:'#8a9bb8', fontWeight:700, whiteSpace:'nowrap' }}>Bảng con:</span>
-          <button onClick={() => setActiveTag(null)} style={activeTag === null ? st.tagChipActive : st.tagChip}>Tất cả</button>
-          {allTags.map(t => (
-            <button key={t} onClick={() => setActiveTag(activeTag === t ? null : t)} style={activeTag === t ? st.tagChipActive : st.tagChip}>
-              {t}{tagCounts[t] ? ` (${tagCounts[t]})` : ''}
-            </button>
-          ))}
-          <button onClick={addCustomTag} style={{ ...st.tagChip, borderStyle:'dashed', color:'#38b274' }}>+ Thẻ</button>
-        </div>
-      )}
+      {/* Bảng hàng con (tag) — kho riêng của từng user */}
+      <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', marginBottom:12 }}>
+        <span style={{ fontSize:12, color:'#8a9bb8', fontWeight:700, whiteSpace:'nowrap' }}>Bảng con:</span>
+        <button onClick={() => setActiveTag(null)} style={activeTag === null ? st.tagChipActive : st.tagChip}>Tất cả</button>
+        {allTags.map(t => (
+          <button key={t} onClick={() => setActiveTag(activeTag === t ? null : t)} style={activeTag === t ? st.tagChipActive : st.tagChip}>
+            {t}{tagCounts[t] ? ` (${tagCounts[t]})` : ''}
+          </button>
+        ))}
+        <button onClick={addCustomTag} style={{ ...st.tagChip, borderStyle:'dashed', color:'#38b274' }}>+ Thẻ</button>
+      </div>
 
       {/* AI Search */}
       <div style={{ marginBottom: aiFilter ? 8 : 16 }}>
@@ -1050,23 +1117,27 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
           <table style={st.table}>
             <thead>
               <tr>
-                {TABLE_HEADERS.map((h,i) => <th key={h||`h${i}`} style={{...st.th, width:COL_WIDTHS[i], minWidth:COL_WIDTHS[i], maxWidth:COL_WIDTHS[i]}}>{h}</th>)}
+                {headers.map((h,i) => <th key={h||`h${i}`} style={{...st.th, width:colWidths[i], minWidth:colWidths[i], maxWidth:colWidths[i]}}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={TABLE_HEADERS.length} style={st.emptyTd}>
-                  {items.length === 0 ? 'Chưa có căn nào. Bấm "+ Thêm Căn" để bắt đầu.' : 'Không tìm thấy'}
+                <tr><td colSpan={headers.length} style={st.emptyTd}>
+                  {viewingCon
+                    ? 'Bảng con này chưa có căn nào. Vào tab "Tất cả" rồi bấm 🏷 để chuyển căn vào đây.'
+                    : (items.length === 0 ? 'Chưa có căn nào. Bấm "+ Thêm Căn" để bắt đầu.' : 'Không tìm thấy')}
                 </td></tr>
               ) : grouped.map(([toa, toaItems]) => (
                 <>
                   <tr key={`header-${toa}`}>
-                    <td colSpan={TABLE_HEADERS.length} style={st.toaHeader}>
+                    <td colSpan={headers.length} style={st.toaHeader}>
                       <span style={st.toaLabel}>{toa}</span>
                     </td>
                   </tr>
                   {toaItems.map(item => {
-                    const mau = item.Mau_Ma_Can || '';
+                    // Tab Tất cả phản chiếu bảng công ty: chỉ giữ màu trạng thái + màu đánh dấu Hàng Đầu Tư.
+                    const rawMau = item.Mau_Ma_Can || '';
+                    const mau = viewingCon ? rawMau : ((STATUS_COLORS.has(rawMau) || rawMau === INVEST_COLOR) ? rawMau : '');
                     const isStatus = STATUS_COLORS.has(mau);
                     // Dừng bán (vàng): chỉ tô ô Mã Căn (giống bảng công ty).
                     const cellOnlyBg = mau === STATUS_PAUSED ? '#EAB308' : undefined;
@@ -1097,7 +1168,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
                       </td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'normal', background: rowBg}}>{huongText(item.Huong_BC)}</td>
                       <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap', background: rowBg}}>{(perM2Price(item) != null || isDateSerialGia(item.Gia)) ? '' : item.Gia}</td>
-                      <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', color:'#34D399', background: rowBg}}>{item.Gia_Net}</td>
+                      {viewingCon && <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', color:'#34D399', background: rowBg}}>{item.Gia_Net}</td>}
                       <td style={{...st.td, textAlign:'center', fontSize:12, color:'#38b274', fontWeight:700, background: rowBg}}>
                         {trPerM2(item) ?? ''}
                       </td>
@@ -1124,11 +1195,9 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
                       <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8', background: rowBg}}>{item.Ghi_Chu}</td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none', background: rowBg}}>
                         <button onClick={() => copyCustomerInfo(item)} style={{...st.actionBtn, color:C.primary}} title="Copy thông tin gửi khách">&#128203;</button>
-                        {enableTags && (
-                          <button onClick={() => setTagMenuFor(item)} style={{...st.actionBtn, color: parseBangCon(item.Bang_Con).length ? '#38b274' : undefined}} title="Thêm vào bảng con">&#127991;</button>
-                        )}
-                        <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>
-                        <button onClick={() => setDeleteTarget(item)} style={{...st.actionBtn, color:C.error}} title="Xoá">&#128465;</button>
+                        <button onClick={() => setTagMenuFor({ ...item, _fromCon: viewingCon })} style={{...st.actionBtn, color: (viewingCon ? parseBangCon(item.Bang_Con).length : conItems.some(c => (c.Ma_Can||'').trim().toUpperCase() === (item.Ma_Can||'').trim().toUpperCase())) ? '#38b274' : undefined}} title={viewingCon ? 'Sửa bảng con' : 'Chuyển vào bảng con'}>&#127991;</button>
+                        {canEdit && <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>}
+                        {canEdit && <button onClick={() => setDeleteTarget({ ...item, _fromCon: viewingCon })} style={{...st.actionBtn, color:C.error}} title="Xoá">&#128465;</button>}
                       </td>
                     </tr>
                     );
@@ -1198,9 +1267,12 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
                   <FormField label="Mã Căn *" value={form.Ma_Can} onChange={v => set('Ma_Can', v.toUpperCase())} placeholder="VD: P0112A11, R6-1208" />
                 </div>
 
-                <div style={{ gridColumn:'1/-1' }}>
-                  <ColorPicker value={form.Mau_Ma_Can} onChange={v => set('Mau_Ma_Can', v)} />
-                </div>
+                {/* Màu — chỉ đính được ở bảng con (tab Tất cả phản chiếu công ty) */}
+                {viewingCon && (
+                  <div style={{ gridColumn:'1/-1' }}>
+                    <ColorPicker value={form.Mau_Ma_Can} onChange={v => set('Mau_Ma_Can', v)} />
+                  </div>
+                )}
 
                 <FormField label="Thiết Kế" value={form.Thiet_Ke} onChange={v => set('Thiet_Ke', v)} placeholder="VD: 3PN, 2PN, Studio" />
                 <FormField label="Diện Tích" value={form.Dien_Tich} onChange={v => set('Dien_Tich', v)} placeholder="VD: 106m²" />
@@ -1248,7 +1320,9 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
 
                 <div style={{ gridColumn:'1/-1' }}>
                   <FormField label="Giá" value={form.Gia} onChange={v => set('Gia', v)} placeholder="VD: 5.5 tỷ" />
-                  <FormField label="Giá Nét" value={form.Gia_Net} onChange={v => set('Gia_Net', v)} placeholder="VD: 5.3 tỷ (giá đã làm với chủ)" />
+                  {viewingCon && (
+                    <FormField label="Giá Nét" value={form.Gia_Net} onChange={v => set('Gia_Net', v)} placeholder="VD: 5.3 tỷ (giá đã làm với chủ)" />
+                  )}
                 </div>
 
                 {/* Nội Thất */}
@@ -1402,20 +1476,26 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
         />
       )}
 
-      {enableTags && tagMenuFor && (() => {
-        const cur = items.find(x => x._rowIndex === tagMenuFor._rowIndex) || tagMenuFor;
-        const set = new Set(parseBangCon(cur.Bang_Con));
+      {tagMenuFor && (() => {
+        const key = (tagMenuFor.Ma_Can||'').trim().toUpperCase();
+        // Dòng con tương ứng (theo Mã Căn) — nguồn dữ liệu tag cho cả 2 view.
+        const conRow = conItems.find(c => (c.Ma_Can||'').trim().toUpperCase() === key);
+        const set = new Set(parseBangCon(conRow?.Bang_Con));
         return (
           <div style={st.overlay} onClick={() => setTagMenuFor(null)}>
             <div style={st.tagPopover} onClick={e => e.stopPropagation()}>
               <div style={{ fontWeight:800, fontSize:15, marginBottom:4 }}>Bảng hàng con</div>
-              <div style={{ fontSize:12, color:'#8a9bb8', marginBottom:12 }}>Căn {cur.Ma_Can || '—'}</div>
+              <div style={{ fontSize:12, color:'#8a9bb8', marginBottom:12 }}>Căn {tagMenuFor.Ma_Can || '—'}</div>
               <div style={{ display:'flex', flexDirection:'column', gap:2, maxHeight:'50vh', overflowY:'auto' }}>
                 {allTags.map(t => (
                   <label key={t} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 6px', borderRadius:8, cursor:'pointer', fontSize:14 }}
                     onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.05)'}
                     onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                    <input type="checkbox" checked={set.has(t)} onChange={() => toggleTag(cur, t)}
+                    <input type="checkbox" checked={set.has(t)} onChange={() => {
+                      // Có dòng con rồi -> bật/tắt tag trên đó; chưa có -> copy từ bảng chính vào.
+                      if (conRow) toggleConTag(conRow, t);
+                      else copyToCon(tagMenuFor, t);
+                    }}
                       style={{ width:16, height:16, accentColor:'#38b274', cursor:'pointer' }} />
                     <span>{t}</span>
                   </label>
@@ -1431,7 +1511,7 @@ function QuyCanBanInner({ overrideUserId, overrideRole, isViewAs = false, fetchF
       })()}
 
       <ImportSheetModal
-        open={showImport}
+        open={showImport && canEditMain}
         onClose={() => setShowImport(false)}
         config={importConfig}
         existingItems={items}

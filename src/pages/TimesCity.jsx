@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
+import { setClientRole } from '../utils/api';
 import { KhachTimesContent } from './KhachTimes';
 import { QuyCanThueContent } from './QuyCanThue';
 import { QuyCanBanContent, QuyDapThongContent } from './QuyCanBan';
@@ -47,6 +48,9 @@ function TimesCityApp() {
   const effectiveUserId = viewAsId || user?.id;
 
   const visibleTabs = TABS.filter((t) => !t.adminOnly || isAdmin);
+
+  // Gắn role vào mọi POST quỹ căn (server chặn ghi bảng hàng công ty nếu không phải admin).
+  useEffect(() => { setClientRole(role); }, [role]);
 
   useEffect(() => {
     const style = document.createElement('style');

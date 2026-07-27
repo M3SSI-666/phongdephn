@@ -1,6 +1,11 @@
 const CLOUDINARY_CLOUD = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const CLOUDINARY_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
+// Role hiện tại của user, gắn vào mọi POST quỹ căn để server chặn ghi bảng
+// hàng công ty (chỉ admin). TimesCity.jsx set giá trị này khi role đổi.
+let _clientRole = '';
+export function setClientRole(r) { _clientRole = r || ''; }
+
 export async function parseTextWithClaude(rawText) {
   // Try once, if 429 wait 5s and retry once more
   for (let attempt = 1; attempt <= 2; attempt++) {
@@ -175,7 +180,7 @@ export async function postQuyCanThue(payload) {
   const res = await fetch('/api/quycanthue', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, role: _clientRole }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -201,7 +206,7 @@ export async function postQuyCanThueCon(payload) {
   const res = await fetch('/api/quycanthue?sheet=con', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...payload, sheet: 'con' }),
+    body: JSON.stringify({ ...payload, sheet: 'con', role: _clientRole }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -225,7 +230,31 @@ export async function postQuyCanBan(payload) {
   const res = await fetch('/api/quycanban', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, role: _clientRole }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Action failed (${res.status})`);
+  }
+  return res.json();
+}
+
+// ============ Quỹ Căn Bán Con (bảng con lưu trữ) ============
+export async function fetchQuyCanBanCon(userId, role, isViewAs = false) {
+  const params = new URLSearchParams({ t: Date.now(), sheet: 'con' });
+  if (userId) params.set('userId', userId);
+  if (role)   params.set('role', role);
+  if (isViewAs) params.set('viewAs', '1');
+  const res = await fetch(`/api/quycanban?${params}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Fetch quy can ban con failed');
+  return res.json();
+}
+
+export async function postQuyCanBanCon(payload) {
+  const res = await fetch('/api/quycanban?sheet=con', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...payload, sheet: 'con', role: _clientRole }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -249,7 +278,31 @@ export async function postQuyDapThong(payload) {
   const res = await fetch('/api/quydapthong', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, role: _clientRole }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Action failed (${res.status})`);
+  }
+  return res.json();
+}
+
+// ============ Quỹ Đập Thông Con (bảng con lưu trữ) ============
+export async function fetchQuyDapThongCon(userId, role, isViewAs = false) {
+  const params = new URLSearchParams({ t: Date.now(), sheet: 'con' });
+  if (userId) params.set('userId', userId);
+  if (role)   params.set('role', role);
+  if (isViewAs) params.set('viewAs', '1');
+  const res = await fetch(`/api/quydapthong?${params}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Fetch quy dap thong con failed');
+  return res.json();
+}
+
+export async function postQuyDapThongCon(payload) {
+  const res = await fetch('/api/quydapthong?sheet=con', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...payload, sheet: 'con', role: _clientRole }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

@@ -1,8 +1,13 @@
 import crypto from 'crypto';
 
-const SHEET_NAME = 'Quy_Dap_Thong';
-// 17 columns: Ngay_Update, Ma_Can, Thiet_Ke, Dien_Tich, Slot_Xe, Huong_BC, Huong_Cua, Gia, Phi, Noi_That, SDT, Ten_Chu, Hinh_Anh, Nguon, Ghi_Chu, Mau_Ma_Can, Owner_Id
-const COLUMNS = 'A:Q';
+// 2 sheet cùng cấu trúc, chọn qua tham số `sheet`:
+//   (mặc định) 'Quy_Dap_Thong'      — bảng chính, bảng hàng công ty DÙNG CHUNG
+//   sheet=con  'Quy_Dap_Thong_Con'  — bảng con, kho lưu trữ riêng của từng user
+// Gộp chung 1 serverless function để không vượt giới hạn function của Vercel.
+const MAIN_SHEET = 'Quy_Dap_Thong';
+const CON_SHEET  = 'Quy_Dap_Thong_Con';
+// 19 columns: Ngay_Update, Ma_Can, Thiet_Ke, Dien_Tich, Slot_Xe, Huong_BC, Huong_Cua, Gia, Phi, Noi_That, SDT, Ten_Chu, Hinh_Anh, Nguon, Ghi_Chu, Mau_Ma_Can, Owner_Id, Gia_Net, Bang_Con
+const COLUMNS = 'A:S';
 
 export default async function handler(req, res) {
   try {
@@ -19,8 +24,19 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Google Sheets not configured' });
     }
 
-    if (req.method === 'GET') return handleGet(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
-    if (req.method === 'POST') return handlePost(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
+    const isCon = req.query?.sheet === 'con' || req.body?.sheet === 'con';
+    const SHEET_NAME = isCon ? CON_SHEET : MAIN_SHEET;
+
+    if (req.method === 'GET') return handleGet(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY, SHEET_NAME, isCon);
+    if (req.method === 'POST') {
+      // Bảng chính = bảng hàng công ty dùng chung, chỉ admin được ghi.
+      // TODO: nên verify Clerk session token thay vì tin role client gửi lên.
+      const role = req.body?.role || req.query?.role || '';
+      if (!isCon && role !== 'admin') {
+        return res.status(403).json({ error: 'Chỉ admin được sửa bảng hàng công ty' });
+      }
+      return handlePost(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY, SHEET_NAME, isCon);
+    }
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     console.error(`[QuyDapThong] ${err.message}`);
@@ -28,7 +44,7 @@ export default async function handler(req, res) {
   }
 }
 
-async function handleGet(req, res, sheetId, email, key) {
+async function handleGet(req, res, sheetId, email, key, SHEET_NAME, isCon) {
   const token = await getAccessToken(email, key, true);
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!${COLUMNS}`;
   const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
@@ -36,7 +52,7 @@ async function handleGet(req, res, sheetId, email, key) {
   if (!response.ok) {
     const errText = await response.text();
     if (errText.includes('Unable to parse range')) {
-      await createSheetWithHeaders(sheetId, token);
+      await createSheetWithHeaders(sheetId, token, SHEET_NAME);
       return res.status(200).json([]);
     }
     return res.status(500).json({ error: 'sheets_read', detail: errText });
@@ -44,7 +60,7 @@ async function handleGet(req, res, sheetId, email, key) {
 
   const data = await response.json();
   const rows = data.values || [];
-  const { userId, role, viewAs } = req.query;
+  const { userId } = req.query;
 
   let items = rows.slice(1).map((row, i) => ({
     Ngay_Update: row[0]  || '',
@@ -64,18 +80,22 @@ async function handleGet(req, res, sheetId, email, key) {
     Ghi_Chu:     row[14] || '',
     Mau_Ma_Can:  row[15] || '',
     Owner_Id:    row[16] || '',
+    Gia_Net:     row[17] || '',
+    Bang_Con:    row[18] || '',
     _rowIndex: i + 2,
   }));
 
-  if (userId) {
-    items = items.filter(it => it.Owner_Id === userId || (!viewAs && role === 'admin' && !it.Owner_Id));
+  // Bảng chính = bảng hàng công ty DÙNG CHUNG cho mọi user -> không lọc.
+  // Bảng con = kho riêng của từng user -> chỉ trả dòng của chính user đó.
+  if (isCon) {
+    items = userId ? items.filter(it => it.Owner_Id === userId) : [];
   }
 
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   return res.status(200).json(items);
 }
 
-async function handlePost(req, res, sheetId, email, key) {
+async function handlePost(req, res, sheetId, email, key, SHEET_NAME, isCon) {
   const payload = req.body;
   if (!payload?.action) return res.status(400).json({ error: 'Missing action' });
 
@@ -83,6 +103,10 @@ async function handlePost(req, res, sheetId, email, key) {
 
   function buildRow(p, { keepDate = false } = {}) {
     const today = new Date().toLocaleDateString('vi-VN');
+    // Bảng chính là dữ liệu công ty thuần: không mang Owner_Id / Giá Nét / tag bảng con.
+    const ownerId = isCon ? (p.Owner_Id || '') : '';
+    const giaNet  = isCon ? (p.Gia_Net  || '') : '';
+    const bangCon = isCon ? (p.Bang_Con || '') : '';
     return [
       keepDate ? (p.Ngay_Update || today) : today,
       p.Ma_Can     || '',
@@ -100,7 +124,9 @@ async function handlePost(req, res, sheetId, email, key) {
       p.Nguon      || '',
       p.Ghi_Chu    || '',
       p.Mau_Ma_Can || '',
-      p.Owner_Id   || '',
+      ownerId,
+      giaNet,
+      bangCon,
     ];
   }
 
@@ -117,7 +143,7 @@ async function handlePost(req, res, sheetId, email, key) {
 
   if (payload.action === 'update') {
     if (!payload._rowIndex) return res.status(400).json({ error: 'Missing _rowIndex' });
-    const range = `${SHEET_NAME}!A${payload._rowIndex}:Q${payload._rowIndex}`;
+    const range = `${SHEET_NAME}!A${payload._rowIndex}:S${payload._rowIndex}`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?valueInputOption=USER_ENTERED`;
     const response = await fetch(url, {
       method: 'PUT',
@@ -149,7 +175,7 @@ async function handlePost(req, res, sheetId, email, key) {
       const data = updates
         .filter(p => p._rowIndex)
         .map(p => ({
-          range: `${SHEET_NAME}!A${p._rowIndex}:Q${p._rowIndex}`,
+          range: `${SHEET_NAME}!A${p._rowIndex}:S${p._rowIndex}`,
           values: [buildRow(p, { keepDate: true })],
         }));
       if (data.length) {
@@ -225,18 +251,18 @@ async function handlePost(req, res, sheetId, email, key) {
   return res.status(400).json({ error: `Unknown action: ${payload.action}` });
 }
 
-async function createSheetWithHeaders(sheetId, token) {
+async function createSheetWithHeaders(sheetId, token, SHEET_NAME) {
   const HEADERS = [
     'Ngay_Update', 'Ma_Can', 'Thiet_Ke', 'Dien_Tich', 'Slot_Xe',
     'Huong_BC', 'Huong_Cua', 'Gia', 'Phi', 'Noi_That',
-    'SDT', 'Ten_Chu', 'Hinh_Anh', 'Nguon', 'Ghi_Chu', 'Mau_Ma_Can', 'Owner_Id',
+    'SDT', 'Ten_Chu', 'Hinh_Anh', 'Nguon', 'Ghi_Chu', 'Mau_Ma_Can', 'Owner_Id', 'Gia_Net', 'Bang_Con',
   ];
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ requests: [{ addSheet: { properties: { title: SHEET_NAME } } }] }),
   });
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!A1:Q1?valueInputOption=USER_ENTERED`, {
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!A1:S1?valueInputOption=USER_ENTERED`, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ values: [HEADERS] }),

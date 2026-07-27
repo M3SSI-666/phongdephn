@@ -450,6 +450,9 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
   // Cột "Giá Nét" (index 7) chỉ hiện ở tab con.
   const headers = viewingCon ? TABLE_HEADERS : TABLE_HEADERS.filter((_, i) => i !== 7);
   const colWidths = viewingCon ? COL_WIDTHS : COL_WIDTHS.filter((_, i) => i !== 7);
+  // Bảng hàng công ty dùng chung: chỉ admin được sửa. Bảng con là kho riêng nên ai cũng sửa được.
+  const canEditMain = role === 'admin';
+  const canEdit = viewingCon || canEditMain;
 
   const filtered = useMemo(() => {
     // Tab con → lấy dữ liệu từ sheet con, lọc theo tag đang chọn.
@@ -500,7 +503,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
   // Tất cả cột dữ liệu (trừ _rowIndex) để copy 1 căn sang sheet con.
   function conPayloadFrom(item, extra = {}) {
     return {
-      STT: item.STT, Owner_Id: item.Owner_Id || userId || '',
+      STT: item.STT, Owner_Id: userId || '', // bảng con luôn thuộc về user hiện tại
       Ma_Can: item.Ma_Can, Thiet_Ke: item.Thiet_Ke, Dien_Tich: item.Dien_Tich, Slot_Xe: item.Slot_Xe,
       Huong_BC: item.Huong_BC, Gia: item.Gia, Phi_MG: item.Phi_MG, Noi_That: item.Noi_That,
       Thoi_Gian_Vao: item.Thoi_Gian_Vao, Lien_He: item.Lien_He, Hinh_Anh: item.Hinh_Anh,
@@ -866,9 +869,11 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     // Tab "Tất cả" = phản chiếu bảng hàng công ty: ghi đè FULL (kể cả Ghi Chú, Ngày Update),
     // KHÔNG giữ Giá Nét / màu user / tag; và XÓA căn không còn trong bảng công ty.
     // Bảng con (sheet riêng) KHÔNG bị đụng tới.
+    // Sheet chính giờ DÙNG CHUNG -> đọc lại bản tươi để _rowIndex không lệch.
+    const fresh = await fetchQuyCanThue(userId, role);
     const byMa = new Map();
-    items.forEach(it => { const k = (it.Ma_Can||'').trim().toUpperCase(); if (k) byMa.set(k, it); });
-    let maxSTT = items.reduce((m,i) => Math.max(m, Number(i.STT)||0), 0);
+    fresh.forEach(it => { const k = (it.Ma_Can||'').trim().toUpperCase(); if (k) byMa.set(k, it); });
+    let maxSTT = fresh.reduce((m,i) => Math.max(m, Number(i.STT)||0), 0);
     const adds = [], updates = [];
     const importedKeys = new Set();
     for (const p of payloads) {
@@ -886,24 +891,31 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
           Mau_Ma_Can: p.Mau_Ma_Can || '', // chỉ giữ màu trạng thái công ty, bỏ màu user
           _rowIndex: existing._rowIndex,
           STT: existing.STT,
-          Owner_Id: existing.Owner_Id || userId || '',
         });
       } else {
         maxSTT += 1;
-        adds.push({ ...p, Gia_Net: '', Bang_Con: '', Mau_Ma_Can: p.Mau_Ma_Can || '', STT: maxSTT, Owner_Id: userId || '' });
+        adds.push({ ...p, Gia_Net: '', Bang_Con: '', Mau_Ma_Can: p.Mau_Ma_Can || '', STT: maxSTT });
       }
     }
     // Căn có trong sheet chính nhưng vắng mặt trong bảng công ty import -> xóa.
-    const deletes = items
+    const deletes = fresh
       .filter(it => { const k = (it.Ma_Can||'').trim().toUpperCase(); return k && !importedKeys.has(k); })
       .map(it => it._rowIndex);
+    // Cảnh báo nếu import file sai/thiếu làm xoá quá nhiều căn của cả công ty.
+    if (fresh.length && deletes.length > fresh.length * 0.3) {
+      const ok = window.confirm(
+        `Cảnh báo: file import sẽ XOÁ ${deletes.length}/${fresh.length} căn khỏi bảng hàng công ty.\n` +
+        `Có thể bạn chọn nhầm file hoặc file thiếu dữ liệu. Vẫn tiếp tục?`
+      );
+      if (!ok) throw new Error('Đã huỷ import');
+    }
     const res = await postQuyCanThue({ action: 'bulk', adds, updates, deletes });
     payloads.slice(0, 5).forEach(p => pushImportLog(p.Ma_Can));
     await loadData();
     const delN = res.deleted ?? deletes.length;
     showToast(`Đã thêm ${res.added||adds.length}, cập nhật ${res.updated||updates.length}${delN?`, xóa ${delN}`:''} căn!`);
     return { added: res.added ?? adds.length, updated: res.updated ?? updates.length, deleted: delN };
-  }, [items, userId, loadData, showToast]);
+  }, [userId, role, loadData, showToast]);
 
   // ── Media helpers ──
   function isVideo(url) {
@@ -946,8 +958,8 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       {/* Header row */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, gap:12, flexWrap:'wrap' }}>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-          <button onClick={openAdd} style={st.addBtn} className="ct-btn">+ Thêm Căn</button>
-          <button onClick={() => setShowImport(true)} style={st.importBtn} className="ct-btn" title="Import bảng hàng công ty">⬇ Import</button>
+          {canEdit && <button onClick={openAdd} style={st.addBtn} className="ct-btn">+ Thêm Căn</button>}
+          {canEditMain && <button onClick={() => setShowImport(true)} style={st.importBtn} className="ct-btn" title="Import bảng hàng công ty">⬇ Import</button>}
           <button onClick={loadData} disabled={loading} style={st.reloadBtn} className="ct-btn" title="Tải lại">
             {loading ? '...' : '↻'}
           </button>
@@ -1119,8 +1131,8 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                         <button onClick={() => copySalesInfo(item)} style={{...st.actionBtn, color:'#F59E0B'}} title="Copy thông tin gửi Sales">&#128188;</button>
                         <button onClick={() => copyCustomerInfo(item)} style={{...st.actionBtn, color:C.primary}} title="Copy thông tin gửi khách">&#128203;</button>
                         <button onClick={() => setTagMenuFor({ ...item, _fromCon: viewingCon })} style={{...st.actionBtn, color: (viewingCon ? parseBangCon(item.Bang_Con).length : conItems.some(c => (c.Ma_Can||'').trim().toUpperCase() === (item.Ma_Can||'').trim().toUpperCase())) ? '#38b274' : undefined}} title={viewingCon ? 'Sửa bảng con' : 'Chuyển vào bảng con'}>&#127991;</button>
-                        <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>
-                        <button onClick={() => setDeleteTarget({ ...item, _fromCon: viewingCon })} style={{...st.actionBtn, color:C.error}} title="Xoá">&#128465;</button>
+                        {canEdit && <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>}
+                        {canEdit && <button onClick={() => setDeleteTarget({ ...item, _fromCon: viewingCon })} style={{...st.actionBtn, color:C.error}} title="Xoá">&#128465;</button>}
                       </td>
                     </tr>
                     );
@@ -1393,7 +1405,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
 
       {/* Import bảng hàng công ty */}
       <ImportSheetModal
-        open={showImport}
+        open={showImport && canEditMain}
         onClose={() => setShowImport(false)}
         config={IMPORT_CONFIG_THUE}
         existingItems={items}
