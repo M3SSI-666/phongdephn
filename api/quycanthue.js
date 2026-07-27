@@ -196,8 +196,7 @@ async function handlePost(req, res, sheetId, email, key, SHEET_NAME, isCon) {
 
     // Xoá các dòng theo _rowIndex. Xoá TỪ DƯỚI LÊN (giảm dần) để index không bị dịch giữa chừng.
     if (deletes.length) {
-      const rowIdx = deletes
-        .map(d => (typeof d === 'number' ? d : d._rowIndex))
+      const rowIdx = [...new Set(deletes.map(d => (typeof d === 'number' ? d : d._rowIndex)))]
         .filter(n => Number.isInteger(n) && n >= 2)
         .sort((a, b) => b - a); // giảm dần
       if (rowIdx.length) {
@@ -208,10 +207,18 @@ async function handlePost(req, res, sheetId, email, key, SHEET_NAME, isCon) {
         const metaData = await metaRes.json();
         const targetSheet = metaData.sheets.find(s => s.properties.title === SHEET_NAME);
         if (targetSheet) {
-          const requests = rowIdx.map(i => ({
-            deleteDimension: {
-              range: { sheetId: targetSheet.properties.sheetId, dimension: 'ROWS', startIndex: i - 1, endIndex: i },
-            },
+          // Gộp các dòng liền nhau thành 1 khoảng để không bắn hàng trăm request
+          // (600 dòng lẻ = 600 request -> vượt 10s của Vercel, xoá dở dang).
+          // rowIdx giảm dần: [10,9,8,5,4,1] -> [7,10) [3,5) [0,1)
+          const gid = targetSheet.properties.sheetId;
+          const ranges = [];
+          for (const i of rowIdx) {
+            const last = ranges[ranges.length - 1];
+            if (last && i === last.startIndex) last.startIndex = i - 1;
+            else ranges.push({ startIndex: i - 1, endIndex: i });
+          }
+          const requests = ranges.map(r => ({
+            deleteDimension: { range: { sheetId: gid, dimension: 'ROWS', ...r } },
           }));
           const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, {
             method: 'POST',
