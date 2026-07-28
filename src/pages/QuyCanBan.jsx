@@ -31,8 +31,12 @@ const EMPTY_FORM = {
   Noi_That: 'Đồ cơ bản', SDT: '', Ten_Chu: '', Hinh_Anh: '', Nguon: '', Ghi_Chu: '', Mau_Ma_Can: '',
 };
 
-// Bảng hàng con (tag) cho Quỹ Căn Bán — 8 tag mặc định (không có "Đập thông").
+// Bảng hàng con (tag) cho Quỹ Căn Bán.
 const DEFAULT_TAGS_BAN = [
+  '1 ngủ', '2 ngủ', '2 ngủ slot', '3 ngủ', '3 ngủ slot', '4 ngủ',
+];
+// Quỹ Đập Thông dùng chung giao diện nhưng giữ bộ tag riêng.
+const DEFAULT_TAGS_DAPTHONG = [
   '1N ko đồ', '1N full đồ', '2N ko đồ', '2N full đồ',
   '3N ko đồ', '3N có đồ', '4N ko đồ', '4N có đồ',
 ];
@@ -205,6 +209,7 @@ export function QuyDapThongContent({ overrideUserId, overrideRole, isViewAs } = 
       fetchConFn={fetchQuyDapThongCon}
       postConFn={postQuyDapThongCon}
       tagStorageKey="bangConTags_dapthong"
+      defaultTags={DEFAULT_TAGS_DAPTHONG}
       moduleKey="dapthong"
       importLogKey="importLog_dapthong"
     />
@@ -224,7 +229,7 @@ function QuyCanBanInner({
   overrideUserId, overrideRole, isViewAs = false,
   fetchFn = fetchQuyCanBan, postFn = postQuyCanBan,
   fetchConFn = fetchQuyCanBanCon, postConFn = postQuyCanBanCon,
-  tagStorageKey = 'bangConTags_ban',
+  tagStorageKey = 'bangConTags_ban', defaultTags = DEFAULT_TAGS_BAN,
   moduleKey = 'ban', importLogKey = 'importLog_ban',
 } = {}) {
   const { user } = useUser();
@@ -411,16 +416,17 @@ function QuyCanBanInner({
     return list;
   }, [items, conItems, viewingCon, activeTag, aiFilter, hideSold, hidePausedRow]);
 
-  // Danh sách tag (mặc định + tự thêm + tag đang có trong dữ liệu) và số lượng căn mỗi tag.
+  // Danh sách tag (mặc định + tự thêm) và số lượng căn mỗi tag.
+  // Cố tình KHÔNG lấy tag lạ có sẵn trong dữ liệu — thanh chip chỉ hiện đúng bộ tag đang dùng.
   const { allTags, tagCounts } = useMemo(() => {
     const counts = {};
     for (const it of conItems) for (const t of parseBangCon(it.Bang_Con)) counts[t] = (counts[t] || 0) + 1;
     const seen = new Set(), all = [];
-    for (const t of [...DEFAULT_TAGS_BAN, ...customTags, ...Object.keys(counts)]) {
+    for (const t of [...defaultTags, ...customTags]) {
       if (!seen.has(t)) { seen.add(t); all.push(t); }
     }
     return { allTags: all, tagCounts: counts };
-  }, [conItems, customTags]);
+  }, [conItems, customTags, defaultTags]);
 
   function addCustomTag() {
     const name = (window.prompt('Tên bảng hàng con mới:') || '').trim();
