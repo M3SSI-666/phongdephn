@@ -210,7 +210,10 @@ export async function postQuyCanThueCon(payload) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `Action failed (${res.status})`);
+    const e = new Error(err.error || `Action failed (${res.status})`);
+    // 409: _rowIndex đang trỏ sang dòng khác (ai đó xoá dòng phía trên). Trang phải tải lại.
+    if (err.stale) e.stale = true;
+    throw e;
   }
   return res.json();
 }
@@ -258,7 +261,9 @@ export async function postQuyCanBanCon(payload) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `Action failed (${res.status})`);
+    const e = new Error(err.error || `Action failed (${res.status})`);
+    if (err.stale) e.stale = true;
+    throw e;
   }
   return res.json();
 }
@@ -306,7 +311,9 @@ export async function postQuyDapThongCon(payload) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `Action failed (${res.status})`);
+    const e = new Error(err.error || `Action failed (${res.status})`);
+    if (err.stale) e.stale = true;
+    throw e;
   }
   return res.json();
 }

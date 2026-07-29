@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
 import { fetchQuyCanThue, postQuyCanThue, fetchQuyCanThueCon, postQuyCanThueCon, parseThue, uploadToCloudinary, parseSearchQuery } from '../utils/api';
-import { normalizeThietKe, conKey, STATUS_GRAY, STATUS_PAUSED } from '../utils/quyCanShared';
+import { normalizeThietKe, conKey, expectOf, STATUS_GRAY, STATUS_PAUSED } from '../utils/quyCanShared';
 import { parseBangCon, validateTagName } from '../utils/conTagState';
 import { useConTags } from '../utils/useConTags';
 import ImportSheetModal from '../components/ImportSheetModal';
@@ -669,6 +669,14 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
   }
 
   // ── Save ──
+  // Server trả 409 khi dòng ở _rowIndex không còn là dòng mình định sửa (ai đó xoá
+  // dòng phía trên trong sheet con dùng chung). Tải lại rồi bắt user thao tác lại.
+  function onWriteError(e) {
+    if (!e?.stale) return showToast(e.message, 'error');
+    showToast('Dòng đã đổi vị trí, đã tải lại — thao tác lại giúp', 'error');
+    loadConData();
+  }
+
   async function handleSave() {
     if (!form.Ma_Can.trim()) return showToast('Vui lòng nhập Mã căn', 'error');
     try {
@@ -683,7 +691,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       // Ngày Update: bảng chính giữ nguyên ngày của bảng hàng công ty; bảng con
       // do server tự đóng dấu hôm nay (buildRow keepDate=false khi isCon).
       if (modalMode === 'edit') {
-        await pf({ action: 'update', _rowIndex: editItem._rowIndex, STT: editItem.STT, Owner_Id: editItem.Owner_Id || userId || '', ...payload, Ngay_Update: editItem.Ngay_Update || '', Bang_Con: editItem.Bang_Con || '' });
+        await pf({ action: 'update', _rowIndex: editItem._rowIndex, STT: editItem.STT, Owner_Id: editItem.Owner_Id || userId || '', ...payload, Ngay_Update: editItem.Ngay_Update || '', Bang_Con: editItem.Bang_Con || '', ...expectOf(editItem, fromCon) });
         pushImportLog(payload.Ma_Can);
         showToast('Cập nhật thành công!');
         closeModal();
@@ -702,7 +710,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
         closeModal();
         await reload();
       }
-    } catch(e) { showToast(e.message, 'error'); }
+    } catch(e) { onWriteError(e); }
     finally { setSaving(false); }
   }
 
@@ -715,13 +723,13 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       const pf = fromCon ? postQuyCanThueCon : postQuyCanThue;
       const reload = fromCon ? loadConData : loadData;
       const mergedHinh = payload.Hinh_Anh || existing.Hinh_Anh || '';
-      await pf({ action: 'update', _rowIndex: existing._rowIndex, STT: existing.STT, Owner_Id: existing.Owner_Id || userId || '', ...payload, Hinh_Anh: mergedHinh, Gia_Net: payload.Gia_Net || existing.Gia_Net || '', Mau_Ma_Can: resolveMauMaCan(payload.Mau_Ma_Can, existing.Mau_Ma_Can), Ngay_Update: existing.Ngay_Update || '', Bang_Con: existing.Bang_Con || '' });
+      await pf({ action: 'update', _rowIndex: existing._rowIndex, STT: existing.STT, Owner_Id: existing.Owner_Id || userId || '', ...payload, Hinh_Anh: mergedHinh, Gia_Net: payload.Gia_Net || existing.Gia_Net || '', Mau_Ma_Can: resolveMauMaCan(payload.Mau_Ma_Can, existing.Mau_Ma_Can), Ngay_Update: existing.Ngay_Update || '', Bang_Con: existing.Bang_Con || '', ...expectOf(existing, fromCon) });
       pushImportLog(payload.Ma_Can);
       showToast('Đã cập nhật căn ' + payload.Ma_Can + '!');
       setDupTarget(null);
       closeModal();
       await reload();
-    } catch(e) { showToast(e.message, 'error'); }
+    } catch(e) { onWriteError(e); }
     finally { setSaving(false); }
   }
 
@@ -731,11 +739,11 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       setSaving(true);
       const fromCon = !!deleteTarget._fromCon;
       const pf = fromCon ? postQuyCanThueCon : postQuyCanThue;
-      await pf({ action: 'delete', _rowIndex: deleteTarget._rowIndex });
+      await pf({ action: 'delete', _rowIndex: deleteTarget._rowIndex, ...expectOf(deleteTarget, fromCon) });
       showToast('Đã xoá!');
       setDeleteTarget(null);
       await (fromCon ? loadConData() : loadData());
-    } catch(e) { showToast(e.message, 'error'); }
+    } catch(e) { onWriteError(e); }
     finally { setSaving(false); }
   }
 

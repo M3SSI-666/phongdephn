@@ -7,7 +7,7 @@ import {
   parseBan, uploadToCloudinary, parseSearchQuery,
 } from '../utils/api';
 import {
-  normalizeThietKe, mapPhi, isDateSerialGia, conKey,
+  normalizeThietKe, mapPhi, isDateSerialGia, conKey, expectOf,
   STATUS_GRAY, STATUS_PAUSED, INVEST_COLOR,
 } from '../utils/quyCanShared';
 import { parseBangCon, validateTagName } from '../utils/conTagState';
@@ -659,6 +659,14 @@ function QuyCanBanInner({
     });
   }
 
+  // Server trả 409 khi dòng ở _rowIndex không còn là dòng mình định sửa (ai đó xoá
+  // dòng phía trên trong sheet con dùng chung). Tải lại rồi bắt user thao tác lại.
+  function onWriteError(e) {
+    if (!e?.stale) return showToast(e.message, 'error');
+    showToast('Dòng đã đổi vị trí, đã tải lại — thao tác lại giúp', 'error');
+    loadConData();
+  }
+
   async function handleSave() {
     if (!form.Ma_Can.trim()) return showToast('Vui lòng nhập Mã căn', 'error');
     try {
@@ -673,7 +681,7 @@ function QuyCanBanInner({
       // Ngày Update: bảng chính giữ nguyên ngày của bảng hàng công ty; bảng con
       // do server tự đóng dấu hôm nay (buildRow keepDate=false khi isCon).
       if (modalMode === 'edit') {
-        await pf({ action: 'update', _rowIndex: editItem._rowIndex, Owner_Id: editItem.Owner_Id || userId || '', ...payload, Ngay_Update: editItem.Ngay_Update || '', Bang_Con: editItem?.Bang_Con || '' });
+        await pf({ action: 'update', _rowIndex: editItem._rowIndex, Owner_Id: editItem.Owner_Id || userId || '', ...payload, Ngay_Update: editItem.Ngay_Update || '', Bang_Con: editItem?.Bang_Con || '', ...expectOf(editItem, fromCon) });
         pushImportLog(payload.Ma_Can);
         showToast('Cập nhật thành công!');
         closeModal();
@@ -691,7 +699,7 @@ function QuyCanBanInner({
         closeModal();
         await reload();
       }
-    } catch(e) { showToast(e.message, 'error'); }
+    } catch(e) { onWriteError(e); }
     finally { setSaving(false); }
   }
 
@@ -704,13 +712,13 @@ function QuyCanBanInner({
       const pf      = fromCon ? postConFn : postFn;
       const reload  = fromCon ? loadConData : loadData;
       const mergedHinh = payload.Hinh_Anh || existing.Hinh_Anh || '';
-      await pf({ action: 'update', _rowIndex: existing._rowIndex, Owner_Id: existing.Owner_Id || userId || '', ...payload, Hinh_Anh: mergedHinh, Gia_Net: payload.Gia_Net || existing.Gia_Net || '', Ngay_Update: existing.Ngay_Update || '', Bang_Con: existing.Bang_Con || '' });
+      await pf({ action: 'update', _rowIndex: existing._rowIndex, Owner_Id: existing.Owner_Id || userId || '', ...payload, Hinh_Anh: mergedHinh, Gia_Net: payload.Gia_Net || existing.Gia_Net || '', Ngay_Update: existing.Ngay_Update || '', Bang_Con: existing.Bang_Con || '', ...expectOf(existing, fromCon) });
       pushImportLog(payload.Ma_Can);
       showToast('Đã cập nhật căn ' + payload.Ma_Can + '!');
       setDupTarget(null);
       closeModal();
       await reload();
-    } catch(e) { showToast(e.message, 'error'); }
+    } catch(e) { onWriteError(e); }
     finally { setSaving(false); }
   }
 
@@ -719,11 +727,11 @@ function QuyCanBanInner({
     try {
       setSaving(true);
       const fromCon = !!deleteTarget._fromCon;
-      await (fromCon ? postConFn : postFn)({ action: 'delete', _rowIndex: deleteTarget._rowIndex });
+      await (fromCon ? postConFn : postFn)({ action: 'delete', _rowIndex: deleteTarget._rowIndex, ...expectOf(deleteTarget, fromCon) });
       showToast('Đã xoá!');
       setDeleteTarget(null);
       await (fromCon ? loadConData() : loadData());
-    } catch(e) { showToast(e.message, 'error'); }
+    } catch(e) { onWriteError(e); }
     finally { setSaving(false); }
   }
 

@@ -24,6 +24,13 @@ export const MA_CAN_RE = /^[A-Za-z]{1,3}\d{3,}/;
 // Lệch 1 khoảng trắng là client tưởng "đã có dòng" còn server tưởng "chưa có" -> đẻ dòng trùng.
 export const conKey = s => (s || '').trim().toUpperCase().replace(/\s+/g, '');
 
+// Chốt chặn cho sửa/xoá dòng bảng con: server đọc lại Mã Căn + Owner_Id tại _rowIndex,
+// lệch thì trả 409 thay vì ghi mù. Sheet con dùng chung cho mọi user nên bất kỳ ai xoá
+// 1 dòng là mọi _rowIndex phía dưới đang giữ ở client thành sai.
+// Bảng chính chỉ admin ghi -> không cần, trả {} để trải vào payload cho gọn.
+export const expectOf = (item, fromCon) =>
+  fromCon ? { expect: { Ma_Can: item?.Ma_Can || '', Owner_Id: item?.Owner_Id || '' } } : {};
+
 // ── Màu trạng thái ──
 // Các hex này phải KHÁC mọi giá trị trong RAINBOW_COLORS của 2 trang để phân biệt
 // được màu trạng thái (từ file công ty) với màu Mã Căn user tự tô.
