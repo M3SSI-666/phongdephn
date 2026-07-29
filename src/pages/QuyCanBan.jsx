@@ -7,9 +7,11 @@ import {
   parseBan, uploadToCloudinary, parseSearchQuery,
 } from '../utils/api';
 import {
-  normalizeThietKe, mapPhi, isDateSerialGia,
+  normalizeThietKe, mapPhi, isDateSerialGia, conKey,
   STATUS_GRAY, STATUS_PAUSED, INVEST_COLOR,
 } from '../utils/quyCanShared';
+import { parseBangCon, validateTagName } from '../utils/conTagState';
+import { useConTags } from '../utils/useConTags';
 import ImportSheetModal from '../components/ImportSheetModal';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
@@ -37,9 +39,6 @@ const DEFAULT_TAGS_BAN = [
 ];
 // Quỹ Đập Thông dùng chung giao diện nhưng chia theo khu, không theo số phòng ngủ.
 const DEFAULT_TAGS_DAPTHONG = ['Khu T', 'Khu P'];
-function parseBangCon(v) {
-  return (v || '').split(',').map(s => s.trim()).filter(Boolean);
-}
 
 function normalizeNoiThat(val) {
   const s = (val || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
@@ -304,10 +303,14 @@ function QuyCanBanInner({
     finally { setLoading(false); }
   }, [userId, role, isViewAs, fetchFn]);
 
+  // Gán lại ngay dưới useConTags. Dữ liệu bảng con từ mạng chỉ được đè lên state khi
+  // không còn lần gắn thẻ nào đang bay, nếu không sẽ nuốt mất thẻ user vừa tick.
+  const canApplyRemoteRef = useRef(() => true);
+
   const loadConData = useCallback(async () => {
     try {
       const data = await fetchConFn(userId, role, isViewAs);
-      setConItems(Array.isArray(data) ? data : []);
+      if (canApplyRemoteRef.current()) setConItems(Array.isArray(data) ? data : []);
     } catch { /* sheet con có thể chưa tạo — bỏ qua */ }
   }, [userId, role, isViewAs, fetchConFn]);
 
@@ -315,11 +318,13 @@ function QuyCanBanInner({
 
   useEffect(() => {
     const iv = setInterval(() => {
-      fetchFn(userId, role).then(d => setItems(Array.isArray(d)?d:[])).catch(()=>{});
-      fetchConFn(userId, role).then(d => setConItems(Array.isArray(d)?d:[])).catch(()=>{});
+      fetchFn(userId, role, isViewAs).then(d => setItems(Array.isArray(d)?d:[])).catch(()=>{});
+      fetchConFn(userId, role, isViewAs).then(d => {
+        if (canApplyRemoteRef.current()) setConItems(Array.isArray(d)?d:[]);
+      }).catch(()=>{});
     }, 30000);
     return () => clearInterval(iv);
-  }, [fetchFn, fetchConFn, userId, role]);
+  }, [fetchFn, fetchConFn, userId, role, isViewAs]);
 
   function parseGiaValue(gia) {
     if (isDateSerialGia(gia)) return null; // ô Giá là serial ngày Excel (VD "45800", "45800 tỷ") -> không phải giá
@@ -429,6 +434,8 @@ function QuyCanBanInner({
     const name = (window.prompt('Tên bảng hàng con mới:') || '').trim();
     if (!name) return;
     if (allTags.includes(name)) { setActiveTag(name); return; }
+    const err = validateTagName(name, allTags);
+    if (err) return showToast(err, 'error');
     const next = [...customTags, name];
     setCustomTags(next);
     try { localStorage.setItem(tagStorageKey, JSON.stringify(next)); } catch { /* ignore */ }
@@ -447,44 +454,17 @@ function QuyCanBanInner({
     };
   }
 
-  // Tab "Tất cả": chuyển 1 căn (từ bảng chính) vào sheet con dưới 1 tag.
-  // Đã có bản con cùng Ma_Can → gộp tag (không ghi đè field đã sửa). Chưa có → thêm dòng mới.
-  const copyToCon = useCallback(async (item, tag) => {
-    const key = (item.Ma_Can || '').trim().toUpperCase();
-    const existing = conItems.find(c => (c.Ma_Can || '').trim().toUpperCase() === key);
-    try {
-      if (existing) {
-        const cur = parseBangCon(existing.Bang_Con);
-        if (cur.includes(tag)) { showToast('Căn đã có trong bảng con này', 'info'); return; }
-        await postConFn({ action: 'bulk', adds: [], updates: [
-          conPayloadFrom(existing, { _rowIndex: existing._rowIndex, Bang_Con: [...cur, tag].join(', ') }),
-        ] });
-      } else {
-        // Bản sao độc lập: bỏ màu user (để user tự đính bên con).
-        // Chuyển từ bảng chính sang bảng con = 1 thay đổi -> đóng dấu ngày hôm nay (chỉ ở bản con).
-        await postConFn({ action: 'bulk', updates: [],
-          adds: [conPayloadFrom(item, { Mau_Ma_Can: '', Bang_Con: tag, Ngay_Update: todayVN() })] });
-      }
-      await loadConData();
-      showToast(existing ? 'Đã gộp vào bảng con' : 'Đã chuyển vào bảng con', 'success');
-    } catch (e) { showToast(e.message, 'error'); }
-  }, [conItems, userId, postConFn, loadConData, showToast]);
+  // Dòng con mới dựng từ 1 căn. Bỏ màu user (bản con là bản sao độc lập, user tự tô lại)
+  // và đóng dấu ngày hôm nay vì chuyển sang bảng con là 1 thay đổi.
+  const buildAddRow = useCallback(
+    (item) => conPayloadFrom(item, { Mau_Ma_Can: '', Ngay_Update: todayVN() }),
+    [userId] // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
-  // Tab con: bật/tắt 1 tag trên 1 dòng con. Hết tag → xóa dòng con. Còn tag → cập nhật Bang_Con.
-  const toggleConTag = useCallback(async (conRow, tag) => {
-    const cur = parseBangCon(conRow.Bang_Con);
-    const next = cur.includes(tag) ? cur.filter(t => t !== tag) : [...cur, tag];
-    try {
-      if (next.length === 0) {
-        await postConFn({ action: 'delete', _rowIndex: conRow._rowIndex });
-      } else {
-        await postConFn({ action: 'bulk', adds: [], updates: [
-          conPayloadFrom(conRow, { _rowIndex: conRow._rowIndex, Bang_Con: next.join(', ') }),
-        ] });
-      }
-      await loadConData();
-    } catch (e) { showToast(e.message, 'error'); loadConData(); }
-  }, [userId, postConFn, loadConData, showToast]);
+  const { setConTag, pending: tagPending, canApplyRemote } = useConTags({
+    conItems, setConItems, postConFn, loadConData, showToast, userId, buildAddRow,
+  });
+  canApplyRemoteRef.current = canApplyRemote;
 
   const TOA_ORDER = [
     'T01','T02','T03','T04','T05','T06','T07','T08','T09','T10','T11',
@@ -996,7 +976,7 @@ function QuyCanBanInner({
                       <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8', background: rowBg}}>{item.Ghi_Chu}</td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none', background: rowBg}}>
                         <button onClick={() => copyCustomerInfo(item)} style={{...st.actionBtn, color:C.primary}} title="Copy thông tin gửi khách">&#128203;</button>
-                        <button onClick={() => setTagMenuFor({ ...item, _fromCon: viewingCon })} style={{...st.actionBtn, color: (viewingCon ? parseBangCon(item.Bang_Con).length : conItems.some(c => (c.Ma_Can||'').trim().toUpperCase() === (item.Ma_Can||'').trim().toUpperCase())) ? '#38b274' : undefined}} title={viewingCon ? 'Sửa bảng con' : 'Chuyển vào bảng con'}>&#127991;</button>
+                        <button onClick={() => setTagMenuFor({ ...item, _fromCon: viewingCon })} style={{...st.actionBtn, color: (viewingCon ? parseBangCon(item.Bang_Con).length : conItems.some(c => conKey(c.Ma_Can) === conKey(item.Ma_Can))) ? '#38b274' : undefined}} title={viewingCon ? 'Sửa bảng con' : 'Chuyển vào bảng con'}>&#127991;</button>
                         {canEdit && <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>}
                         {canEdit && <button onClick={() => setDeleteTarget({ ...item, _fromCon: viewingCon })} style={{...st.actionBtn, color:C.error}} title="Xoá">&#128465;</button>}
                       </td>
@@ -1278,9 +1258,12 @@ function QuyCanBanInner({
       )}
 
       {tagMenuFor && (() => {
-        const key = (tagMenuFor.Ma_Can||'').trim().toUpperCase();
-        // Dòng con tương ứng (theo Mã Căn) — nguồn dữ liệu tag cho cả 2 view.
-        const conRow = conItems.find(c => (c.Ma_Can||'').trim().toUpperCase() === key);
+        // Mở từ 1 dòng bảng con -> lấy đúng dòng đó (tra theo Mã Căn sẽ sửa nhầm dòng
+        // nếu bảng con đang có 2 dòng trùng mã). Mở từ bảng chính -> tra theo Mã Căn.
+        const key = conKey(tagMenuFor.Ma_Can);
+        const conRow = tagMenuFor._fromCon
+          ? conItems.find(c => c._rowIndex === tagMenuFor._rowIndex) || tagMenuFor
+          : conItems.find(c => conKey(c.Ma_Can) === key);
         const set = new Set(parseBangCon(conRow?.Bang_Con));
         return (
           <div style={st.overlay} onClick={() => setTagMenuFor(null)}>
@@ -1292,16 +1275,16 @@ function QuyCanBanInner({
                   <label key={t} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 6px', borderRadius:8, cursor:'pointer', fontSize:14 }}
                     onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.05)'}
                     onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                    <input type="checkbox" checked={set.has(t)} onChange={() => {
-                      // Có dòng con rồi -> bật/tắt tag trên đó; chưa có -> copy từ bảng chính vào.
-                      if (conRow) toggleConTag(conRow, t);
-                      else copyToCon(tagMenuFor, t);
-                    }}
+                    <input type="checkbox" checked={set.has(t)}
+                      onChange={() => setConTag(conRow || tagMenuFor, t)}
                       style={{ width:16, height:16, accentColor:'#38b274', cursor:'pointer' }} />
                     <span>{t}</span>
                   </label>
                 ))}
               </div>
+              {tagPending > 0 && (
+                <div style={{ fontSize:12, color:'#8a9bb8', marginTop:8 }}>⏳ Đang lưu…</div>
+              )}
               <div style={{ display:'flex', gap:8, marginTop:14 }}>
                 <button onClick={addCustomTag} style={{ ...st.tagChip, borderStyle:'dashed', color:'#38b274', flex:1, padding:'9px 12px' }}>+ Thẻ mới</button>
                 <button onClick={() => setTagMenuFor(null)} style={{ ...st.tagChipActive, flex:1, padding:'9px 12px' }}>Xong</button>

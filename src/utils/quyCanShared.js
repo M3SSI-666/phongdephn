@@ -19,6 +19,11 @@ export function normHeader(s) {
 // Mã căn hợp lệ: 1-3 chữ cái + >=3 chữ số (T010604, P0112A11...). Loại banner (T01, Park Hill...).
 export const MA_CAN_RE = /^[A-Za-z]{1,3}\d{3,}/;
 
+// Khoá so khớp 1 căn giữa bảng chính và bảng con.
+// PHẢI khớp conKey() trong api/quycanban.js, api/quycanthue.js, api/quydapthong.js.
+// Lệch 1 khoảng trắng là client tưởng "đã có dòng" còn server tưởng "chưa có" -> đẻ dòng trùng.
+export const conKey = s => (s || '').trim().toUpperCase().replace(/\s+/g, '');
+
 // ── Màu trạng thái ──
 // Các hex này phải KHÁC mọi giá trị trong RAINBOW_COLORS của 2 trang để phân biệt
 // được màu trạng thái (từ file công ty) với màu Mã Căn user tự tô.
