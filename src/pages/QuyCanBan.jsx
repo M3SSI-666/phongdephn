@@ -35,11 +35,8 @@ const EMPTY_FORM = {
 const DEFAULT_TAGS_BAN = [
   '1 ngủ', '2 ngủ', '2 ngủ slot', '3 ngủ', '3 ngủ slot', '4 ngủ',
 ];
-// Quỹ Đập Thông dùng chung giao diện nhưng giữ bộ tag riêng.
-const DEFAULT_TAGS_DAPTHONG = [
-  '1N ko đồ', '1N full đồ', '2N ko đồ', '2N full đồ',
-  '3N ko đồ', '3N có đồ', '4N ko đồ', '4N có đồ',
-];
+// Quỹ Đập Thông dùng chung giao diện nhưng chia theo khu, không theo số phòng ngủ.
+const DEFAULT_TAGS_DAPTHONG = ['Khu T', 'Khu P'];
 function parseBangCon(v) {
   return (v || '').split(',').map(s => s.trim()).filter(Boolean);
 }
