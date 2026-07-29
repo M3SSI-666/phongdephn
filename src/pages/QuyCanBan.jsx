@@ -1277,7 +1277,8 @@ function QuyCanBanInner({
           <div style={st.overlay} onClick={() => setTagMenuFor(null)}>
             <div style={st.tagPopover} onClick={e => e.stopPropagation()}>
               <div style={{ fontWeight:800, fontSize:15, marginBottom:4 }}>Bảng hàng con</div>
-              <div style={{ fontSize:12, color:'#8a9bb8', marginBottom:12 }}>Căn {tagMenuFor.Ma_Can || '—'}</div>
+              <div style={{ fontSize:12, color:'#8a9bb8', marginBottom:2 }}>Căn {tagMenuFor.Ma_Can || '—'}</div>
+              <div style={{ fontSize:11, color:'#6b7b96', marginBottom:12 }}>Mỗi căn chỉ thuộc 1 thẻ — chọn thẻ mới là chuyển khỏi thẻ cũ.</div>
               <div style={{ display:'flex', flexDirection:'column', gap:2, maxHeight:'50vh', overflowY:'auto' }}>
                 {allTags.map(t => (
                   <label key={t} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 6px', borderRadius:8, cursor:'pointer', fontSize:14 }}

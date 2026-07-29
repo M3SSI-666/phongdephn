@@ -10,10 +10,12 @@ export const conKey = s => (s || '').trim().toUpperCase().replace(/\s+/g, '');
 export const parseBangCon = v => (v || '').split(',').map(s => s.trim()).filter(Boolean);
 export const joinBangCon  = tags => (tags || []).filter(Boolean).join(', ');
 
-// Bật/tắt 1 thẻ, giữ nguyên thứ tự các thẻ còn lại.
+// MỖI CĂN CHỈ THUỘC 1 THẺ. Tick thẻ mới là CHUYỂN, không cộng dồn.
+// Bỏ tick thì chỉ gỡ đúng thẻ đó: dữ liệu cũ (trước khi có luật này) có thể còn ô
+// nhiều thẻ, gỡ 1 thẻ không được xoá lây các thẻ kia.
 export function nextTags(cur, tag) {
   const list = Array.isArray(cur) ? cur : parseBangCon(cur);
-  return list.includes(tag) ? list.filter(t => t !== tag) : [...list, tag];
+  return list.includes(tag) ? list.filter(t => t !== tag) : [tag];
 }
 
 // Áp thay đổi thẻ vào danh sách bảng con NGAY (optimistic) — checkbox lật tức thì,

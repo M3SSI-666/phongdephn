@@ -41,8 +41,19 @@ export function useConTags({ conItems, setConItems, postConFn, loadConData, show
     const key = conKey(maCan);
     if (!key || !userId) return;
 
-    const cur  = itemsRef.current.find(it => conKey(it.Ma_Can) === key);
-    const tags = nextTags(parseBangCon(cur?.Bang_Con), tag);
+    const cur     = itemsRef.current.find(it => conKey(it.Ma_Can) === key);
+    const curTags = parseBangCon(cur?.Bang_Con);
+    const tags    = nextTags(curTags, tag);
+
+    // Mỗi căn chỉ thuộc 1 thẻ -> tick thẻ mới là gỡ thẻ cũ. Hỏi trước vì căn sẽ
+    // biến khỏi màn hình đang xem nếu user đang đứng ở thẻ cũ.
+    if (curTags.length && !curTags.includes(tag)) {
+      const ok = window.confirm(
+        `Căn ${maCan} đang ở thẻ "${curTags.join(', ')}".\n` +
+        `Mỗi căn chỉ thuộc 1 thẻ. Chuyển sang "${tag}"?`
+      );
+      if (!ok) return;
+    }
 
     if (cur && !tags.length) {
       const ok = window.confirm(

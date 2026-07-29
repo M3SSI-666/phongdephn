@@ -1248,7 +1248,8 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
           <div style={st.overlay} onClick={e => e.target===e.currentTarget && setTagMenuFor(null)}>
             <div style={{ ...st.confirmBox, maxWidth:360, textAlign:'left' }}>
               <div style={{ fontSize:16, fontWeight:700, marginBottom:4, color:C.text }}>Bảng hàng con</div>
-              <div style={{ fontSize:13, color:C.textMuted, marginBottom:14 }}>Căn <strong>{tagMenuFor.Ma_Can}</strong> — chọn bảng con:</div>
+              <div style={{ fontSize:13, color:C.textMuted, marginBottom:2 }}>Căn <strong>{tagMenuFor.Ma_Can}</strong> — chọn bảng con:</div>
+              <div style={{ fontSize:11, color:C.textMuted, opacity:.75, marginBottom:14 }}>Mỗi căn chỉ thuộc 1 thẻ — chọn thẻ mới là chuyển khỏi thẻ cũ.</div>
               <div style={{ display:'flex', flexDirection:'column', gap:2, maxHeight:320, overflowY:'auto', marginBottom:16 }}>
                 {allTags.map(t => {
                   const on = cur.includes(t);

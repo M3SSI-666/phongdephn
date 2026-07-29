@@ -13,9 +13,14 @@ test('parseBangCon / joinBangCon khứ hồi, bỏ phần rỗng', () => {
   assert.equal(joinBangCon(['a', '', 'b']), 'a, b');
 });
 
-test('nextTags bật rồi tắt', () => {
+test('nextTags: mỗi căn chỉ 1 thẻ, tick thẻ mới là CHUYỂN chứ không cộng dồn', () => {
   assert.deepEqual(nextTags([], '2 ngủ'), ['2 ngủ']);
-  assert.deepEqual(nextTags(['1 ngủ'], '2 ngủ'), ['1 ngủ', '2 ngủ']);
+  assert.deepEqual(nextTags(['1 ngủ'], '2 ngủ'), ['2 ngủ']);
+  assert.deepEqual(nextTags(['1 ngủ'], '1 ngủ'), []);
+});
+
+test('nextTags: bỏ tick trên dữ liệu cũ nhiều thẻ chỉ gỡ đúng thẻ đó', () => {
+  // Ô Bang_Con cũ (trước khi có luật 1 thẻ) không được xoá lây khi gỡ 1 thẻ.
   assert.deepEqual(nextTags(['1 ngủ', '2 ngủ'], '1 ngủ'), ['2 ngủ']);
 });
 
@@ -30,8 +35,9 @@ test('tick thẻ lên căn CHƯA có dòng con -> chèn đúng 1 dòng, _rowInde
   assert.equal(next[1].Gia_Net, '5 tỷ');
 });
 
-test('tick 2 thẻ liên tiếp lên cùng 1 căn -> đủ 2 thẻ, không mất thẻ đầu', () => {
-  // Đây là lỗi cũ: 2 lần ghi cùng đọc 1 snapshot nên chỉ thẻ cuối sống sót.
+test('tick 2 thẻ liên tiếp lên cùng 1 căn -> 1 dòng, thẻ sau thay thẻ trước', () => {
+  // Lỗi cũ là 2 lần ghi cùng đọc 1 snapshot nên đẻ ra 2 DÒNG. Giờ phải đúng 1 dòng,
+  // và theo luật 1 thẻ/căn thì thẻ mới thay thẻ cũ.
   let items = [];
   const addRow = { Ma_Can: 'T010101' };
   let r = applyTagChange(items, { key: 'T010101', tags: ['1 ngủ'], addRow });
@@ -40,7 +46,7 @@ test('tick 2 thẻ liên tiếp lên cùng 1 căn -> đủ 2 thẻ, không mất
   r = applyTagChange(items, { key: 'T010101', tags: tags2, addRow });
   assert.equal(r.mode, 'update');
   assert.equal(r.next.length, 1);
-  assert.equal(r.next[0].Bang_Con, '1 ngủ, 2 ngủ');
+  assert.equal(r.next[0].Bang_Con, '2 ngủ');
 });
 
 test('bỏ thẻ cuối -> dòng biến mất VÀ mọi _rowIndex lớn hơn tụt đúng 1', () => {
@@ -67,9 +73,9 @@ test('bỏ thẻ trên căn chưa có dòng con -> noop, không đẻ dòng rỗ
 
 test('so khớp bỏ qua khoảng trắng và hoa thường', () => {
   const items = [con(' t01 0101 ', '1 ngủ', 2)];
-  const { mode, next } = applyTagChange(items, { key: 'T010101', tags: ['1 ngủ', '2 ngủ'] });
+  const { mode, next } = applyTagChange(items, { key: 'T010101', tags: ['2 ngủ'] });
   assert.equal(mode, 'update');
-  assert.equal(next[0].Bang_Con, '1 ngủ, 2 ngủ');
+  assert.equal(next[0].Bang_Con, '2 ngủ');
 });
 
 test('applyServerAck vá _rowIndex null thành số thật', () => {
