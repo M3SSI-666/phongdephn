@@ -11,6 +11,12 @@ const COLUMNS = 'A:T';
 // Cột dùng để tìm dòng bảng con mà không cần _rowIndex của client. (Sheet này có STT ở cột A.)
 const COL_MA_CAN = 'C', COL_OWNER = 'Q', COL_TAG = 'T';
 
+// Các cột bảng con cho phép sửa nhanh ngay trên bảng (action 'setfield'). Cố ý HẸP:
+// mọi cột khác vẫn phải đi qua modal (action 'update').
+const SETFIELD_COLS = { Thoi_Gian_Vao: 'K', Gia_Net: 'S', Ghi_Chu: 'O' };
+const COL_NGAY_UPDATE = 'B';
+const DATE_RE = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
+
 // PHẢI khớp conKey() trong src/utils/quyCanShared.js. Lệch 1 khoảng trắng là client
 // tưởng "đã có dòng" còn server tưởng "chưa có" -> lại đẻ ra dòng trùng.
 const conKey = s => (s || '').trim().toUpperCase().replace(/\s+/g, '');
@@ -285,6 +291,55 @@ async function handlePost(req, res, sheetId, email, key, SHEET_NAME, isCon) {
     );
     if (!r.ok) return res.status(500).json({ error: 'sheets_settag', detail: await r.text() });
     return res.status(200).json({ success: true, mode: 'update', _rowIndex: rowNum, duplicates: dup });
+  }
+
+  // Sửa nhanh 1 ô ngay trên bảng con. Cùng kiểu với 'settag': server tự dò số dòng,
+  // ghi đúng ô đó, KHÔNG dựng lại cả 20 cột như 'update' (sẽ nuốt sửa đổi từ tab khác).
+  if (payload.action === 'setfield') {
+    if (!isCon) return res.status(400).json({ error: 'setfield chỉ dùng cho bảng con' });
+    const col = SETFIELD_COLS[payload.field];
+    if (!col) return res.status(400).json({ error: `Không sửa nhanh được cột ${payload.field}` });
+    const ownerId = payload.Owner_Id || '';
+    const maCan   = conKey(payload.Ma_Can);
+    if (!ownerId || !maCan) return res.status(400).json({ error: 'Missing Owner_Id/Ma_Can' });
+    // Chuỗi rỗng là hợp lệ (xoá ô). Chặn trần độ dài để không nhồi cả cuốn sách vào ô.
+    const value = (payload.value ?? '').toString().slice(0, 5000);
+    // todayVN() nằm ở client vì Vercel chạy giờ UTC; đây chỉ là lưới an toàn.
+    const today = DATE_RE.test(payload.today || '')
+      ? payload.today
+      : new Date().toLocaleDateString('vi-VN');
+
+    const hits = await findConRows(sheetId, token, SHEET_NAME, ownerId, maCan);
+    if (hits.error) return res.status(500).json(hits.error);
+    // KHÁC settag: không thấy dòng nghĩa là tab/máy khác vừa gỡ thẻ -> KHÔNG append
+    // dòng nửa vời, trả 409 cho client tải lại.
+    if (!hits.rows.length) {
+      return res.status(409).json({ error: 'Căn không còn trong bảng con, đã tải lại', stale: true });
+    }
+    const rowNum = hits.rows[0];
+
+    // RAW, KHÔNG USER_ENTERED: "15/7/2026" phải nằm nguyên dạng chữ, nếu không Sheets
+    // biến nó thành số serial ngày (đúng lớp lỗi isDateSerialGia đang phải dọn ở cột Giá).
+    // RAW cũng chặn luôn "=" / "+" / "-" / "@" thành công thức.
+    const r = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchUpdate`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          valueInputOption: 'RAW',
+          data: [
+            { range: `${SHEET_NAME}!${col}${rowNum}`, values: [[value]] },
+            { range: `${SHEET_NAME}!${COL_NGAY_UPDATE}${rowNum}`, values: [[today]] },
+          ],
+        }),
+      }
+    );
+    if (!r.ok) return res.status(500).json({ error: 'sheets_setfield', detail: await r.text() });
+    return res.status(200).json({
+      success: true, _rowIndex: rowNum, Ngay_Update: today,
+      duplicates: Math.max(0, hits.rows.length - 1),
+    });
   }
 
   if (payload.action === 'delete') {
