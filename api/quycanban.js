@@ -8,6 +8,12 @@ const MAIN_SHEET = 'Quy_Can_Ban';
 const CON_SHEET  = 'Quy_Can_Ban_Con';
 // 19 columns: Ngay_Update, Ma_Can, Thiet_Ke, Dien_Tich, Slot_Xe, Huong_BC, Huong_Cua, Gia, Phi, Noi_That, SDT, Ten_Chu, Hinh_Anh, Nguon, Ghi_Chu, Mau_Ma_Can, Owner_Id, Gia_Net, Bang_Con
 const COLUMNS = 'A:S';
+// Cột dùng để tìm dòng bảng con mà không cần _rowIndex của client.
+const COL_MA_CAN = 'B', COL_OWNER = 'Q', COL_TAG = 'S';
+
+// PHẢI khớp conKey() trong src/utils/quyCanShared.js. Lệch 1 khoảng trắng là client
+// tưởng "đã có dòng" còn server tưởng "chưa có" -> lại đẻ ra dòng trùng.
+const conKey = s => (s || '').trim().toUpperCase().replace(/\s+/g, '');
 
 export default async function handler(req, res) {
   try {
@@ -145,6 +151,8 @@ async function handlePost(req, res, sheetId, email, key, SHEET_NAME, isCon) {
 
   if (payload.action === 'update') {
     if (!payload._rowIndex) return res.status(400).json({ error: 'Missing _rowIndex' });
+    const stale = await assertRow(sheetId, token, SHEET_NAME, payload);
+    if (stale) return res.status(409).json(stale);
     const range = `${SHEET_NAME}!A${payload._rowIndex}:S${payload._rowIndex}`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?valueInputOption=USER_ENTERED`;
     const response = await fetch(url, {
@@ -198,17 +206,11 @@ async function handlePost(req, res, sheetId, email, key, SHEET_NAME, isCon) {
         .filter(n => Number.isInteger(n) && n >= 2)
         .sort((a, b) => b - a); // giảm dần
       if (rowIdx.length) {
-        const metaRes = await fetch(
-          `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const metaData = await metaRes.json();
-        const targetSheet = metaData.sheets.find(s => s.properties.title === SHEET_NAME);
-        if (targetSheet) {
+        const gid = await getSheetGid(sheetId, token, SHEET_NAME);
+        if (gid !== null) {
           // Gộp các dòng liền nhau thành 1 khoảng để không bắn hàng trăm request
           // (600 dòng lẻ = 600 request -> vượt 10s của Vercel, xoá dở dang).
           // rowIdx giảm dần: [10,9,8,5,4,1] -> [7,10) [3,5) [0,1)
-          const gid = targetSheet.properties.sheetId;
           const ranges = [];
           for (const i of rowIdx) {
             const last = ranges[ranges.length - 1];
@@ -232,32 +234,129 @@ async function handlePost(req, res, sheetId, email, key, SHEET_NAME, isCon) {
     return res.status(200).json({ success: true, added, updated, deleted });
   }
 
+  // Gắn/gỡ tag bảng con. KHÔNG nhận _rowIndex của client: số dòng được dò lại ngay
+  // trước khi ghi, trong cùng request này. _rowIndex ở client trượt liên tục vì sheet con
+  // dùng chung cho mọi user — ai xoá 1 dòng là mọi dòng dưới tụt 1.
+  if (payload.action === 'settag') {
+    if (!isCon) return res.status(400).json({ error: 'settag chỉ dùng cho bảng con' });
+    const ownerId = payload.Owner_Id || '';
+    const maCan   = conKey(payload.Ma_Can);
+    if (!ownerId || !maCan) return res.status(400).json({ error: 'Missing Owner_Id/Ma_Can' });
+    const tagStr = (Array.isArray(payload.tags) ? payload.tags : []).filter(Boolean).join(', ');
+
+    const hits = await findConRows(sheetId, token, SHEET_NAME, ownerId, maCan);
+    if (hits.error) return res.status(500).json(hits.error);
+    const dup = Math.max(0, hits.rows.length - 1);
+
+    if (!hits.rows.length) {
+      if (!tagStr) return res.status(200).json({ success: true, mode: 'noop', duplicates: 0 });
+      const row = { ...(payload.row || {}), Owner_Id: ownerId, Bang_Con: tagStr };
+      // todayVN() nằm ở client vì Vercel chạy giờ UTC; đây chỉ là lưới an toàn.
+      if (!row.Ngay_Update) row.Ngay_Update = payload.today || '';
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!${COLUMNS}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [buildRow(row, { keepDate: true })] }),
+      });
+      if (!r.ok) return res.status(500).json({ error: 'sheets_append', detail: await r.text() });
+      // "Quy_Can_Ban_Con!A123:S123" -> 123
+      const m = ((await r.json()).updates?.updatedRange || '').match(/![A-Z]+(\d+)/);
+      return res.status(200).json({ success: true, mode: 'add', _rowIndex: m ? Number(m[1]) : null, duplicates: 0 });
+    }
+
+    const rowNum = hits.rows[0];
+    if (!tagStr) {
+      const r = await deleteRow(sheetId, token, SHEET_NAME, rowNum);
+      if (r !== true) return res.status(500).json(r);
+      return res.status(200).json({ success: true, mode: 'delete', _rowIndex: rowNum, duplicates: dup });
+    }
+    // Ghi ĐÚNG 1 ô: 18 cột kia giữ nguyên, không nuốt mất sửa đổi từ tab/máy khác.
+    // RAW vì tên thẻ do user tự gõ — USER_ENTERED sẽ biến "=..." thành công thức.
+    const r = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!${COL_TAG}${rowNum}?valueInputOption=RAW`,
+      {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [[tagStr]] }),
+      }
+    );
+    if (!r.ok) return res.status(500).json({ error: 'sheets_settag', detail: await r.text() });
+    return res.status(200).json({ success: true, mode: 'update', _rowIndex: rowNum, duplicates: dup });
+  }
+
   if (payload.action === 'delete') {
     if (!payload._rowIndex) return res.status(400).json({ error: 'Missing _rowIndex' });
-    const metaRes = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    const metaData = await metaRes.json();
-    const targetSheet = metaData.sheets.find(s => s.properties.title === SHEET_NAME);
-    if (!targetSheet) return res.status(404).json({ error: 'Sheet not found' });
-
-    const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        requests: [{
-          deleteDimension: {
-            range: { sheetId: targetSheet.properties.sheetId, dimension: 'ROWS', startIndex: payload._rowIndex - 1, endIndex: payload._rowIndex },
-          },
-        }],
-      }),
-    });
-    if (!response.ok) return res.status(500).json({ error: 'sheets_delete', detail: await response.text() });
+    const stale = await assertRow(sheetId, token, SHEET_NAME, payload);
+    if (stale) return res.status(409).json(stale);
+    const r = await deleteRow(sheetId, token, SHEET_NAME, payload._rowIndex);
+    if (r !== true) return res.status(r.error === 'Sheet not found' ? 404 : 500).json(r);
     return res.status(200).json({ success: true });
   }
 
   return res.status(400).json({ error: `Unknown action: ${payload.action}` });
+}
+
+// Tìm MỌI dòng bảng con của user có Mã Căn khớp. Trả số dòng thật trong sheet (1-based).
+async function findConRows(sheetId, token, SHEET_NAME, ownerId, maCan) {
+  const ranges = [COL_MA_CAN, COL_OWNER].map(c => `ranges=${SHEET_NAME}!${c}:${c}`).join('&');
+  const r = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchGet?${ranges}&majorDimension=COLUMNS`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!r.ok) return { error: { error: 'sheets_read', detail: await r.text() } };
+  const vr = (await r.json()).valueRanges || [];
+  // Mỗi cột bị cắt đuôi ĐỘC LẬP (cột rỗng hẳn thì không có key `values`), nên duyệt
+  // theo cột Mã Căn và đọc cột kia bằng (arr[i] || '') — không zip, không Math.min.
+  const maCol  = vr[0]?.values?.[0] || [];
+  const ownCol = vr[1]?.values?.[0] || [];
+  const rows = [];
+  // i = 0 là dòng tiêu đề -> dòng sheet = i + 1.
+  for (let i = 1; i < maCol.length; i++) {
+    if ((ownCol[i] || '') === ownerId && conKey(maCol[i]) === maCan) rows.push(i + 1);
+  }
+  return { rows };
+}
+
+// _rowIndex là VỊ TRÍ nên có thể đã trượt. Nếu client gửi kèm `expect` thì soi lại
+// 2 ô ở dòng đó trước khi ghi/xoá; lệch -> 409 để client tải lại thay vì phá dòng người khác.
+async function assertRow(sheetId, token, SHEET_NAME, payload) {
+  const e = payload.expect;
+  if (!e) return null;
+  const n = payload._rowIndex;
+  const ranges = [`${SHEET_NAME}!${COL_MA_CAN}${n}`, `${SHEET_NAME}!${COL_OWNER}${n}`]
+    .map(x => `ranges=${x}`).join('&');
+  const r = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchGet?${ranges}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  // Đọc lỗi -> coi như đã trượt. Thà bắt tải lại còn hơn ghi mù lên dòng người khác.
+  if (!r.ok) return { error: 'Dòng đã đổi vị trí, vui lòng tải lại', stale: true };
+  const vr = (await r.json()).valueRanges || [];
+  const ma  = vr[0]?.values?.[0]?.[0] || '';
+  const own = vr[1]?.values?.[0]?.[0] || '';
+  if (conKey(ma) !== conKey(e.Ma_Can) || own !== (e.Owner_Id || '')) {
+    return { error: 'Dòng đã đổi vị trí, vui lòng tải lại', stale: true };
+  }
+  return null;
+}
+
+async function deleteRow(sheetId, token, SHEET_NAME, rowNum) {
+  const gid = await getSheetGid(sheetId, token, SHEET_NAME);
+  if (gid === null) return { error: 'Sheet not found' };
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      requests: [{
+        deleteDimension: {
+          range: { sheetId: gid, dimension: 'ROWS', startIndex: rowNum - 1, endIndex: rowNum },
+        },
+      }],
+    }),
+  });
+  if (!r.ok) return { error: 'sheets_delete', detail: await r.text() };
+  return true;
 }
 
 async function createSheetWithHeaders(sheetId, token, SHEET_NAME) {
@@ -278,9 +377,33 @@ async function createSheetWithHeaders(sheetId, token, SHEET_NAME) {
   });
 }
 
+// gid của sheet không bao giờ đổi -> nhớ lại để đường xoá bớt 1 lượt gọi metadata.
+const _gidCache = {};
+async function getSheetGid(sheetId, token, SHEET_NAME) {
+  const k = `${sheetId}|${SHEET_NAME}`;
+  if (_gidCache[k] !== undefined) return _gidCache[k];
+  const r = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  const d = await r.json();
+  const t = (d.sheets || []).find(s => s.properties.title === SHEET_NAME);
+  if (!t) return null;
+  _gidCache[k] = t.properties.sheetId;
+  return _gidCache[k];
+}
+
+// Instance Vercel còn ấm thì dùng lại access token -> đỡ 1 vòng OAuth (~250ms) mỗi request.
+const _tokenCache = { key: '', token: '', exp: 0 };
+
 function getAccessToken(email, privateKey, writable = false) {
+  const cacheKey = `${email}|${writable}`;
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (_tokenCache.key === cacheKey && _tokenCache.exp > nowSec + 60) {
+    return Promise.resolve(_tokenCache.token);
+  }
   const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
-  const now = Math.floor(Date.now() / 1000);
+  const now = nowSec;
   const scope = writable
     ? 'https://www.googleapis.com/auth/spreadsheets'
     : 'https://www.googleapis.com/auth/spreadsheets.readonly';
@@ -297,6 +420,9 @@ function getAccessToken(email, privateKey, writable = false) {
     body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`,
   }).then(r => r.json()).then(d => {
     if (!d.access_token) throw new Error('token_fail: ' + JSON.stringify(d));
+    _tokenCache.key = cacheKey;
+    _tokenCache.token = d.access_token;
+    _tokenCache.exp = nowSec + (Number(d.expires_in) || 3600);
     return d.access_token;
   });
 }
