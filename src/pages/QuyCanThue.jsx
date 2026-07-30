@@ -285,8 +285,6 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
   const [activeTag, setActiveTag]   = useState(null); // tag đang lọc; null = tất cả
   const [customTags, setCustomTags] = useState(() => { try { return JSON.parse(localStorage.getItem('bangConTags_thue') || '[]'); } catch { return []; } });
   const [tagMenuFor, setTagMenuFor] = useState(null); // item đang mở popover gắn tag
-  // Sửa nhanh 1 ô ngay trên bảng con: { key, field, value }.
-  const [editCell, setEditCell]     = useState(null);
   const toastTimer                  = useRef(null);
 
   useEffect(() => {
@@ -328,23 +326,12 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
   // không còn lần gắn thẻ nào đang bay, nếu không sẽ nuốt mất thẻ user vừa tick.
   const canApplyRemoteRef = useRef(() => true);
 
-  // Gương của editCell, để commitCell đọc-và-xoá ĐỒNG BỘ (Enter rồi blur = 1 lần lưu).
-  const editRef      = useRef(null);
-  const cellBusyRef  = useRef(0);                 // số lần ghi ô đang bay
-  const cellQueueRef = useRef(Promise.resolve()); // ghi ô chạy tuần tự
-
-  // Chặn cả lúc ĐANG MỞ ô, không chỉ lúc đang ghi: nhịp poll rơi vào giữa lúc user gõ
-  // sẽ thay conItems, dòng dựng lại, mất sạch chữ đang gõ.
-  const canApplyCon = useCallback(
-    () => canApplyRemoteRef.current() && !editRef.current && cellBusyRef.current === 0, []
-  );
-
   const loadConData = useCallback(async () => {
     try {
       const data = await fetchQuyCanThueCon(userId, role, isViewAs);
-      if (canApplyCon()) setConItems(Array.isArray(data) ? data : []);
+      if (canApplyRemoteRef.current()) setConItems(Array.isArray(data) ? data : []);
     } catch { /* sheet con có thể chưa tạo — bỏ qua */ }
-  }, [userId, role, isViewAs, canApplyCon]);
+  }, [userId, role, isViewAs]);
 
   useEffect(() => { loadData(); loadConData(); }, [loadData, loadConData]);
 
@@ -353,11 +340,11 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     const iv = setInterval(() => {
       fetchQuyCanThue(userId, role, isViewAs).then(d => setItems(Array.isArray(d)?d:[])).catch(()=>{});
       fetchQuyCanThueCon(userId, role, isViewAs).then(d => {
-        if (canApplyCon()) setConItems(Array.isArray(d)?d:[]);
+        if (canApplyRemoteRef.current()) setConItems(Array.isArray(d)?d:[]);
       }).catch(()=>{});
     }, 30000);
     return () => clearInterval(iv);
-  }, [userId, role, isViewAs, canApplyCon]);
+  }, [userId, role, isViewAs]);
 
   function parseGiaValue(gia) {
     const s = (gia||'').toLowerCase().replace(/\s+/g,'');
@@ -690,99 +677,6 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     loadConData();
   }
 
-  // ── Sửa nhanh 1 ô ngay trên bảng con ──
-  // Trước đây muốn sửa Thời Gian Vào phải cuộn ngang tới nút ✎ rồi mở cả modal 16 ô,
-  // nên gần như không ai tìm ra chỗ gõ. Ba cột này giờ bấm phát là gõ được.
-
-  function openCell(item, field) {
-    const key = conKey(item.Ma_Can);
-    if (!key) return;
-    editRef.current = { key, field, orig: item[field] || '' };
-    setEditCell({ key, field, value: item[field] || '' });
-  }
-
-  function cancelCell() {
-    editRef.current = null;   // phải xoá TRƯỚC setState: blur bắn ngay sau Escape.
-    setEditCell(null);
-  }
-
-  function commitCell(value) {
-    // Đọc-và-xoá đồng bộ: Enter đóng ô rồi blur bắn tiếp, lần thứ hai thấy null -> no-op.
-    const cur = editRef.current;
-    editRef.current = null;
-    setEditCell(null);
-    if (!cur) return;
-
-    const { key, field, orig } = cur;
-    const val = (value ?? '').toString();
-    if (val === orig) return;                       // không đổi -> không gửi request
-
-    const today = todayVN();
-    // Vá theo conKey chứ KHÔNG theo _rowIndex: sheet có thể có dòng trùng, server ghi
-    // dòng ĐẦU TIÊN khớp Mã Căn nên client phải vá đúng dòng đó.
-    let maCan = '';
-    setConItems(prev => {
-      const idx = prev.findIndex(it => conKey(it.Ma_Can) === key);
-      if (idx === -1) return prev;
-      maCan = prev[idx].Ma_Can || '';
-      const next = prev.slice();
-      next[idx] = { ...next[idx], [field]: val, Ngay_Update: today };
-      return next;
-    });
-    if (!maCan) return;
-
-    cellBusyRef.current += 1;
-    cellQueueRef.current = cellQueueRef.current.then(async () => {
-      let err = null;
-      try {
-        const r = await postQuyCanThueCon({
-          action: 'setfield', Owner_Id: userId || '', Ma_Can: maCan, field, value: val, today,
-        });
-        if (r?.duplicates > 0) {
-          showToast(`Căn ${maCan} đang có ${r.duplicates + 1} dòng trùng trong bảng con — vào Sheet dọn giúp`, 'error');
-        }
-      } catch (e) { err = e; }
-      // Giảm TRƯỚC khi báo lỗi: onWriteError gọi loadConData, mà loadConData lại bị
-      // chính cellBusyRef chặn -> không giảm trước là reload thành vô nghĩa.
-      finally { cellBusyRef.current -= 1; }
-      if (err) onWriteError(err);
-    });
-  }
-
-  const isEditingCell = (item, field) =>
-    !!editCell && editCell.field === field && editCell.key === conKey(item.Ma_Can);
-
-  // Props gắn vào <td>. Tab "Tất cả" là bảng hàng công ty -> không đụng.
-  const cellProps = (item, field) =>
-    viewingCon ? { onClick: () => openCell(item, field), title: 'Bấm để sửa' } : {};
-  const cellCursor = viewingCon ? 'pointer' : undefined;
-
-  // multiline: Ghi_Chu BẮT BUỘC là <textarea> — ghi chú cũ có thể chứa xuống dòng
-  // (modal dùng textarea), mà <input> nuốt sạch CR/LF: mở ô rồi blur là mất trắng.
-  function renderCellEditor(multiline) {
-    const common = {
-      autoFocus: true,
-      value: editCell.value,
-      onChange: e => setEditCell(c => ({ ...c, value: e.target.value })),
-      // Không có cái này thì bấm vào chính ô input sẽ kích lại onClick của <td>.
-      onClick: e => e.stopPropagation(),
-      onBlur: e => commitCell(e.target.value),
-    };
-    if (multiline) {
-      return <textarea {...common} rows={3} style={st.cellArea}
-        onKeyDown={e => {
-          if (e.key === 'Escape') { e.preventDefault(); cancelCell(); }
-          // Enter = xuống dòng; Ctrl/Cmd+Enter = lưu.
-          else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitCell(e.target.value); }
-        }} />;
-    }
-    return <input {...common} style={st.cellInput}
-      onKeyDown={e => {
-        if (e.key === 'Enter') { e.preventDefault(); commitCell(e.target.value); }
-        else if (e.key === 'Escape') { e.preventDefault(); cancelCell(); }
-      }} />;
-  }
-
   async function handleSave() {
     if (!form.Ma_Can.trim()) return showToast('Vui lòng nhập Mã căn', 'error');
     try {
@@ -1088,14 +982,10 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                       </td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'normal', background: rowBg}}>{huongText(item.Huong_BC)}</td>
                       <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap', background: rowBg}}>{item.Gia}</td>
-                      {viewingCon && <td {...cellProps(item, 'Gia_Net')} style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', color:'#34D399', background: rowBg, cursor: cellCursor}}>
-                        {isEditingCell(item, 'Gia_Net') ? renderCellEditor(false) : item.Gia_Net}
-                      </td>}
+                      {viewingCon && <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', color:'#34D399', background: rowBg}}>{item.Gia_Net}</td>}
                       <td style={{...st.td, textAlign:'center', fontSize:12, background: rowBg}}>{item.Phi_MG}</td>
                       <td style={{...st.td, textAlign:'center', background: rowBg}}>{normalizeNoiThat(item.Noi_That)}</td>
-                      <td {...cellProps(item, 'Thoi_Gian_Vao')} style={{...st.td, textAlign:'center', fontSize:12, background: isSoonMoveIn(item.Thoi_Gian_Vao) ? 'rgba(34, 211, 238, 0.20)' : undefined, cursor: cellCursor}}>
-                        {isEditingCell(item, 'Thoi_Gian_Vao') ? renderCellEditor(false) : item.Thoi_Gian_Vao}
-                      </td>
+                      <td style={{...st.td, textAlign:'center', fontSize:12, background: isSoonMoveIn(item.Thoi_Gian_Vao) ? 'rgba(34, 211, 238, 0.20)' : undefined}}>{item.Thoi_Gian_Vao}</td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'normal', wordBreak:'break-word', fontSize:12, background: rowBg}}>{item.Ten_Chu}</td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'normal', wordBreak:'break-word', fontSize:12, background: rowBg}}>{item.Lien_He}</td>
                       <td style={{...st.td, textAlign:'center', cursor:'pointer', background: rowBg}}
@@ -1105,9 +995,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                         }}
                       ><ThumbCell value={item.Hinh_Anh} /></td>
                       <td style={{...st.td, textAlign:'center', fontSize:12, background: rowBg}}>{item.Nguon}</td>
-                      <td {...cellProps(item, 'Ghi_Chu')} style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8', background: rowBg, cursor: cellCursor}}>
-                        {isEditingCell(item, 'Ghi_Chu') ? renderCellEditor(true) : item.Ghi_Chu}
-                      </td>
+                      <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8', background: rowBg}}>{item.Ghi_Chu}</td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none', background: rowBg}}>
                         <button onClick={() => copySalesInfo(item)} style={{...st.actionBtn, color:'#F59E0B'}} title="Copy thông tin gửi Sales">&#128188;</button>
                         <button onClick={() => copyCustomerInfo(item)} style={{...st.actionBtn, color:C.primary}} title="Copy thông tin gửi khách">&#128203;</button>
@@ -1647,12 +1535,6 @@ const st = {
   th:          { textAlign:'center', padding:'10px 8px', fontWeight:700, fontSize:11, textTransform:'uppercase', color:'#8a9bb8', borderBottom:'2px solid #2d3240', borderRight:D, whiteSpace:'nowrap', background:'#13151e' },
   tr:          { borderBottom:'1.5px solid rgba(255,255,255,0.22)', transition:'background 0.12s' },
   td:          { padding:'8px 8px', verticalAlign:'middle', fontSize:13, borderRight:D, color:'#e2e8f0' },
-  // Ô sửa nhanh trong bảng. KHÔNG dùng lại fieldInput: nó nền C.bgInput (style cho
-  // modal nền trắng), bỏ vào bảng nền tối sẽ ra một ô trắng chói. Nền phải ĐỤC vì nền
-  // hàng trạng thái là rgba(...) bán trong suốt; color đặt tường minh vì ô Giá Nét
-  // đang là màu xanh #34D399. boxSizing bắt buộc: bảng dùng tableLayout:'fixed'.
-  cellInput:   { width:'100%', boxSizing:'border-box', padding:'4px 6px', border:`1.5px solid ${C.primary}`, borderRadius:6, fontSize:12, fontFamily:F, outline:'none', textAlign:'center', background:'#0f1117', color:'#e2e8f0' },
-  cellArea:    { width:'100%', boxSizing:'border-box', padding:'4px 6px', border:`1.5px solid ${C.primary}`, borderRadius:6, fontSize:12, fontFamily:F, outline:'none', background:'#0f1117', color:'#e2e8f0', resize:'vertical' },
   emptyTd:     { textAlign:'center', padding:40, color:'#8a9bb8', fontSize:14 },
   toaHeader:   { background:'#EF4444', padding:'7px 0', textAlign:'center', borderTop:'1px solid rgba(255,255,255,0.18)', borderBottom:'1px solid rgba(255,255,255,0.18)' },
   toaLabel:    { fontWeight:700, fontSize:13, color:'#fff', letterSpacing:3, textTransform:'uppercase' },
