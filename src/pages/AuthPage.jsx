@@ -9,8 +9,14 @@ export function AuthGate({ children }) {
   if (!isLoaded) return <LoadingScreen />;
   if (!isSignedIn) return <LoginPage />;
 
-  // Kiểm tra waitlist / chờ duyệt
   const status = user.publicMetadata?.status;
+
+  // Bị khoá: chặn TRƯỚC mọi thứ khác. Phải kiểm ở đây chứ không thể dựa vào cờ `banned`
+  // của Clerk — cờ đó chỉ chặn lần đăng nhập sau và frontend SDK không đọc được nó, nên
+  // người đang mở sẵn tab vẫn dùng app như thường.
+  if (status === 'locked') return <LockedScreen />;
+
+  // Kiểm tra waitlist / chờ duyệt
   if (status === 'pending' || (!status && !user.publicMetadata?.approved)) {
     return <PendingScreen user={user} />;
   }
@@ -82,6 +88,42 @@ function LoginPage() {
           Sau khi đăng ký, tài khoản của bạn sẽ chờ admin phê duyệt trước khi sử dụng được.
         </div>
       )}
+    </div>
+  );
+}
+
+function LockedScreen() {
+  const { signOut } = useClerk();
+
+  return (
+    <div style={{
+      minHeight:'100vh', display:'flex', flexDirection:'column',
+      alignItems:'center', justifyContent:'center',
+      background:'linear-gradient(135deg, #0f1117 0%, #1a1d27 100%)',
+      fontFamily:F, padding:20,
+    }}>
+      <div style={{
+        background:'#1a1d27', border:'1px solid #E53E3E', borderRadius:20,
+        padding:'40px 48px', maxWidth:440, width:'100%', textAlign:'center',
+        boxShadow:'0 8px 40px rgba(0,0,0,0.4)',
+      }}>
+        <div style={{ fontSize:48, marginBottom:16 }}>🔒</div>
+        <div style={{ fontSize:20, fontWeight:800, color:'#E53E3E', marginBottom:8 }}>
+          Tài khoản đã bị khoá
+        </div>
+        <div style={{ fontSize:14, color:'#8a9bb8', lineHeight:1.7, marginBottom:24 }}>
+          Tài khoản của bạn đã bị quản trị viên khoá.<br/>
+          Liên hệ quản trị viên nếu bạn cho rằng đây là nhầm lẫn.
+        </div>
+        <button
+          onClick={() => signOut()}
+          style={{
+            background:'none', border:'1px solid #3a3f52', borderRadius:10,
+            padding:'10px 24px', color:'#8a9bb8', cursor:'pointer',
+            fontFamily:F, fontSize:14, fontWeight:600,
+          }}
+        >Đăng xuất</button>
+      </div>
     </div>
   );
 }

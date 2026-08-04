@@ -230,6 +230,10 @@ async function handleAdmin(req, res) {
       avatar: u.image_url || '',
       role: u.public_metadata?.role || 'pending',
       approved: u.public_metadata?.approved || false,
+      // Cờ `banned` của Clerk chỉ chặn ĐĂNG NHẬP MỚI và không lộ ra ở frontend SDK, nên
+      // trạng thái khoá còn được ghi kèm vào public_metadata.status để AuthGate đọc được.
+      // Nhận cả hai nguồn: khoá tay từ Clerk Dashboard chỉ set `banned`.
+      locked: !!u.banned || u.public_metadata?.status === 'locked',
       created_at: u.created_at,
       last_sign_in_at: u.last_sign_in_at,
       source: 'user',
@@ -278,12 +282,27 @@ async function handleAdmin(req, res) {
     return res.status(200).json({ ok: true, metadata: updated.public_metadata });
   }
 
-  if (action === 'ban') {
+  if (action === 'ban' || action === 'unban') {
     if (!userId) return res.status(400).json({ error: 'Missing userId' });
-    await fetch(`https://api.clerk.com/v1/users/${userId}/ban`, {
+    // Tự khoá mình là đứt đường về: AuthGate sẽ chặn, mà chỉ admin mới mở khoá được.
+    if (userId === callerId) return res.status(400).json({ error: 'Không thể tự khoá tài khoản của mình' });
+    const lock = action === 'ban';
+
+    const r = await fetch(`https://api.clerk.com/v1/users/${userId}/${action}`, {
       method: 'POST', headers: { Authorization: `Bearer ${SECRET_KEY}` },
     });
-    return res.status(200).json({ ok: true });
+    if (!r.ok) return res.status(502).json({ error: `Clerk ${action} lỗi`, detail: await r.text() });
+
+    // Chỉ /ban là chưa đủ: nó chặn đăng nhập mới nhưng frontend không đọc được cờ đó,
+    // nên phiên đang mở vẫn dùng app bình thường. status ở đây mới là thứ AuthGate chặn.
+    // PATCH metadata là MERGE nên role/approved giữ nguyên.
+    const m = await fetch(`https://api.clerk.com/v1/users/${userId}/metadata`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${SECRET_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ public_metadata: { status: lock ? 'locked' : 'active' } }),
+    });
+    if (!m.ok) return res.status(502).json({ error: 'Cập nhật trạng thái lỗi', detail: await m.text() });
+    return res.status(200).json({ ok: true, locked: lock });
   }
 
   return res.status(400).json({ error: 'Invalid action' });

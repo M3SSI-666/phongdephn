@@ -77,12 +77,17 @@ export default function AdminDashboard() {
     finally { setSaving(null); }
   }
 
-  async function banUser(userId, name) {
-    if (!confirm(`Khoá tài khoản của ${name}?`)) return;
+  async function toggleBan(userId, name, locked) {
+    const verb = locked ? 'Mở khoá' : 'Khoá';
+    if (!confirm(`${verb} tài khoản của ${name}?`)) return;
     setSaving(userId);
     try {
-      await adminFetch({ action: 'ban', userId });
-      showToast('Đã khoá tài khoản!');
+      const res = await adminFetch({ action: locked ? 'unban' : 'ban', userId });
+      const data = await res.json();
+      // Thiếu chỗ này thì server từ chối (tự khoá mình, hết quyền...) mà toast vẫn báo
+      // thành công — đúng kiểu "bấm khoá xong chẳng thấy gì đổi".
+      if (!res.ok) throw new Error(data.error || `${verb} thất bại`);
+      showToast(locked ? 'Đã mở khoá tài khoản!' : 'Đã khoá tài khoản!');
       await loadUsers();
     } catch (e) { showToast(e.message, 'error'); }
     finally { setSaving(null); }
@@ -175,7 +180,7 @@ export default function AdminDashboard() {
                       ? () => approveWaitlist(u.id, u.email)
                       : () => updateUser(u.id, 'staff', true)
                     }
-                    onBan={u.source === 'waitlist' ? null : () => banUser(u.id, u.name)}
+                    onBan={u.source === 'waitlist' ? null : () => toggleBan(u.id, u.name, u.locked)}
                     onRoleChange={u.source === 'waitlist' ? null : role => updateUser(u.id, role, true)}
                   />
                 ))}
@@ -191,7 +196,7 @@ export default function AdminDashboard() {
               ) : active.map(u => (
                 <UserRow key={u.id} u={u} saving={saving}
                   onApprove={null}
-                  onBan={() => banUser(u.id, u.name)}
+                  onBan={u.id === user.id ? null : () => toggleBan(u.id, u.name, u.locked)}
                   onRoleChange={role => updateUser(u.id, role, true)}
                   onViewInventory={u.id !== user.id ? () => navigate(`/timescity?viewAs=${u.id}&viewName=${encodeURIComponent(u.name)}`) : null}
                 />
@@ -230,7 +235,13 @@ function UserRow({ u, saving, onApprove, onBan, onRoleChange, onViewInventory })
   const isWaitlist = u.source === 'waitlist';
 
   return (
-    <div style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 20px', borderBottom:'1px solid #2d3240' }}>
+    <div style={{
+      display:'flex', alignItems:'center', gap:14, padding:'14px 20px', borderBottom:'1px solid #2d3240',
+      // Làm mờ cả dòng để lướt mắt là thấy ngay ai đang bị khoá. Mờ theo cả nút bấm,
+      // nhưng opacity không chặn sự kiện nên nút Mở khoá vẫn bấm được bình thường.
+      opacity: u.locked ? 0.45 : 1,
+      background: u.locked ? 'rgba(229,62,62,0.06)' : undefined,
+    }}>
       {/* Avatar */}
       {u.avatar
         ? <img src={u.avatar} alt="" style={{ width:38, height:38, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} onError={e => { e.target.style.display='none'; }} />
@@ -240,7 +251,8 @@ function UserRow({ u, saving, onApprove, onBan, onRoleChange, onViewInventory })
       {/* Info */}
       <div style={{ flex:1, minWidth:0 }}>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <span style={{ fontWeight:700, fontSize:14, color:'#e2e8f0' }}>{u.name}</span>
+          <span style={{ fontWeight:700, fontSize:14, color:'#e2e8f0', textDecoration: u.locked ? 'line-through' : 'none' }}>{u.name}</span>
+          {u.locked && <span style={{ fontSize:10, background:'rgba(229,62,62,0.2)', border:'1px solid #E53E3E', color:'#E53E3E', borderRadius:6, padding:'2px 7px', fontWeight:700 }}>🔒 ĐÃ KHOÁ</span>}
           {isWaitlist && <span style={{ fontSize:10, background:'rgba(246,173,85,0.2)', border:'1px solid #F6AD55', color:'#F6AD55', borderRadius:6, padding:'2px 7px', fontWeight:700 }}>WAITLIST</span>}
         </div>
         <div style={{ fontSize:12, color:'#8a9bb8' }}>{u.email}</div>
@@ -280,8 +292,13 @@ function UserRow({ u, saving, onApprove, onBan, onRoleChange, onViewInventory })
         )}
         {onBan && (
           <button onClick={onBan} disabled={isSaving}
-            style={{ background:'rgba(229,62,62,0.1)', border:'1px solid #E53E3E', borderRadius:8, padding:'6px 12px', color:'#E53E3E', cursor:'pointer', fontFamily:F, fontSize:12, fontWeight:700 }}>
-            🔒 Khoá
+            style={{
+              background: u.locked ? 'rgba(56,178,116,0.15)' : 'rgba(229,62,62,0.1)',
+              border: `1px solid ${u.locked ? '#38b274' : '#E53E3E'}`,
+              borderRadius:8, padding:'6px 12px', color: u.locked ? '#38b274' : '#E53E3E',
+              cursor:'pointer', fontFamily:F, fontSize:12, fontWeight:700, whiteSpace:'nowrap',
+            }}>
+            {isSaving ? '...' : u.locked ? '🔓 Mở khoá' : '🔒 Khoá'}
           </button>
         )}
       </div>
