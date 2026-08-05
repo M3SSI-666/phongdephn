@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 
 const SHEET_NAME = 'Khach_Times';
-// 27 columns: STT, Ngay_PS, Ten_Zalo, SDT, Nhu_Cau, Phong_Ngu, Noi_That, Slot_Xe, Thoi_Han_Thue, Ngay_Vao, Dien_Tich, Tai_Chinh, Toa, Can_Tu_Van, Trang_Thai, Thu_Ve, Ghi_Chu, Coc, Chu_Can, Owner_Id, Thu_Tu, Check_Out, Tang, Ban_Cong, Cua, Coc_Host, Mau_KH
-const COLUMNS = 'A:AA';
+// 28 columns: STT, Ngay_PS, Ten_Zalo, SDT, Nhu_Cau, Phong_Ngu, Noi_That, Slot_Xe, Thoi_Han_Thue, Ngay_Vao, Dien_Tich, Tai_Chinh, Toa, Can_Tu_Van, Trang_Thai, Thu_Ve, Ghi_Chu, Coc, Chu_Can, Owner_Id, Thu_Tu, Check_Out, Tang, Ban_Cong, Cua, Coc_Host, Mau_KH, Khu_Vuc
+const COLUMNS = 'A:AB';
 
 // RAW, KHÔNG USER_ENTERED. Sheet này có 3 cột ngày dạng chữ tự do — Ngay_PS (B), Ngay_Vao (J),
 // Check_Out (V) — và mọi lần lưu khách đều đẩy cả ba qua đây. USER_ENTERED để Sheets tự đoán
@@ -86,6 +86,10 @@ async function handleGet(req, res, sheetId, email, key) {
     Cua: row[24] || '',
     Coc_Host: row[25] || '',
     Mau_KH: row[26] || '',
+    // Khu vực (tab Khách Homestay). Trả nguyên ô, KHÔNG mặc định 'Times' ở đây: client
+    // sẽ dội giá trị này ngược lại sheet ở lần sửa kế, thành backfill chui lên cả khách
+    // Bán/Thuê. Quy ước "rỗng = Times" nằm ở khuOf() trong KhachTimes.jsx.
+    Khu_Vuc: row[27] || '',
     _rowIndex: i + 2,
   }));
 
@@ -116,7 +120,7 @@ async function handlePost(req, res, sheetId, email, key) {
       p.STT, p.Ngay_PS, p.Ten_Zalo, p.SDT,
       p.Nhu_Cau, p.Phong_Ngu, p.Noi_That, p.Slot_Xe,
       p.Thoi_Han_Thue, p.Ngay_Vao, p.Dien_Tich, p.Tai_Chinh,
-      p.Toa, p.Can_Tu_Van, p.Trang_Thai, p.Thu_Ve || '', p.Ghi_Chu, p.Coc || '', p.Chu_Can || '', p.Owner_Id || '', p.Thu_Tu || '', p.Check_Out || '', p.Tang || '', p.Ban_Cong || '', p.Cua || '', p.Coc_Host || '', p.Mau_KH || '',
+      p.Toa, p.Can_Tu_Van, p.Trang_Thai, p.Thu_Ve || '', p.Ghi_Chu, p.Coc || '', p.Chu_Can || '', p.Owner_Id || '', p.Thu_Tu || '', p.Check_Out || '', p.Tang || '', p.Ban_Cong || '', p.Cua || '', p.Coc_Host || '', p.Mau_KH || '', p.Khu_Vuc || '',
     ];
   }
 
@@ -152,7 +156,9 @@ async function handlePost(req, res, sheetId, email, key) {
     }
 
     const row = buildRow(payload);
-    const range = `${SHEET_NAME}!A${payload._rowIndex}:AA${payload._rowIndex}`;
+    // Dải phải khớp ĐÚNG số phần tử buildRow trả về. Hẹp hơn -> Google trả 400; rộng hơn
+    // -> ô thừa không được ghi, lưu "thành công" mà dữ liệu không dính. Sửa 2 chỗ cùng lúc.
+    const range = `${SHEET_NAME}!A${payload._rowIndex}:AB${payload._rowIndex}`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?valueInputOption=${WRITE_MODE}`;
     const response = await fetch(url, {
       method: 'PUT',
