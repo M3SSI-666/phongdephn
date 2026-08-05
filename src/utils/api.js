@@ -417,3 +417,29 @@ export async function postKhachTimes(payload) {
   }
   return res.json();
 }
+
+// ============ Danh mục Khu Vực (tab Khách Homestay) ============
+// Dùng chung endpoint /api/khachtimes, chọn sheet danh mục bằng tham số sheet=khu
+// (gộp function để không vượt giới hạn Serverless Functions của Vercel).
+export async function fetchKhachTimesKhu(userId) {
+  const params = new URLSearchParams({ t: Date.now(), sheet: 'khu' });
+  if (userId) params.set('userId', userId);
+  const res = await fetch(`/api/khachtimes?${params}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Fetch khach times khu failed');
+  return res.json();
+}
+
+export async function postKhachTimesKhu(payload) {
+  const res = await fetch('/api/khachtimes?sheet=khu', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    // `sheet` phải có ở CẢ query string lẫn body: handler đọc req.query cho GET và
+    // req.body cho POST, thiếu một chỗ là rơi nhầm sang bảng khách.
+    body: JSON.stringify({ ...payload, sheet: 'khu' }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Action failed (${res.status})`);
+  }
+  return res.json();
+}
