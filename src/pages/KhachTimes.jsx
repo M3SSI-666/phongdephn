@@ -13,7 +13,11 @@ import {
 import dagre from '@dagrejs/dagre';
 import '@xyflow/react/dist/style.css';
 import { C } from '../utils/theme';
-import { fetchKhachTimes, postKhachTimes, parseSearchQuery } from '../utils/api';
+import { fetchKhachTimes, postKhachTimes, parseSearchQuery, fetchKhachTimesKhu, postKhachTimesKhu } from '../utils/api';
+// Dùng lại nguyên validator của thẻ bảng con bên Quỹ Căn (đã có unit test ở
+// test/conTagState.test.js: chặn tên rỗng, dấu phẩy, đầu = + - @, trùng không phân biệt
+// hoa thường). Viết validator thứ hai là mở đường cho 2 luật lệch nhau.
+import { validateTagName } from '../utils/conTagState';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -230,6 +234,10 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'mindmap' — chỉ dùng cho tab thuê
   const [mmCollapsed, setMmCollapsed] = useState(() => new Set()); // node-key đang bị thu (cấp 1, cấp 2)
 
+  // ── Khu vực (chỉ tab Khách Homestay) ──
+  const [activeKhu, setActiveKhu] = useState(null);  // null = xem tất cả khu
+  const [khuItems, setKhuItems] = useState([]);      // danh mục khu + ghi chú, từ sheet Khach_Times_Khu
+
   const currentSubTab = SUB_TABS.find(t => t.key === activeSubTab) || SUB_TABS[0];
   const filterLoai = currentSubTab.filter;
 
@@ -288,7 +296,20 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     }
   }, [userId, role, isViewAs]);
 
+  // Danh mục khu vực nạp riêng và NUỐT LỖI: đây là dữ liệu phụ trợ (tên thẻ + ghi chú),
+  // hỏng thì chip bar vẫn dựng lại được từ chính dữ liệu khách (xem memo allKhu bên dưới).
+  // Để lỗi này nổi lên setError sẽ che mất cả bảng khách chỉ vì thiếu vài ghi chú.
+  const loadKhuData = useCallback(async () => {
+    try {
+      const data = await fetchKhachTimesKhu(userId);
+      setKhuItems(Array.isArray(data) ? data : []);
+    } catch {
+      /* bỏ qua */
+    }
+  }, [userId]);
+
   useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { loadKhuData(); }, [loadKhuData]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -296,9 +317,10 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         const arr = Array.isArray(data) ? data : [];
         setItems(arr);
       }).catch(() => {});
+      loadKhuData();
     }, 30000);
     return () => clearInterval(interval);
-  }, [userId, role, isViewAs]);
+  }, [userId, role, isViewAs, loadKhuData]);
 
   // Inline update — thay đổi 1 field ngay trong bảng, auto save
   const inlineUpdate = useCallback(async (item, field, value) => {
@@ -355,7 +377,10 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   const [dragRowIndex, setDragRowIndex] = useState(null); // _rowIndex của hàng đang kéo
   const [dragOverIndex, setDragOverIndex] = useState(null); // _rowIndex của hàng đang được rê tới
   // Chỉ cho kéo-thả khi xem danh sách đầy đủ của 1 tab (không tìm kiếm, không lọc trạng thái).
-  const canDrag = !search.trim() && !aiFilter && filterTrangThai.length === 0;
+  // Kể cả lọc khu vực: persistOrder đánh lại Thu_Tu = 1..n trên ĐÚNG danh sách được truyền vào,
+  // các dòng ngoài danh sách giữ số cũ — kéo trong 1 khu sẽ đụng số với khách khu khác và làm
+  // thứ tự ở "Tất cả khu" loạn hết. Mặc định là "Tất cả khu" nên kéo-thả vẫn chạy như trước.
+  const canDrag = !search.trim() && !aiFilter && filterTrangThai.length === 0 && activeKhu === null;
 
   // Tab Khách bán: ẩn cột/trường "Thời hạn" và "Ngày vào" vì không cần thiết.
   const isBanTab = activeSubTab === 'ban';
@@ -368,16 +393,35 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   // Bộ trạng thái áp dụng theo tab hiện tại.
   const trangThaiOptions = isHomestayTab ? HOMESTAY_TRANG_THAI_OPTIONS : TRANG_THAI_OPTIONS;
 
-  // Danh sách khu vực hiển thị = Times (mặc định) + khu quan sát được trong dữ liệu khách.
-  // Gộp cả nguồn dữ liệu chứ không chỉ danh mục, để khu bị xoá ở máy khác vẫn còn "chip ma"
-  // và KHÔNG khách nào bị ẩn mất.
+  // Danh sách khu vực hiển thị = Times (mặc định) + danh mục trên sheet + khu quan sát được
+  // trong chính dữ liệu khách. Gộp cả 3 nguồn chứ không chỉ danh mục, để khu bị xoá ở máy khác
+  // (hoặc gõ tay thẳng vào ô AB) vẫn còn "chip ma" và KHÔNG khách nào bị ẩn mất.
   const allKhu = useMemo(() => {
     const set = new Set([KHU_MAC_DINH]);
+    khuItems.forEach((k) => { const t = (k.Ten_Khu || '').trim(); if (t) set.add(t); });
     items.forEach((it) => {
       if ((it.Nhu_Cau || '').trim().toLowerCase() === 'homestay') set.add(khuOf(it));
     });
     return [...set];
+  }, [items, khuItems]);
+
+  // Số khách trong từng khu — chỉ đếm khách Homestay, khớp đúng bộ lọc bên dưới.
+  const khuCounts = useMemo(() => {
+    const m = {};
+    items.forEach((it) => {
+      if ((it.Nhu_Cau || '').trim().toLowerCase() !== 'homestay') return;
+      const k = khuOf(it);
+      m[k] = (m[k] || 0) + 1;
+    });
+    return m;
   }, [items]);
+
+  // Ghi chú của khu đang chọn.
+  const activeKhuNote = useMemo(() => {
+    if (!activeKhu) return '';
+    const row = khuItems.find((k) => (k.Ten_Khu || '').trim() === activeKhu);
+    return (row?.Ghi_Chu || '').trim();
+  }, [activeKhu, khuItems]);
 
   const filtered = useMemo(() => {
     let list = [...items];
@@ -389,6 +433,13 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
       if (fv === 'mua') return nc === 'mua';
       return true;
     });
+    // Lọc theo khu vực (chỉ tab Homestay). So khớp BẰNG-ĐÚNG chuỗi đã trim, không phải
+    // không-phân-biệt-hoa-thường: muốn case-insensitive thì phải chuẩn hoá y hệt nhau ở cả
+    // bộ lọc, số đếm chip và select trong modal cùng lúc — lệch một chỗ là khách bị đếm ở
+    // nơi này mà mất ở nơi kia. Trùng hoa/thường đã bị chặn ngay lúc TẠO thẻ.
+    if (isHomestayTab && activeKhu) {
+      list = list.filter((it) => khuOf(it) === activeKhu);
+    }
     if (filterTrangThai.length > 0) {
       list = list.filter((it) => filterTrangThai.includes(it.Trang_Thai || ''));
     }
@@ -423,7 +474,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
       return Number(b.STT || 0) - Number(a.STT || 0);
     });
     return list;
-  }, [items, filterLoai, filterTrangThai, search, aiFilter]);
+  }, [items, filterLoai, filterTrangThai, search, aiFilter, isHomestayTab, activeKhu]);
 
   // ── Dữ liệu cây cho chế độ Mind Map (tab Khách thuê) ──
   // Cấp 1: Kiểu khách (KẾT HỢP / KHÁCH CHỦ ĐỘNG) → Cấp 2: số phòng ngủ
@@ -484,7 +535,73 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
       setFilterTrangThai([]);
       setViewMode('table');
     }
+    // Chip bar chỉ hiện ở tab Homestay, nên rời tab lúc đang chọn 1 khu rồi quay lại
+    // sẽ dính bộ lọc vô hình nếu không reset ở đây.
+    setActiveKhu(null);
   }, [activeSubTab]);
+
+  // ── Ba động tác trên thẻ khu vực ──
+  // Chỉ nút "+ Thẻ" mới được TẠO khu (select trong modal chỉ chọn), nên đây là chỗ DUY NHẤT
+  // chặn trùng — vì thế bộ lọc bên dưới được phép so khớp bằng-đúng chuỗi.
+  const addKhu = useCallback(async () => {
+    const name = window.prompt('Tên khu vực mới:');
+    if (name == null) return;
+    const t = (name || '').trim();
+    const err = validateTagName(t, allKhu);
+    if (err) { showToast(err, 'error'); return; }
+    setKhuItems((prev) => [...prev, { Ten_Khu: t, Ghi_Chu: '', Owner_Id: userId || '' }]);
+    setActiveKhu(t);
+    try {
+      await postKhachTimesKhu({ action: 'addkhu', Ten_Khu: t, Ghi_Chu: '', Owner_Id: userId || '' });
+      showToast('Đã thêm khu "' + t + '"');
+    } catch (e) {
+      showToast('Lỗi thêm khu: ' + e.message, 'error');
+      loadKhuData();
+    }
+  }, [allKhu, userId, showToast, loadKhuData]);
+
+  const editKhuNote = useCallback(async () => {
+    if (!activeKhu) return;
+    const next = window.prompt('Ghi chú cho khu "' + activeKhu + '" (để trống = xoá ghi chú):', activeKhuNote);
+    if (next == null) return;
+    const t = (next || '').trim();
+    setKhuItems((prev) => {
+      const idx = prev.findIndex((k) => (k.Ten_Khu || '').trim() === activeKhu);
+      if (idx === -1) return [...prev, { Ten_Khu: activeKhu, Ghi_Chu: t, Owner_Id: userId || '' }];
+      const copy = prev.slice();
+      copy[idx] = { ...copy[idx], Ghi_Chu: t };
+      return copy;
+    });
+    try {
+      await postKhachTimesKhu({ action: 'setnote', Ten_Khu: activeKhu, Ghi_Chu: t, Owner_Id: userId || '' });
+      showToast('Đã lưu ghi chú');
+    } catch (e) {
+      showToast('Lỗi lưu ghi chú: ' + e.message, 'error');
+      loadKhuData();
+    }
+  }, [activeKhu, activeKhuNote, userId, showToast, loadKhuData]);
+
+  const delKhu = useCallback(async () => {
+    if (!activeKhu) return;
+    // Chặn xoá khi còn khách: xoá thẻ không đụng gì tới ô Khu_Vuc của khách, nên khách sẽ
+    // trở thành "mồ côi" — vẫn hiện ở chip ma nhưng ghi chú thì mất hẳn, không khôi phục được.
+    const n = khuCounts[activeKhu] || 0;
+    if (n > 0) {
+      showToast(`Còn ${n} khách trong khu này. Chuyển khách sang khu khác trước khi xoá.`, 'error');
+      return;
+    }
+    if (!window.confirm(`Xoá khu "${activeKhu}"?`)) return;
+    const ten = activeKhu;
+    setKhuItems((prev) => prev.filter((k) => (k.Ten_Khu || '').trim() !== ten));
+    setActiveKhu(null);
+    try {
+      await postKhachTimesKhu({ action: 'delkhu', Ten_Khu: ten, Owner_Id: userId || '' });
+      showToast('Đã xoá khu "' + ten + '"');
+    } catch (e) {
+      showToast('Lỗi xoá khu: ' + e.message, 'error');
+      loadKhuData();
+    }
+  }, [activeKhu, khuCounts, userId, showToast, loadKhuData]);
 
   // Tìm kiếm thông minh: gửi câu chữ tự nhiên cho AI nhận dạng tiêu chí, rồi lọc khách.
   const handleAiSearch = useCallback(async () => {
@@ -585,7 +702,9 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
       ...EMPTY_FORM,
       Ngay_PS: getTodayStr(),
       Nhu_Cau: currentSubTab.nhuCau,
-      Khu_Vuc: activeSubTab === 'homestay' ? KHU_MAC_DINH : '',
+      // Đang lọc theo 1 khu thì khách mới mặc định vào đúng khu đó — thêm xong mà khách
+      // biến mất khỏi màn hình vì rơi vào khu khác là hành vi khó hiểu.
+      Khu_Vuc: activeSubTab === 'homestay' ? (activeKhu || KHU_MAC_DINH) : '',
     });
     setModalOpen(true);
   };
@@ -862,6 +981,39 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
           </div>
           <div style={s.resultCount}>{filtered.length} / {items.length} khách</div>
         </div>
+
+        {/* Thẻ khu vực — chỉ tab Khách Homestay */}
+        {isHomestayTab && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, color: '#8a9bb8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', marginRight: 2 }}>Khu vực:</span>
+              <button onClick={() => setActiveKhu(null)} style={activeKhu === null ? s.tagChipActive : s.tagChip}>
+                Tất cả khu
+              </button>
+              {allKhu.map((k) => (
+                <button key={k} onClick={() => setActiveKhu(activeKhu === k ? null : k)}
+                  style={activeKhu === k ? s.tagChipActive : s.tagChip}>
+                  {k}{khuCounts[k] ? <span style={{ opacity: 0.7, marginLeft: 4 }}>({khuCounts[k]})</span> : null}
+                </button>
+              ))}
+              <button onClick={addKhu} style={{ ...s.tagChip, borderStyle: 'dashed', color: '#38b274' }} title="Thêm khu vực mới">
+                + Thẻ
+              </button>
+            </div>
+            {/* Ghi chú của khu đang chọn. Hiện thành chữ chứ không phải tooltip title:
+                title không chạm tới được trên điện thoại, mà trang này có hẳn CSS mobile. */}
+            {activeKhu && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 8, fontSize: 12, color: '#cbd5e1' }}>
+                <span style={{ opacity: 0.75 }}>📝 Ghi chú {activeKhu}:</span>
+                {activeKhuNote
+                  ? <span style={{ fontWeight: 600 }}>{activeKhuNote}</span>
+                  : <button onClick={editKhuNote} style={{ background: 'none', border: 'none', padding: 0, fontFamily: F, fontSize: 12, color: '#8a9bb8', cursor: 'pointer', opacity: 0.7 }}>+ Thêm ghi chú</button>}
+                <button onClick={editKhuNote} style={s.khuIconBtn} title="Sửa ghi chú">✎</button>
+                <button onClick={delKhu} style={s.khuIconBtn} title="Xoá khu vực này">🗑</button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Tiêu chí AI đã nhận dạng */}
         {aiFilter && (
@@ -1677,6 +1829,10 @@ const s = {
   searchInput: { width: '100%', padding: '10px 36px', border: '1.5px solid #3a3f52', borderRadius: 10, fontSize: 13, fontFamily: F, outline: 'none', background: '#1e2130', color: '#e2e8f0', boxSizing: 'border-box', transition: 'border-color 0.15s' },
   clearBtn: { position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', fontSize: 18, color: '#8a9bb8', cursor: 'pointer', padding: '0 4px' },
   resultCount: { fontSize: 12, color: '#8a9bb8', whiteSpace: 'nowrap' },
+  // Chip khu vực — cùng bảng màu tối với chip bảng con ở QuyCanThue.jsx.
+  tagChip: { background: '#22263a', color: '#cbd5e1', border: '1.5px solid #3a3f52', borderRadius: 16, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: F, whiteSpace: 'nowrap' },
+  tagChipActive: { background: 'linear-gradient(135deg,#38b274,#2a8a5a)', color: '#fff', border: '1.5px solid #38b274', borderRadius: 16, padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: F, whiteSpace: 'nowrap' },
+  khuIconBtn: { background: 'none', border: '1px solid #3a3f52', borderRadius: 6, padding: '2px 7px', fontSize: 12, color: '#8a9bb8', cursor: 'pointer', fontFamily: F, lineHeight: 1.4 },
   errorBox: { background: '#2d1515', color: '#fc8181', padding: '12px 16px', borderRadius: 10, fontSize: 13, marginBottom: 16 },
   loadingBox: { textAlign: 'center', padding: 40, color: '#8a9bb8', fontSize: 14 },
   tableWrap: { background: '#1a1d27', borderRadius: 12, border: '1px solid #2d3240', boxShadow: '0 4px 24px rgba(0,0,0,0.4)', animation: 'ktFadeIn 0.3s ease' },
