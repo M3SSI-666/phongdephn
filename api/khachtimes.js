@@ -4,6 +4,14 @@ const SHEET_NAME = 'Khach_Times';
 // 27 columns: STT, Ngay_PS, Ten_Zalo, SDT, Nhu_Cau, Phong_Ngu, Noi_That, Slot_Xe, Thoi_Han_Thue, Ngay_Vao, Dien_Tich, Tai_Chinh, Toa, Can_Tu_Van, Trang_Thai, Thu_Ve, Ghi_Chu, Coc, Chu_Can, Owner_Id, Thu_Tu, Check_Out, Tang, Ban_Cong, Cua, Coc_Host, Mau_KH
 const COLUMNS = 'A:AA';
 
+// RAW, KHÔNG USER_ENTERED. Sheet này có 3 cột ngày dạng chữ tự do — Ngay_PS (B), Ngay_Vao (J),
+// Check_Out (V) — và mọi lần lưu khách đều đẩy cả ba qua đây. USER_ENTERED để Sheets tự đoán
+// kiểu, và nó đoán sai theo cách phá dữ liệu: "1/7/2026" bị hiểu thành ngày rồi lưu thành số
+// serial, ô đang định dạng m/yyyy hiển thị lại thành "1/2026" — mất sạch phần ngày.
+// Xem thêm ghi chú cùng loại ở api/quycanthue.js.
+// STT và Thu_Tu vì thế lưu thành chuỗi; client đều đã Number() nên không ảnh hưởng.
+const WRITE_MODE = 'RAW';
+
 export default async function handler(req, res) {
   try {
     const SHEET_ID = process.env.GOOGLE_SHEETS_ID;
@@ -114,7 +122,7 @@ async function handlePost(req, res, sheetId, email, key) {
 
   if (payload.action === 'add') {
     const row = buildRow(payload);
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!A1:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!A1:append?valueInputOption=${WRITE_MODE}&insertDataOption=INSERT_ROWS`;
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -145,7 +153,7 @@ async function handlePost(req, res, sheetId, email, key) {
 
     const row = buildRow(payload);
     const range = `${SHEET_NAME}!A${payload._rowIndex}:AA${payload._rowIndex}`;
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?valueInputOption=USER_ENTERED`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?valueInputOption=${WRITE_MODE}`;
     const response = await fetch(url, {
       method: 'PUT',
       headers: {
@@ -182,7 +190,7 @@ async function handlePost(req, res, sheetId, email, key) {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: valueRanges }),
+      body: JSON.stringify({ valueInputOption: WRITE_MODE, data: valueRanges }),
     });
 
     if (!response.ok) {
