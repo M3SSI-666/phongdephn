@@ -49,6 +49,14 @@ const HOMESTAY_TRANG_THAI_OPTIONS = [
   { value: 'Done', label: 'Done ✓', bg: '#3182CE', text: '#fff' },
 ];
 
+// ── Khu vực (chỉ tab Khách Homestay) ──
+// Khách cũ (thêm trước khi có tính năng này) có ô Khu_Vuc rỗng. Coi rỗng = Times thay vì
+// ghi đè hàng loạt lên sheet: 0 lần ghi, không có nguy cơ ghi hỏng dữ liệu lịch sử.
+// Mọi chỗ đọc khu vực PHẢI đi qua hàm này, không thì số đếm trên chip và danh sách trong
+// bảng sẽ lệch nhau.
+const KHU_MAC_DINH = 'Times';
+const khuOf = (it) => (it.Khu_Vuc || '').trim() || KHU_MAC_DINH;
+
 const NHU_CAU_OPTIONS = ['Thuê', 'Mua', 'Homestay'];
 const SLOT_XE_OPTIONS = ['Có', 'Không', 'Null'];
 const NOI_THAT_OPTIONS = ['Full đồ', 'Không đồ'];
@@ -93,6 +101,7 @@ const EMPTY_FORM = {
   Nhu_Cau: 'Thuê', Phong_Ngu: '', Noi_That: '', Slot_Xe: '',
   Thoi_Han_Thue: '', Ngay_Vao: '', Check_Out: '', Dien_Tich: '', Tang: '', Ban_Cong: '', Cua: '', Tai_Chinh: '',
   Toa: '', Can_Tu_Van: '', Trang_Thai: '', Coc: '', Coc_Host: '', Chu_Can: '', Thu_Ve: '', Ghi_Chu: '', Mau_KH: '',
+  Khu_Vuc: '',
 };
 
 // ── Khớp tiêu chí AI với dữ liệu khách (so khớp RỘNG để không bỏ sót khách) ──
@@ -324,6 +333,10 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         Ban_Cong: item.Ban_Cong || '',
         Cua: item.Cua || '',
         Mau_KH: item.Mau_KH || '',
+        // BẮT BUỘC. Payload này liệt kê tay đủ 28 trường và ghi đè cả dòng, nên thiếu
+        // Khu_Vuc là mỗi lần đổi Trạng Thái bằng dropdown sẽ xoá trắng khu vực của khách
+        // — im lặng, không báo lỗi, triệu chứng là "thẻ tự nhảy về Times".
+        Khu_Vuc: item.Khu_Vuc || '',
         [field]: value,
       };
       // Update local state immediately
@@ -354,6 +367,17 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   const isMindMapTab = isThueTab || isBanTab;
   // Bộ trạng thái áp dụng theo tab hiện tại.
   const trangThaiOptions = isHomestayTab ? HOMESTAY_TRANG_THAI_OPTIONS : TRANG_THAI_OPTIONS;
+
+  // Danh sách khu vực hiển thị = Times (mặc định) + khu quan sát được trong dữ liệu khách.
+  // Gộp cả nguồn dữ liệu chứ không chỉ danh mục, để khu bị xoá ở máy khác vẫn còn "chip ma"
+  // và KHÔNG khách nào bị ẩn mất.
+  const allKhu = useMemo(() => {
+    const set = new Set([KHU_MAC_DINH]);
+    items.forEach((it) => {
+      if ((it.Nhu_Cau || '').trim().toLowerCase() === 'homestay') set.add(khuOf(it));
+    });
+    return [...set];
+  }, [items]);
 
   const filtered = useMemo(() => {
     let list = [...items];
@@ -557,7 +581,12 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
 
   const openAdd = () => {
     setEditItem(null);
-    setForm({ ...EMPTY_FORM, Ngay_PS: getTodayStr(), Nhu_Cau: currentSubTab.nhuCau });
+    setForm({
+      ...EMPTY_FORM,
+      Ngay_PS: getTodayStr(),
+      Nhu_Cau: currentSubTab.nhuCau,
+      Khu_Vuc: activeSubTab === 'homestay' ? KHU_MAC_DINH : '',
+    });
     setModalOpen(true);
   };
 
@@ -588,6 +617,11 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
       Thu_Ve: item.Thu_Ve || '',
       Ghi_Chu: item.Ghi_Chu || '',
       Mau_KH: item.Mau_KH || '',
+      // Cố ý dùng khuOf chứ không phải item.Khu_Vuc: khách cũ mở modal ra mà thấy ô trống
+      // trong khi chip bar đang đếm họ vào Times là kiểu mâu thuẫn bị báo là "thẻ hỏng".
+      // Giá phải trả là lưu khách cũ sẽ điền 'Times' vào ô AB của riêng dòng đó — nhưng
+      // đúng bằng thứ giao diện đã hiển thị, và không đụng khách Bán/Thuê.
+      Khu_Vuc: khuOf(item),
     });
     setModalOpen(true);
   };
@@ -628,6 +662,8 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         Thu_Ve: form.Thu_Ve.trim(),
         Ghi_Chu: form.Ghi_Chu.trim(),
         Mau_KH: form.Mau_KH || '',
+        // Chỉ khách Homestay mới có khu vực; Bán/Thuê để rỗng.
+        Khu_Vuc: form.Nhu_Cau === 'Homestay' ? (form.Khu_Vuc || '') : '',
         Owner_Id: userId || '',
       };
 
@@ -1049,6 +1085,23 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                   ))}
                 </div>
               </div>
+
+              {/* Gate theo form.Nhu_Cau (không phải tab đang mở) cho khớp mọi trường điều
+                  kiện khác của modal: lật radio là hiện/ẩn ngay. */}
+              {form.Nhu_Cau === 'Homestay' && (
+                <div style={s.fieldWrap}>
+                  <label style={s.fieldLabel}>Khu vực</label>
+                  {/* select chứ không phải ô nhập tự do: gõ tay là ra "Times"/"times"/"Time "
+                      thành 3 khu, 3 ghi chú, số đếm bị xé. Chỉ nút "+ Thẻ" mới được TẠO khu. */}
+                  <select value={form.Khu_Vuc || KHU_MAC_DINH} onChange={(e) => updateForm('Khu_Vuc', e.target.value)} style={s.fieldInput}>
+                    {/* Kèm cả giá trị hiện tại nếu nó là khu "ma" chưa có trong danh sách,
+                        không thì select có value không khớp option nào -> đổi khu chui. */}
+                    {[...new Set([...allKhu, form.Khu_Vuc].filter(Boolean))].map((k) => (
+                      <option key={k} value={k}>{k}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div style={s.fieldWrap}>
                 <label style={s.fieldLabel}>Phòng ngủ</label>
