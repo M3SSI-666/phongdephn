@@ -208,6 +208,35 @@ function matchAiKhach(it, f) {
   return true;
 }
 
+// Lọc theo loại nhu cầu của sub-tab đang mở. Tách ra ngoài vì có 2 danh sách phải dùng CHUNG
+// luật này: danh sách hiển thị (filtered) và danh sách dùng làm nền để đánh lại Thu_Tu
+// (tabRows). Hai bản sao lệch nhau là kéo-thả đánh số vào nhầm tập khách.
+function matchLoai(it, filterLoai) {
+  const nc = (it.Nhu_Cau || '').trim().toLowerCase();
+  const fv = (filterLoai || '').trim().toLowerCase();
+  if (fv === 'homestay') return nc === 'homestay';
+  if (fv === 'thuê' || fv === 'thue') return nc.includes('thu') && nc !== 'homestay';
+  if (fv === 'mua') return nc === 'mua';
+  return true;
+}
+
+// Thứ tự hiển thị. Cũng phải dùng chung giữa filtered và tabRows, cùng lý do như trên.
+function sortKhach(a, b) {
+  // Ưu tiên thứ tự thủ công (Thu_Tu) — số nhỏ lên đầu.
+  const ta = a.Thu_Tu !== '' && a.Thu_Tu != null ? Number(a.Thu_Tu) : null;
+  const tb = b.Thu_Tu !== '' && b.Thu_Tu != null ? Number(b.Thu_Tu) : null;
+  const va = ta != null && !Number.isNaN(ta);
+  const vb = tb != null && !Number.isNaN(tb);
+  if (va && vb) return ta - tb;
+  if (va) return -1;   // có thứ tự → lên trước
+  if (vb) return 1;
+  // Cả hai chưa có thứ tự → giữ logic cũ: ngày mới nhất lên đầu.
+  const parseDate = s => { const p = (s || '').split('/'); return p.length === 3 ? new Date(p[2], p[1] - 1, p[0]) : new Date(0); };
+  const da = parseDate(a.Ngay_PS), db = parseDate(b.Ngay_PS);
+  if (db - da !== 0) return db - da;
+  return Number(b.STT || 0) - Number(a.STT || 0);
+}
+
 export function KhachTimesContent({ overrideUserId, overrideRole, isViewAs } = {}) {
   return <KhachTimesInner showHeader={false} overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
 }
@@ -376,11 +405,10 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   // ── Kéo-thả sắp xếp ──
   const [dragRowIndex, setDragRowIndex] = useState(null); // _rowIndex của hàng đang kéo
   const [dragOverIndex, setDragOverIndex] = useState(null); // _rowIndex của hàng đang được rê tới
-  // Chỉ cho kéo-thả khi xem danh sách đầy đủ của 1 tab (không tìm kiếm, không lọc trạng thái).
-  // Kể cả lọc khu vực: persistOrder đánh lại Thu_Tu = 1..n trên ĐÚNG danh sách được truyền vào,
-  // các dòng ngoài danh sách giữ số cũ — kéo trong 1 khu sẽ đụng số với khách khu khác và làm
-  // thứ tự ở "Tất cả khu" loạn hết. Mặc định là "Tất cả khu" nên kéo-thả vẫn chạy như trước.
-  const canDrag = !search.trim() && !aiFilter && filterTrangThai.length === 0 && activeKhu === null;
+  // Chỉ cho kéo-thả khi xem danh sách đầy đủ của 1 tab (không tìm kiếm, không lọc trạng thái):
+  // hai bộ lọc đó bỏ khách ra khỏi danh sách một cách rời rạc, kéo xong thứ tự của khách bị
+  // ẩn sẽ nhảy lung tung. Lọc khu vực thì KHÔNG chặn — handleDrop xử lý riêng (xem bên dưới).
+  const canDrag = !search.trim() && !aiFilter && filterTrangThai.length === 0;
 
   // Tab Khách bán: ẩn cột/trường "Thời hạn" và "Ngày vào" vì không cần thiết.
   const isBanTab = activeSubTab === 'ban';
@@ -423,16 +451,16 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     return (row?.Ghi_Chu || '').trim();
   }, [activeKhu, khuItems]);
 
+  // Toàn bộ khách của sub-tab đang mở, MỌI khu, đã sắp xếp — không dính lọc khu/trạng thái/tìm kiếm.
+  // Đây là "khung" để đánh lại Thu_Tu khi kéo-thả: Thu_Tu là thứ tự dùng chung cho cả tab, nên
+  // phải đánh số trên đủ tập khách của tab thì số mới không đụng nhau giữa các khu.
+  const tabRows = useMemo(
+    () => items.filter((it) => matchLoai(it, filterLoai)).sort(sortKhach),
+    [items, filterLoai]
+  );
+
   const filtered = useMemo(() => {
-    let list = [...items];
-    list = list.filter((it) => {
-      const nc = (it.Nhu_Cau || '').trim().toLowerCase();
-      const fv = filterLoai.trim().toLowerCase();
-      if (fv === 'homestay') return nc === 'homestay';
-      if (fv === 'thuê' || fv === 'thue') return nc.includes('thu') && nc !== 'homestay';
-      if (fv === 'mua') return nc === 'mua';
-      return true;
-    });
+    let list = items.filter((it) => matchLoai(it, filterLoai));
     // Lọc theo khu vực (chỉ tab Homestay). So khớp BẰNG-ĐÚNG chuỗi đã trim, không phải
     // không-phân-biệt-hoa-thường: muốn case-insensitive thì phải chuẩn hoá y hệt nhau ở cả
     // bộ lọc, số đếm chip và select trong modal cùng lúc — lệch một chỗ là khách bị đếm ở
@@ -458,21 +486,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         (it.Ghi_Chu || '').toLowerCase().includes(q)
       );
     }
-    list.sort((a, b) => {
-      // Ưu tiên thứ tự thủ công (Thu_Tu) — số nhỏ lên đầu.
-      const ta = a.Thu_Tu !== '' && a.Thu_Tu != null ? Number(a.Thu_Tu) : null;
-      const tb = b.Thu_Tu !== '' && b.Thu_Tu != null ? Number(b.Thu_Tu) : null;
-      const va = ta != null && !Number.isNaN(ta);
-      const vb = tb != null && !Number.isNaN(tb);
-      if (va && vb) return ta - tb;
-      if (va) return -1;   // có thứ tự → lên trước
-      if (vb) return 1;
-      // Cả hai chưa có thứ tự → giữ logic cũ: ngày mới nhất lên đầu.
-      const parseDate = s => { const p = (s||'').split('/'); return p.length===3 ? new Date(p[2],p[1]-1,p[0]) : new Date(0); };
-      const da = parseDate(a.Ngay_PS), db = parseDate(b.Ngay_PS);
-      if (db - da !== 0) return db - da;
-      return Number(b.STT || 0) - Number(a.STT || 0);
-    });
+    list.sort(sortKhach);
     return list;
   }, [items, filterLoai, filterTrangThai, search, aiFilter, isHomestayTab, activeKhu]);
 
@@ -648,6 +662,24 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     }
   }, [showToast, loadData]);
 
+  // Đang lọc theo khu: thứ tự mới chỉ nói về các khách TRONG khu đó, nhưng Thu_Tu lại là thứ
+  // tự dùng chung cho cả tab. Nếu đánh số 1..n riêng cho khu, khách khu khác vẫn giữ số cũ và
+  // xem ở "Tất cả khu" sẽ thấy hai khu cài răng lược lẫn nhau.
+  // Cách xử lý: giữ nguyên các VỊ TRÍ mà khu này đang chiếm trong danh sách đầy đủ của tab, rồi
+  // rót thứ tự mới vào đúng những vị trí đó. Khách các khu khác không xê dịch một ly. Cùng kỹ
+  // thuật với handleMindMapReorder bên dưới.
+  const spreadToTab = useCallback((viewOrder) => {
+    if (!(isHomestayTab && activeKhu)) return viewOrder;
+    const full = [...tabRows];
+    const inView = new Set(viewOrder.map(it => it._rowIndex));
+    const slots = [];
+    full.forEach((it, i) => { if (inView.has(it._rowIndex)) slots.push(i); });
+    // Lệch số lượng = tabRows và filtered đang bất đồng bộ. Thà không lưu còn hơn đánh số bừa.
+    if (slots.length !== viewOrder.length) return null;
+    slots.forEach((slotIdx, k) => { full[slotIdx] = viewOrder[k]; });
+    return full;
+  }, [isHomestayTab, activeKhu, tabRows]);
+
   const handleDrop = useCallback((targetRowIndex) => {
     setDragOverIndex(null);
     if (dragRowIndex == null || dragRowIndex === targetRowIndex) {
@@ -661,8 +693,10 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     if (from === -1 || to === -1) return;
     const [moved] = order.splice(from, 1);
     order.splice(to, 0, moved);
-    persistOrder(order);
-  }, [dragRowIndex, filtered, persistOrder]);
+    const full = spreadToTab(order);
+    if (!full) return;
+    persistOrder(full);
+  }, [dragRowIndex, filtered, spreadToTab, persistOrder]);
 
   // Đẩy 1 khách lên/xuống 1 bậc trong cùng nhóm (kiểu/PN/nội thất) trên Mind Map.
   // groupRows: mảng _rowIndex các khách cùng nhóm theo thứ tự hiện tại.
