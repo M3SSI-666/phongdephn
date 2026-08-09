@@ -46,3 +46,18 @@ export function noteDateFlag(text, now = new Date()) {
   if (same(tomorrow)) return 'soon';
   return null;
 }
+
+// 'YYYY-MM-DD'. Cùng đúng định dạng mà <input type="date"> trả về, nên so khoảng ngày chỉ
+// cần so chuỗi — không phải dựng Date, không dính lệch múi giờ.
+export function toDayKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Ngày trong ô (vd cột Ngày PS) -> 'YYYY-MM-DD', hoặc null nếu không đọc được.
+// Không ghi năm thì lấy năm hiện tại, đúng như người dùng ngầm hiểu khi gõ.
+export function noteDayKey(text, now = new Date()) {
+  const p = parseNoteDate(text);
+  if (!p) return null;
+  const y = p.y == null ? now.getFullYear() : p.y;
+  return `${y}-${String(p.m).padStart(2, '0')}-${String(p.d).padStart(2, '0')}`;
+}

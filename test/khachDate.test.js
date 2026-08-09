@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseNoteDate, noteDateFlag } from '../src/utils/khachDate.js';
+import { parseNoteDate, noteDateFlag, toDayKey, noteDayKey } from '../src/utils/khachDate.js';
 
 // Các chuỗi lấy nguyên từ cột Check In / Check Out đang dùng thật.
 test('parseNoteDate: đọc được các kiểu gõ thực tế', () => {
@@ -54,6 +54,23 @@ test('noteDateFlag: qua mốc tháng và mốc năm', () => {
   // Không ghi năm, đêm giao thừa: "1/1" là ngày mai chứ không phải 1/1 năm nay.
   assert.equal(noteDateFlag('1/1', at(2026, 12, 31)), 'soon');
   assert.equal(noteDateFlag('29/2', at(2028, 2, 28)), 'soon');   // năm nhuận
+});
+
+test('noteDayKey: khoá ngày để so khoảng', () => {
+  const now = at(2026, 8, 9);
+  assert.equal(noteDayKey('09/08/2026', now), '2026-08-09');
+  assert.equal(noteDayKey('9/8/2026', now), '2026-08-09');
+  assert.equal(noteDayKey('1/9', now), '2026-09-01');       // thiếu năm -> năm hiện tại
+  assert.equal(noteDayKey('Tháng 5', now), null);
+  assert.equal(noteDayKey('', now), null);
+  // Khoá sắp xếp được bằng so chuỗi — đây là điều kiện để lọc khoảng ngày chạy đúng.
+  assert.ok(noteDayKey('01/09/2026', now) > noteDayKey('31/08/2026', now));
+  assert.ok(noteDayKey('01/01/2027', now) > noteDayKey('31/12/2026', now));
+});
+
+test('toDayKey khớp định dạng của input type=date', () => {
+  assert.equal(toDayKey(at(2026, 8, 9)), '2026-08-09');
+  assert.equal(toDayKey(at(2026, 12, 31)), '2026-12-31');
 });
 
 test('noteDateFlag: giờ trong ngày không ảnh hưởng', () => {

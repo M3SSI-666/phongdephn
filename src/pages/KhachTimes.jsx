@@ -18,7 +18,8 @@ import { fetchKhachTimes, postKhachTimes, parseSearchQuery, fetchKhachTimesKhu, 
 // test/conTagState.test.js: chặn tên rỗng, dấu phẩy, đầu = + - @, trùng không phân biệt
 // hoa thường). Viết validator thứ hai là mở đường cho 2 luật lệch nhau.
 import { validateTagName } from '../utils/conTagState';
-import { noteDateFlag } from '../utils/khachDate';
+import { noteDateFlag, toDayKey, noteDayKey } from '../utils/khachDate';
+import { parseTienVnd, formatVnd } from '../utils/tien';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -296,6 +297,11 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   const [activeKhu, setActiveKhu] = useState(null);  // null = xem tất cả khu
   const [khuItems, setKhuItems] = useState([]);      // danh mục khu + ghi chú, từ sheet Khach_Times_Khu
 
+  // ── Doanh thu (chỉ tab Khách Homestay) ──
+  // Khoảng ngày mặc định: từ đầu tháng này đến hôm nay, để mở lên là có số ngay.
+  const [tuNgay, setTuNgay] = useState(() => { const d = new Date(); return toDayKey(new Date(d.getFullYear(), d.getMonth(), 1)); });
+  const [denNgay, setDenNgay] = useState(() => toDayKey(new Date()));
+
   const currentSubTab = SUB_TABS.find(t => t.key === activeSubTab) || SUB_TABS[0];
   const filterLoai = currentSubTab.filter;
 
@@ -518,6 +524,27 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     list.sort(sortKhach);
     return list;
   }, [items, filterLoai, filterTrangThai, search, aiFilter, isHomestayTab, activeKhu]);
+
+  // Doanh thu = tổng cột "Thu về", ngày tính theo cột "Ngày PS".
+  // Tính trên `filtered`, tức là THEO ĐÚNG BỘ LỌC ĐANG XEM: chọn chip khu Times thì ra doanh
+  // thu khu Times. Đổi chip là số đổi theo — đó là chủ đích, không phải lỗi.
+  // Mốc "hôm nay" lấy lúc tính chứ không nhớ sẵn; nhịp tải 30s làm memo chạy lại nên để máy
+  // qua đêm thì sáng ra số đã là của ngày mới.
+  const doanhThu = useMemo(() => {
+    const todayKey = toDayKey(new Date());
+    let homNay = 0, khoang = 0, boQua = 0;
+    for (const it of filtered) {
+      if (!String(it.Thu_Ve ?? '').trim()) continue;   // chưa thu thì không phải lỗi
+      const tien = parseTienVnd(it.Thu_Ve);
+      const ngay = noteDayKey(it.Ngay_PS);
+      // Có ghi tiền mà không đọc được tiền hoặc không đọc được ngày -> ĐẾM RA cho người dùng
+      // biết, không âm thầm coi là 0. Doanh thu thiếu mà trông vẫn bình thường là sai tệ nhất.
+      if (tien == null || !ngay) { boQua++; continue; }
+      if (ngay === todayKey) homNay += tien;
+      if (tuNgay && denNgay && ngay >= tuNgay && ngay <= denNgay) khoang += tien;
+    }
+    return { homNay, khoang, boQua };
+  }, [filtered, tuNgay, denNgay]);
 
   // ── Dữ liệu cây cho chế độ Mind Map (tab Khách thuê) ──
   // Cấp 1: Kiểu khách (KẾT HỢP / KHÁCH CHỦ ĐỘNG) → Cấp 2: số phòng ngủ
@@ -1062,6 +1089,32 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
               <button onClick={addKhu} style={{ ...s.tagChip, borderStyle: 'dashed', color: '#38b274' }} title="Thêm khu vực mới">
                 + Thẻ
               </button>
+
+              {/* Doanh thu. marginLeft:auto đẩy sang mép phải, nhưng vẫn nằm trong cùng
+                  flex-wrap nên màn hình hẹp thì tự xuống dòng chứ không tràn ra ngoài. */}
+              <div style={{ ...s.dtBox, marginLeft: 'auto' }} title="Tổng cột Thu về của các khách có Ngày PS là hôm nay">
+                <span style={s.dtLabel}>Hôm nay</span>
+                <span style={s.dtValue}>{formatVnd(doanhThu.homNay)}</span>
+              </div>
+
+              <div style={s.dtBox}>
+                <span style={s.dtLabel}>Từ</span>
+                <input type="date" value={tuNgay} onChange={(e) => setTuNgay(e.target.value)} style={s.dtDate} />
+                <span style={s.dtLabel}>đến</span>
+                <input type="date" value={denNgay} onChange={(e) => setDenNgay(e.target.value)} style={s.dtDate} />
+                <span style={s.dtValue}>{formatVnd(doanhThu.khoang)}</span>
+              </div>
+
+              {/* Có ghi tiền mà không cộng được thì phải nói ra, không thì người dùng tưởng
+                  con số đã đủ. */}
+              {doanhThu.boQua > 0 && (
+                <span
+                  style={{ fontSize: 11, color: '#F6AD55', fontWeight: 700, cursor: 'help' }}
+                  title={`${doanhThu.boQua} khách có ghi "Thu về" nhưng không cộng được: hoặc ô tiền không đọc ra số, hoặc ô "Ngày PS" không đọc ra ngày.`}
+                >
+                  ⚠ bỏ qua {doanhThu.boQua}
+                </span>
+              )}
             </div>
             {/* Ghi chú của khu đang chọn. Hiện thành chữ chứ không phải tooltip title:
                 title không chạm tới được trên điện thoại, mà trang này có hẳn CSS mobile. */}
@@ -1894,6 +1947,11 @@ const s = {
   tagChip: { background: '#22263a', color: '#cbd5e1', border: '1.5px solid #3a3f52', borderRadius: 16, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: F, whiteSpace: 'nowrap' },
   tagChipActive: { background: 'linear-gradient(135deg,#38b274,#2a8a5a)', color: '#fff', border: '1.5px solid #38b274', borderRadius: 16, padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: F, whiteSpace: 'nowrap' },
   khuIconBtn: { background: 'none', border: '1px solid #3a3f52', borderRadius: 6, padding: '2px 7px', fontSize: 12, color: '#8a9bb8', cursor: 'pointer', fontFamily: F, lineHeight: 1.4 },
+  // Ô doanh thu — viền xanh cho tách khỏi dãy chip khu vực bên trái.
+  dtBox: { display: 'flex', alignItems: 'center', gap: 6, background: '#16281f', border: '1.5px solid #2f6b4f', borderRadius: 16, padding: '4px 12px', whiteSpace: 'nowrap' },
+  dtLabel: { fontSize: 11, color: '#8a9bb8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px' },
+  dtValue: { fontSize: 13, color: '#4ADE80', fontWeight: 800 },
+  dtDate: { background: '#1e2130', border: '1px solid #3a3f52', borderRadius: 6, color: '#e2e8f0', fontFamily: F, fontSize: 12, padding: '2px 6px', outline: 'none', colorScheme: 'dark' },
   errorBox: { background: '#2d1515', color: '#fc8181', padding: '12px 16px', borderRadius: 10, fontSize: 13, marginBottom: 16 },
   loadingBox: { textAlign: 'center', padding: 40, color: '#8a9bb8', fontSize: 14 },
   tableWrap: { background: '#1a1d27', borderRadius: 12, border: '1px solid #2d3240', boxShadow: '0 4px 24px rgba(0,0,0,0.4)', animation: 'ktFadeIn 0.3s ease' },
