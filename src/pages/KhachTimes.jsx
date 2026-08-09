@@ -246,17 +246,23 @@ const NGAY_FLAG = {
   soon:  { style: { background: '#FFE0B2', color: '#8A4B08' }, title: 'Ngày mai' },
 };
 
+// Trả về nguyên cái <td> chứ không phải nội dung bên trong: màu phải tô KÍN ô, kể cả khoảng
+// trống hai bên chữ, thì lướt mắt dọc theo cột mới thấy ngay.
 function NgayCell({ text }) {
-  if (!text) return null;
   // Tính lúc render chứ không nhớ sẵn: trang hay được mở qua đêm, và cứ 30s lại có nhịp
   // tải dữ liệu kéo theo render, nên qua nửa đêm màu tự nhảy sang khách của ngày mới.
-  const flag = noteDateFlag(text);
-  if (!flag) return text;
-  const { style, title } = NGAY_FLAG[flag];
+  const flag = text ? noteDateFlag(text) : null;
+  const hit = flag ? NGAY_FLAG[flag] : null;
   return (
-    <span title={title} style={{ ...style, padding: '2px 7px', borderRadius: 6, display: 'inline-block', fontWeight: 700 }}>
+    <td
+      title={hit?.title}
+      style={{
+        ...s.td, textAlign: 'center', whiteSpace: 'nowrap', fontSize: 12,
+        ...(hit ? { ...hit.style, fontWeight: 700 } : {}),
+      }}
+    >
       {text}
-    </span>
+    </td>
   );
 }
 
@@ -1202,10 +1208,8 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                       {!isBanTab && (
                         <>
                           <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Thoi_Han_Thue}</td>
-                          <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap', fontSize: 12 }}><NgayCell text={item.Ngay_Vao} /></td>
-                          {isHomestayTab && (
-                            <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap', fontSize: 12 }}><NgayCell text={item.Check_Out} /></td>
-                          )}
+                          <NgayCell text={item.Ngay_Vao} />
+                          {isHomestayTab && <NgayCell text={item.Check_Out} />}
                         </>
                       )}
                       {isHomestayTab ? (
