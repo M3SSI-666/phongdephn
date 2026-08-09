@@ -18,6 +18,7 @@ import { fetchKhachTimes, postKhachTimes, parseSearchQuery, fetchKhachTimesKhu, 
 // test/conTagState.test.js: chặn tên rỗng, dấu phẩy, đầu = + - @, trùng không phân biệt
 // hoa thường). Viết validator thứ hai là mở đường cho 2 luật lệch nhau.
 import { validateTagName } from '../utils/conTagState';
+import { noteDateFlag } from '../utils/khachDate';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -235,6 +236,28 @@ function sortKhach(a, b) {
   const da = parseDate(a.Ngay_PS), db = parseDate(b.Ngay_PS);
   if (db - da !== 0) return db - da;
   return Number(b.STT || 0) - Number(a.STT || 0);
+}
+
+// Ô Check In / Check Out. Ngày rơi đúng hôm nay -> nền đỏ nhạt, ngày mai -> nền cam nhạt,
+// để nhìn lướt là biết khách nào cần nhắc. Dùng lại đúng cặp màu nền/chữ của chip trạng thái
+// cho đồng bộ với phần còn lại của bảng.
+const NGAY_FLAG = {
+  today: { style: { background: '#F8D7DA', color: '#721C24' }, title: 'Hôm nay' },
+  soon:  { style: { background: '#FFE0B2', color: '#8A4B08' }, title: 'Ngày mai' },
+};
+
+function NgayCell({ text }) {
+  if (!text) return null;
+  // Tính lúc render chứ không nhớ sẵn: trang hay được mở qua đêm, và cứ 30s lại có nhịp
+  // tải dữ liệu kéo theo render, nên qua nửa đêm màu tự nhảy sang khách của ngày mới.
+  const flag = noteDateFlag(text);
+  if (!flag) return text;
+  const { style, title } = NGAY_FLAG[flag];
+  return (
+    <span title={title} style={{ ...style, padding: '2px 7px', borderRadius: 6, display: 'inline-block', fontWeight: 700 }}>
+      {text}
+    </span>
+  );
 }
 
 export function KhachTimesContent({ overrideUserId, overrideRole, isViewAs } = {}) {
@@ -1179,9 +1202,9 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                       {!isBanTab && (
                         <>
                           <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'pre-line', fontSize: 12 }}>{item.Thoi_Han_Thue}</td>
-                          <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap', fontSize: 12 }}>{item.Ngay_Vao}</td>
+                          <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap', fontSize: 12 }}><NgayCell text={item.Ngay_Vao} /></td>
                           {isHomestayTab && (
-                            <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap', fontSize: 12 }}>{item.Check_Out}</td>
+                            <td style={{ ...s.td, textAlign: 'center', whiteSpace: 'nowrap', fontSize: 12 }}><NgayCell text={item.Check_Out} /></td>
                           )}
                         </>
                       )}
