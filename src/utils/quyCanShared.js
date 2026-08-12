@@ -83,3 +83,31 @@ export function isDateSerialGia(val) {
   const num = parseFloat(s.replace(/[^\d.,-]/g, '').replace(/,/g, '.'));
   return Number.isInteger(num) && num >= 1000;
 }
+
+// ── Khung nhập tay cho ô "paste tin Zalo" ──
+// Mở modal Thêm căn là ô đã có sẵn danh sách trường, gõ giá trị vào sau dấu ":" cho nhanh.
+// Muốn dán tin từ Zalo thì bôi đen xoá hết rồi dán đè — vẫn chạy như cũ.
+//
+// QUAN TRỌNG: các nhãn ở đây phải nằm trong danh sách nhãn mà prompt AI đang bắt
+// (api/parse-tc.js). Thêm nhãn ở đây mà quên dạy prompt = người dùng điền đủ nhưng form
+// vẫn trống, và không có gì báo cho họ biết.
+export const KHUNG_THUE = [
+  'Căn hộ:', 'Thiết kế:', 'Diện tích:', 'Hướng ban công:', 'Slot xe:',
+  'Giá:', 'Phí mg:', 'Nội thất:', 'Thời gian vào:', 'Liên hệ:',
+].join('\n');
+
+export const KHUNG_BAN = [
+  'Căn hộ:', 'Thiết kế:', 'Diện tích:', 'Hướng ban công:', 'Slot xe:',
+  'Giá:', 'Phí:', 'Nội thất:', 'SĐT:', 'Tên chủ:',
+].join('\n');
+
+// Khung vẫn còn trống = chưa dòng nào có chữ sau dấu ":".
+// Dùng để khoá nút Parse: gọi AI với khung rỗng chỉ tốn một lượt gọi rồi trả về rỗng, mà
+// nút vẫn sáng thì người dùng tưởng mình đã làm đúng.
+// Dòng KHÔNG có dấu ":" (tin Zalo dán vào) mà có chữ thì tính là đã có nội dung.
+export function khungConTrong(text) {
+  return !String(text || '').split('\n').some((line) => {
+    const i = line.indexOf(':');
+    return (i === -1 ? line : line.slice(i + 1)).trim() !== '';
+  });
+}

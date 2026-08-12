@@ -17,11 +17,20 @@ export default async function handler(req, res) {
 {"Ma_Can":"","Thiet_Ke":"","Dien_Tich":"","Huong_BC":"","Gia":"","Phi_MG":"","Noi_That":"","Slot_Xe":"Không","Thoi_Gian_Vao":"","Lien_He":"","Ghi_Chu_NT":""}
 
 Rules:
+- FILLED-IN FORM: the message is often a form the user typed into, as "Label: value" pairs.
+  Newlines were collapsed to spaces, so a label whose value is BLANK is immediately followed by
+  the next label (e.g. "... Phí mg: Nội thất: full đồ" means Phí mg is blank).
+  A blank label means the field was NOT provided → output "" for it. Never treat a label as a
+  value, and never guess a value for a blank label.
+  Known labels: "Căn hộ:", "Thiết kế:", "Diện tích:", "Hướng ban công:", "Slot xe:", "Giá:",
+  "Phí mg:", "Nội thất:", "Hiện trạng:", "Thời gian vào:", "Liên hệ:", "Xem nhà lh:".
 - Ma_Can: apartment code from "Căn hộ:" or "Căn:" line (e.g. "P0112a11", "R6-1208"). Keep original format.
 - Thiet_Ke: design/layout from "Thiết kế:" (e.g. "3PN", "2PN", "Studio"). Normalize "3n"→"3PN", "2n"→"2PN".
 - Dien_Tich: area with unit from "Diện tích:" (e.g. "106m²", "75m²"). Normalize "106m"→"106m²".
 - Huong_BC: balcony direction from "Hướng ban công:" (e.g. "Nam", "Đông Nam", "Tây Bắc").
-- Gia + Phi_MG: parse from "Giá:" line in 2 steps:
+- Gia + Phi_MG: if there is a separate "Phí mg:" (or "Phí:") label, take Phi_MG from its value
+  ("phí đủ"→"Phí đủ", "tv"/"thu về"→"Thu về", "1/2"→"1/2", blank→""), and take Gia from the
+  "Giá:" value using STEP 1 only. Otherwise parse both from the "Giá:" line in 2 steps:
   STEP 1 — Extract & format the numeric price (always output with space before unit):
   • "tr"/"triệu" = triệu → format as "15 tr", "23 tr"
   • Combined tỷ+triệu: "9ty650"/"9ty650tr" = 9 tỷ + 650 triệu = 9.65 tỷ → "9.65 tỷ"; "10ty5" = 10.05 tỷ → "10.05 tỷ"; "10ty500" = 10.5 tỷ → "10.5 tỷ"
@@ -34,12 +43,16 @@ Rules:
   • "1 tháng" fee → Gia=price only, Phi_MG="1 tháng"
   • No fee info → Gia=price only, Phi_MG=""
   Examples: "15tr pmg 1/2"→Gia="15 tr",Phi_MG="1/2" | "14tr tv"→Gia="14 tr",Phi_MG="Thu về" | "23tr phí đủ"→Gia="23 tr",Phi_MG="Phí đủ"
-- Noi_That: ONLY one of exactly 2 values based on "Hiện trạng:" line:
+- Noi_That: ONLY one of exactly 2 values, based on the "Nội thất:" or "Hiện trạng:" value:
   • "Full đồ" — full furniture: "full đồ", "full nội thất", "đầy đủ đồ", "full", "có đồ", "đủ đồ"
   • "Không đồ" — empty: "không đồ", "trống", "không nội thất", "thô"
   Output "" (empty string) if unclear or if it only says partial furniture ("cơ bản", "một số đồ"). Never guess.
-- Ghi_Chu_NT: extra notes from "Hiện trạng:" after removing furniture level and slot/parking info (e.g. "nhà sửa đẹp", "mới sơn", "view đẹp"). Empty string if none.
-- Slot_Xe: detect from entire message. "có slot"/"slot xe"/"có xe"/"bãi xe" → "Có". "không slot"/"không có xe"/"không xe" → "Không". Default "Không".
+- Ghi_Chu_NT: extra notes from the "Nội thất:"/"Hiện trạng:" value after removing furniture level and slot/parking info (e.g. "nhà sửa đẹp", "mới sơn", "view đẹp"). Empty string if none.
+- Slot_Xe: if there is a "Slot xe:" label, decide ONLY from its value — "có"/"1"/"2"/"có slot" → "Có";
+  "không"/"ko"/"0" → "Không"; BLANK value → "Không". Do NOT answer "Có" merely because the words
+  "slot xe" appear: they are the label itself.
+  If there is no such label, detect from the whole message: "có slot"/"slot xe"/"có xe"/"bãi xe" → "Có";
+  "không slot"/"không có xe"/"không xe" → "Không". Default "Không".
 - Thoi_Gian_Vao: full content from "Thời gian vào:" line. Only normalize: "lun"→"Luôn", "ngay"→"Ngay". Keep all additional context.
 - Lien_He: contact phone/name from "Xem nhà lh:" or "Liên hệ:" line.
 
@@ -55,11 +68,20 @@ Message: ${cleanText}`;
 {"Ma_Can":"","Thiet_Ke":"","Dien_Tich":"","Huong_BC":"","Gia":"","Phi":"Thu về","Noi_That":"","Slot_Xe":"Không","SDT":"","Ten_Chu":"","Ghi_Chu_NT":""}
 
 Rules:
+- FILLED-IN FORM: the message is often a form the user typed into, as "Label: value" pairs.
+  Newlines were collapsed to spaces, so a label whose value is BLANK is immediately followed by
+  the next label (e.g. "... Phí: Nội thất: full đồ" means Phí is blank).
+  A blank label means the field was NOT provided → output "" for it. Never treat a label as a
+  value, and never guess a value for a blank label.
+  Known labels: "Căn hộ:", "Thiết kế:", "Diện tích:", "Hướng ban công:", "Slot xe:", "Giá:",
+  "Phí:", "Nội thất:", "Hiện trạng:", "SĐT:", "Tên chủ:", "Liên hệ:".
 - Ma_Can: apartment code from "Căn hộ:" or "Căn:" line. Keep original format, uppercase all letters.
 - Thiet_Ke: design/layout (e.g. "3PN", "2PN", "Studio"). Normalize "3n"→"3PN", "2n"→"2PN".
 - Dien_Tich: area with unit (e.g. "106m²", "75m²"). Normalize "106m"→"106m²".
 - Huong_BC: balcony direction (e.g. "Nam", "Đông Nam", "Tây Bắc").
-- Gia + Phi: parse from "Giá:" line in 2 steps:
+- Gia + Phi: if there is a separate "Phí:" label, take Phi from its value ("bao phí"/"phí đủ"→"Bao phí",
+  "tv"/"thu về"→"Thu về", blank→"Thu về"), and take Gia from the "Giá:" value using STEP 1 only.
+  Otherwise parse both from the "Giá:" line in 2 steps:
   STEP 1 — Extract & format the numeric price (always output with space before unit):
   • "tr"/"triệu" = triệu → format as "15 tr", "23 tr"
   • Combined tỷ+triệu: "9ty650"/"9ty650tr" = 9 tỷ + 650 triệu = 9.65 tỷ → "9.65 tỷ"; "10ty5" = 10.05 tỷ; "10ty500" = 10.5 tỷ
@@ -71,14 +93,17 @@ Rules:
   • "tv"/"thu về" → Phi="Thu về", Gia=price only
   • Otherwise → Phi="Thu về", Gia=price only
   Examples: "9ty650tv"→Gia="9.65 tỷ",Phi="Thu về" | "5.5ty bao phí"→Gia="5.5 tỷ",Phi="Bao phí" | "4.2 tỷ"→Gia="4.2 tỷ",Phi="Thu về" | "22ty"→Gia="22 tỷ",Phi="Thu về"
-- Noi_That: ONLY one of exactly 2 values based on "Hiện trạng:" line:
+- Noi_That: ONLY one of exactly 2 values, based on the "Nội thất:" or "Hiện trạng:" value:
   • "Full đồ" — full furniture: "full đồ", "full nội thất", "đầy đủ đồ", "full", "có đồ", "đủ đồ"
   • "Không đồ" — empty: "không đồ", "trống", "không nội thất", "thô"
   Output "" (empty string) if unclear or if it only says partial furniture ("cơ bản", "một số đồ"). Never guess.
-- Ghi_Chu_NT: extra notes from "Hiện trạng:" after removing furniture level and slot/parking info (e.g. "nhà sửa đẹp", "mới sơn", "view đẹp"). Empty string if none.
-- Slot_Xe: "có slot"/"slot xe"/"có xe" → "Có". "không slot"/"không xe" → "Không". Default "Không".
-- SDT: phone number from "Liên hệ:", "SĐT:", "Xem nhà lh:" line.
-- Ten_Chu: owner/contact name if mentioned.
+- Ghi_Chu_NT: extra notes from the "Nội thất:"/"Hiện trạng:" value after removing furniture level and slot/parking info (e.g. "nhà sửa đẹp", "mới sơn", "view đẹp"). Empty string if none.
+- Slot_Xe: if there is a "Slot xe:" label, decide ONLY from its value — "có"/"1"/"2"/"có slot" → "Có";
+  "không"/"ko"/"0" → "Không"; BLANK value → "Không". Do NOT answer "Có" merely because the words
+  "slot xe" appear: they are the label itself.
+  If there is no such label: "có slot"/"slot xe"/"có xe" → "Có"; "không slot"/"không xe" → "Không". Default "Không".
+- SDT: phone number from "SĐT:", "Liên hệ:", "Xem nhà lh:" line.
+- Ten_Chu: owner name from "Tên chủ:" line, or the contact name if mentioned elsewhere. "" if none.
 
 Message: ${cleanText}`;
 

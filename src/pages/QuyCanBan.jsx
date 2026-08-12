@@ -8,7 +8,7 @@ import {
 } from '../utils/api';
 import {
   normalizeThietKe, mapPhi, isDateSerialGia, conKey, expectOf,
-  STATUS_GRAY, STATUS_PAUSED, INVEST_COLOR,
+  STATUS_GRAY, STATUS_PAUSED, INVEST_COLOR, KHUNG_BAN, khungConTrong,
 } from '../utils/quyCanShared';
 import { parseBangCon, validateTagName } from '../utils/conTagState';
 import { useConTags } from '../utils/useConTags';
@@ -577,7 +577,7 @@ function QuyCanBanInner({
   }
 
   async function handleParse() {
-    if (!rawText.trim()) return showToast('Hãy paste tin Zalo vào trước', 'error');
+    if (khungConTrong(rawText)) return showToast('Hãy điền vào khung, hoặc dán tin Zalo vào trước', 'error');
     setParsing(true); setParsed(false);
     try {
       const result = await parseBan(rawText);
@@ -626,7 +626,8 @@ function QuyCanBanInner({
   }
 
   function openAdd() {
-    setRawText(''); setParsed(false);
+    // Mở sẵn khung trường để gõ tay. Dán tin Zalo thì bôi đen xoá hết rồi dán đè.
+    setRawText(KHUNG_BAN); setParsed(false);
     setEditItem(null);
     setForm({ ...EMPTY_FORM });
     setModalMode('add');
@@ -1027,14 +1028,14 @@ function QuyCanBanInner({
                   borderRadius: 12, padding: 16, marginBottom: 20,
                 }}>
                   <div style={{ fontSize:12, fontWeight:700, color: parsed ? '#276749' : '#2B6CB0', marginBottom:8 }}>
-                    {parsed ? '✅ AI đã parse — kiểm tra và chỉnh sửa bên dưới' : '🤖 Paste tin Zalo để AI tự điền'}
+                    {parsed ? '✅ AI đã parse — kiểm tra và chỉnh sửa bên dưới' : '🤖 Điền vào khung, hoặc xoá hết rồi dán tin Zalo đè lên'}
                   </div>
                   <textarea
                     value={rawText}
                     onChange={e => { setRawText(e.target.value); setParsed(false); }}
-                    placeholder={`Ví dụ:\nCăn hộ: P0112A11\n- Thiết kế: 3PN\n- Diện tích: 106m²\n- Hướng ban công: Nam\n- Giá: 5.5 tỷ bao phí\n- Hiện trạng: full đồ\n- Liên hệ: Anh Nam 0363560203`}
+                    placeholder={`Căn hộ: P0112A11\nThiết kế: 3PN\nDiện tích: 106m²\nHướng ban công: Nam\nSlot xe: có\nGiá: 5.5 tỷ\nPhí: bao phí\nNội thất: full đồ\nSĐT: 0363560203\nTên chủ: Anh Nam`}
                     style={{
-                      width:'100%', minHeight:110, padding:'10px 12px',
+                      width:'100%', minHeight:230, padding:'10px 12px',
                       border:`1.5px solid ${C.border}`, borderRadius:8, fontSize:13,
                       fontFamily:F, outline:'none', resize:'vertical', boxSizing:'border-box',
                       background:'#fff',
@@ -1042,12 +1043,12 @@ function QuyCanBanInner({
                   />
                   <button
                     onClick={handleParse}
-                    disabled={parsing || !rawText.trim()}
+                    disabled={parsing || khungConTrong(rawText)}
                     style={{
                       marginTop:10, padding:'9px 22px', borderRadius:8, border:'none',
-                      background: parsing ? '#a0aec0' : '#3182CE',
+                      background: parsing || khungConTrong(rawText) ? '#a0aec0' : '#3182CE',
                       color:'#fff', fontFamily:F, fontWeight:700, fontSize:14,
-                      cursor: parsing||!rawText.trim() ? 'default':'pointer',
+                      cursor: parsing || khungConTrong(rawText) ? 'default':'pointer',
                       display:'flex', alignItems:'center', gap:8,
                     }}
                   >
