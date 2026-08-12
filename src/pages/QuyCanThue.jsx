@@ -58,9 +58,14 @@ function resolveMauMaCan(incoming, existing) {
   return inc || ex;                     // còn lại: lấy status mới (hoặc giữ status cũ)
 }
 
+// Nội thất chỉ còn 2 trạng thái theo thực tế dự án. Bỏ "Đồ cơ bản".
+const NOI_THAT_OPTIONS = ['Full đồ', 'Không đồ'];
+
 const EMPTY_FORM = {
   Ma_Can: '', Thiet_Ke: '', Dien_Tich: '', Slot_Xe: 'Không',
-  Huong_BC: '', Gia: '', Gia_Net: '', Phi_MG: '', Noi_That: 'Đồ cơ bản',
+  // Nội thất để TRỐNG chứ không đặt sẵn: dự án chỉ còn 2 trạng thái, chọn hộ một cái là
+  // đoán bừa hộ người dùng và nó sẽ được lưu y như thật.
+  Huong_BC: '', Gia: '', Gia_Net: '', Phi_MG: '', Noi_That: '',
   Thoi_Gian_Vao: '', Ten_Chu: '', Lien_He: '', Hinh_Anh: '', Nguon: '', Ghi_Chu: '', Mau_Ma_Can: '',
 };
 
@@ -71,11 +76,15 @@ const DEFAULT_TAGS = [
 ];
 
 function normalizeNoiThat(val) {
-  const s = (val || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  const raw = (val || '').trim();
+  const s = raw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   if (!s) return '';
   if (s.includes('full') || s.includes('day du') || s.includes('du do') || s.includes('co đo') || s.includes('đu đo') || s.includes('đay đu')) return 'Full đồ';
   if (s.includes('khong') || s.includes('trong') || s.includes('tho')) return 'Không đồ';
-  return 'Đồ cơ bản';
+  // Dự án chỉ còn 2 trạng thái: Full đồ / Không đồ. Dữ liệu cũ ghi kiểu khác ("Đồ cơ bản",
+  // "một số đồ"...) thì GIỮ NGUYÊN chữ đã nhập — ép sang Full hay Không đều là bịa hiện trạng
+  // của căn, mà hiện trạng sai thì dẫn khách đi xem nhà hụt.
+  return raw;
 }
 
 // Tách "tòa" và "tầng" từ Mã Căn (VD: P11-1205 -> {toa:'P11', tang:'12'};
@@ -1114,7 +1123,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                 <div>
                   <label style={st.fieldLabel}>Nội Thất</label>
                   <div style={{ display:'flex', gap:8 }}>
-                    {['Full đồ','Đồ cơ bản','Không đồ'].map(opt => (
+                    {NOI_THAT_OPTIONS.map(opt => (
                       <button key={opt} type="button" onClick={() => set('Noi_That', opt)}
                         style={{
                           flex:1, padding:'9px 0', borderRadius:8, fontSize:13, fontWeight:700,

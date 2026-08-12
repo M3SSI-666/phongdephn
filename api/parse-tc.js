@@ -14,7 +14,7 @@ export default async function handler(req, res) {
         .replace(/[\u{200B}-\u{200D}\u{FEFF}]/gu, '').replace(/\s+/g, ' ').trim();
       PROMPT = `Parse this Times City apartment rental message (Vietnamese). Return ONLY valid JSON, no markdown.
 
-{"Ma_Can":"","Thiet_Ke":"","Dien_Tich":"","Huong_BC":"","Gia":"","Phi_MG":"","Noi_That":"Đồ cơ bản","Slot_Xe":"Không","Thoi_Gian_Vao":"","Lien_He":"","Ghi_Chu_NT":""}
+{"Ma_Can":"","Thiet_Ke":"","Dien_Tich":"","Huong_BC":"","Gia":"","Phi_MG":"","Noi_That":"","Slot_Xe":"Không","Thoi_Gian_Vao":"","Lien_He":"","Ghi_Chu_NT":""}
 
 Rules:
 - Ma_Can: apartment code from "Căn hộ:" or "Căn:" line (e.g. "P0112a11", "R6-1208"). Keep original format.
@@ -34,11 +34,10 @@ Rules:
   • "1 tháng" fee → Gia=price only, Phi_MG="1 tháng"
   • No fee info → Gia=price only, Phi_MG=""
   Examples: "15tr pmg 1/2"→Gia="15 tr",Phi_MG="1/2" | "14tr tv"→Gia="14 tr",Phi_MG="Thu về" | "23tr phí đủ"→Gia="23 tr",Phi_MG="Phí đủ"
-- Noi_That: ONLY one of exactly 3 values based on "Hiện trạng:" line:
+- Noi_That: ONLY one of exactly 2 values based on "Hiện trạng:" line:
   • "Full đồ" — full furniture: "full đồ", "full nội thất", "đầy đủ đồ", "full", "có đồ", "đủ đồ"
-  • "Đồ cơ bản" — basic/some furniture: "cơ bản", "một số đồ", "đồ cơ bản"
   • "Không đồ" — empty: "không đồ", "trống", "không nội thất", "thô"
-  Default "Đồ cơ bản" if unclear.
+  Output "" (empty string) if unclear or if it only says partial furniture ("cơ bản", "một số đồ"). Never guess.
 - Ghi_Chu_NT: extra notes from "Hiện trạng:" after removing furniture level and slot/parking info (e.g. "nhà sửa đẹp", "mới sơn", "view đẹp"). Empty string if none.
 - Slot_Xe: detect from entire message. "có slot"/"slot xe"/"có xe"/"bãi xe" → "Có". "không slot"/"không có xe"/"không xe" → "Không". Default "Không".
 - Thoi_Gian_Vao: full content from "Thời gian vào:" line. Only normalize: "lun"→"Luôn", "ngay"→"Ngay". Keep all additional context.
@@ -53,7 +52,7 @@ Message: ${cleanText}`;
         .replace(/[\u{200B}-\u{200D}\u{FEFF}]/gu, '').replace(/\s+/g, ' ').trim();
       PROMPT = `Parse this Times City apartment FOR SALE message (Vietnamese). Return ONLY valid JSON, no markdown.
 
-{"Ma_Can":"","Thiet_Ke":"","Dien_Tich":"","Huong_BC":"","Gia":"","Phi":"Thu về","Noi_That":"Đồ cơ bản","Slot_Xe":"Không","SDT":"","Ten_Chu":"","Ghi_Chu_NT":""}
+{"Ma_Can":"","Thiet_Ke":"","Dien_Tich":"","Huong_BC":"","Gia":"","Phi":"Thu về","Noi_That":"","Slot_Xe":"Không","SDT":"","Ten_Chu":"","Ghi_Chu_NT":""}
 
 Rules:
 - Ma_Can: apartment code from "Căn hộ:" or "Căn:" line. Keep original format, uppercase all letters.
@@ -72,11 +71,10 @@ Rules:
   • "tv"/"thu về" → Phi="Thu về", Gia=price only
   • Otherwise → Phi="Thu về", Gia=price only
   Examples: "9ty650tv"→Gia="9.65 tỷ",Phi="Thu về" | "5.5ty bao phí"→Gia="5.5 tỷ",Phi="Bao phí" | "4.2 tỷ"→Gia="4.2 tỷ",Phi="Thu về" | "22ty"→Gia="22 tỷ",Phi="Thu về"
-- Noi_That: ONLY one of exactly 3 values based on "Hiện trạng:" line:
+- Noi_That: ONLY one of exactly 2 values based on "Hiện trạng:" line:
   • "Full đồ" — full furniture: "full đồ", "full nội thất", "đầy đủ đồ", "full", "có đồ", "đủ đồ"
-  • "Đồ cơ bản" — basic/some furniture: "cơ bản", "một số đồ", "đồ cơ bản"
   • "Không đồ" — empty: "không đồ", "trống", "không nội thất", "thô"
-  Default "Đồ cơ bản" if unclear.
+  Output "" (empty string) if unclear or if it only says partial furniture ("cơ bản", "một số đồ"). Never guess.
 - Ghi_Chu_NT: extra notes from "Hiện trạng:" after removing furniture level and slot/parking info (e.g. "nhà sửa đẹp", "mới sơn", "view đẹp"). Empty string if none.
 - Slot_Xe: "có slot"/"slot xe"/"có xe" → "Có". "không slot"/"không xe" → "Không". Default "Không".
 - SDT: phone number from "Liên hệ:", "SĐT:", "Xem nhà lh:" line.
@@ -101,7 +99,7 @@ Rules:
 - Gia_Max: max budget in triệu. Convert: "19tr"→19, "dưới 20 triệu"→20, "tài chính 19"→19, "4 tỷ"→4000, "tối đa 25tr"→25, "khoảng 20tr"→20. null if not mentioned.
 - Gia_Min: min price in triệu. "từ 15tr"→15, "trên 18 triệu"→18. null if not mentioned.
 - Huong_BC: "Bắc"|"Nam"|"Đông"|"Tây"|"Đông Nam"|"Đông Bắc"|"Tây Nam"|"Tây Bắc"|null.
-- Noi_That: ONLY one of exactly 3 values or null. "Full đồ" if: "full đồ","full","đầy đủ","có đồ","đủ đồ". "Đồ cơ bản" if: "cơ bản","một số đồ","đồ cơ bản". "Không đồ" if: "không đồ","ko đồ","không có đồ","trống","thô". null if not mentioned.
+- Noi_That: ONLY one of exactly 2 values or null. "Full đồ" if: "full đồ","full","đầy đủ","có đồ","đủ đồ". "Không đồ" if: "không đồ","ko đồ","không có đồ","trống","thô". null if not mentioned.
 - Toa: specific building code ONLY if user mentions a specific tower like "tòa T04","tòa P01","T18". Normalize: pad single digit "p1"→"P01","t4"→"T04". null if not mentioned or if a zone (Khu) is mentioned instead.
 - Khu: "Times" | "ParkHill" | "ParkPremium" | null. Detect zone mentions: "khu times"/"times"→"Times", "park hill"/"parkhill"/"khu park"→"ParkHill", "park premium"/"g4"/"premium"→"ParkPremium". If user mentions a specific Toa, set Khu=null. null if not mentioned.
 

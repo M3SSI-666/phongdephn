@@ -334,12 +334,16 @@ async function callParseTC(body, retry = true) {
   throw new Error(err.error || `Parse failed (${res.status})`);
 }
 
+// Lưới chắn cho kết quả AI. Nội thất chỉ còn 2 trạng thái (Full đồ / Không đồ), nhưng model
+// vẫn có thể trả "Đồ cơ bản" theo thói quen — giá trị đó không khớp nút nào trong form, nhìn
+// vào tưởng chưa chọn. Nên: chỉ giữ khi trả về đúng 1 trong 2, còn lại đọc lại từ tin nhắn.
 function fixNoiThat(result, text) {
-  if (result?.Noi_That === 'Đồ cơ bản') {
-    const t = (text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
-    // "co do" without "co ban" => Full đồ
-    if (t.includes('co do') && !t.includes('co ban')) result.Noi_That = 'Full đồ';
-  }
+  if (!result) return result;
+  if (result.Noi_That === 'Full đồ' || result.Noi_That === 'Không đồ') return result;
+  const t = (text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+  // "co do" mà không phải "co ban" => Full đồ. Không suy ra được thì để TRỐNG cho người dùng
+  // tự chọn, tuyệt đối không đoán bừa hiện trạng căn.
+  result.Noi_That = t.includes('co do') && !t.includes('co ban') ? 'Full đồ' : '';
   return result;
 }
 export function parseThue(text) { return callParseTC({ type: 'thue', text }).then(r => fixNoiThat(r, text)); }
