@@ -105,8 +105,11 @@ export default function ImportSheetModal({ open, onClose, userId, role, onDone }
       const incoming = new Set(payloads.map(p => (p.Ma_Can || '').trim().toUpperCase()).filter(Boolean));
       let adds = 0, updates = 0;
       incoming.forEach(k => (have.has(k) ? updates++ : adds++));
-      const deletes = [...have].filter(k => !incoming.has(k)).length;
-      out[t.key] = { adds, updates, deletes, total: items.length };
+      // Giữ luôn DANH SÁCH mã căn sắp bị xoá, không chỉ con số: đây là những căn đang
+      // hiện ở tab "Tất cả" mà file công ty không có. Thấy được mã thì mới đối chiếu
+      // được với sheet công ty, thay vì phải tin vào một con số.
+      const delKeys = [...have].filter(k => !incoming.has(k)).sort();
+      out[t.key] = { adds, updates, deletes: delKeys.length, delKeys, total: items.length };
     }
     return out;
   }, [parsed, existing]);
@@ -334,6 +337,21 @@ export default function ImportSheetModal({ open, onClose, userId, role, onDone }
                       </div>
                     )}
 
+                    {expanded === t.key && !skipped && st?.delKeys?.length > 0 && (
+                      <div style={s.delBox}>
+                        <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                          🗑 {st.delKeys.length} căn sẽ bị XOÁ khỏi tab "Tất cả"
+                        </div>
+                        <div style={{ marginBottom: 6, color: C.textMuted }}>
+                          Đang có trên web nhưng không có trong file công ty vừa chọn.
+                        </div>
+                        <div style={s.delList}>
+                          {st.delKeys.slice(0, 200).join(', ')}
+                          {st.delKeys.length > 200 && ` … và ${st.delKeys.length - 200} căn nữa`}
+                        </div>
+                      </div>
+                    )}
+
                     {expanded === t.key && !skipped && (
                       <div style={s.tableWrap}>
                         <table style={s.table}>
@@ -418,6 +436,8 @@ const s = {
   tabPick:   { marginLeft:'auto', display:'flex', alignItems:'center', gap:6, fontSize:12.5, color:C.textMuted },
   resLine:   { marginTop:8, fontSize:13, fontWeight:600 },
   unclaimed: { marginTop:4, fontSize:12.5, color:C.textDim },
+  delBox:    { marginTop:10, padding:'9px 12px', border:`1px solid ${C.error}`, borderRadius:10, background:'rgba(220,38,38,0.06)', fontSize:12.5, color:C.text },
+  delList:   { fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize:12, lineHeight:1.6, color:C.error, wordBreak:'break-word', maxHeight:'18vh', overflow:'auto' },
   tableWrap: { marginTop:10, border:`1px solid ${C.border}`, borderRadius:10, overflow:'auto', maxHeight:'34vh' },
   table:     { width:'100%', borderCollapse:'collapse', fontSize:12.5 },
   th:        { textAlign:'left', padding:'8px 10px', fontWeight:700, fontSize:11, textTransform:'uppercase', color:C.textMuted, borderBottom:`2px solid ${C.border}`, background:C.borderLight, whiteSpace:'nowrap', position:'sticky', top:0 },
