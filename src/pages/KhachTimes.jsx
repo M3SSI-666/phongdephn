@@ -239,12 +239,11 @@ function sortKhach(a, b) {
   return Number(b.STT || 0) - Number(a.STT || 0);
 }
 
-// Ô Check In / Check Out. Ngày rơi đúng hôm nay -> nền đỏ nhạt, ngày mai -> nền cam nhạt,
-// để nhìn lướt là biết khách nào cần nhắc. Dùng lại đúng cặp màu nền/chữ của chip trạng thái
-// cho đồng bộ với phần còn lại của bảng.
+// Ô Check In / Check Out. Ngày rơi đúng hôm nay -> nền đỏ nhạt, trước 1 ngày -> nền xanh lime,
+// để nhìn lướt là biết khách nào cần nhắc. Nền nhạt + chữ đậm cùng tông, đủ tương phản để đọc.
 const NGAY_FLAG = {
   today: { style: { background: '#F8D7DA', color: '#721C24' }, title: 'Hôm nay' },
-  soon:  { style: { background: '#FFE0B2', color: '#8A4B08' }, title: 'Ngày mai' },
+  soon:  { style: { background: '#D9F99D', color: '#3F6212' }, title: 'Ngày mai' },
 };
 
 // Trả về nguyên cái <td> chứ không phải nội dung bên trong: màu phải tô KÍN ô, kể cả khoảng

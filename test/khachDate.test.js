@@ -30,7 +30,7 @@ test('parseNoteDate: không đoán bừa', () => {
 
 const at = (y, m, d) => new Date(y, m - 1, d);
 
-test('noteDateFlag: hôm nay đỏ, ngày mai cam', () => {
+test('noteDateFlag: hôm nay đỏ, ngày mai xanh lime', () => {
   const now = at(2026, 8, 9);
   assert.equal(noteDateFlag('10h 9/8', now), 'today');
   assert.equal(noteDateFlag('9/8', now), 'today');
