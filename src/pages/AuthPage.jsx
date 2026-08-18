@@ -71,7 +71,7 @@ function LoginPage() {
             appearance={{ variables: { colorPrimary:'#38b274', fontFamily:F } }}
             routing="hash"
             signUpUrl="#"
-            afterSignInUrl="/timescity"
+            afterSignInUrl="/"
           />
         ) : (
           <SignUp

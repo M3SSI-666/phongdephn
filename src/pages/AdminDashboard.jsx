@@ -198,7 +198,7 @@ export default function AdminDashboard() {
                   onApprove={null}
                   onBan={u.id === user.id ? null : () => toggleBan(u.id, u.name, u.locked)}
                   onRoleChange={role => updateUser(u.id, role, true)}
-                  onViewInventory={u.id !== user.id ? () => navigate(`/timescity?viewAs=${u.id}&viewName=${encodeURIComponent(u.name)}`) : null}
+                  onViewInventory={u.id !== user.id ? () => navigate(`/?viewAs=${u.id}&viewName=${encodeURIComponent(u.name)}`) : null}
                 />
               ))}
             </Section>

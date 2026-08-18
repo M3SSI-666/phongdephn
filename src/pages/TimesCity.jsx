@@ -103,7 +103,7 @@ function TimesCityApp() {
           <span style={{ fontSize:13, color:'#63b3ed', fontWeight:600 }}>
             👁 Đang xem bảng hàng của <strong>{decodeURIComponent(viewAsName || '')}</strong>
           </span>
-          <button onClick={() => navigate('/timescity')} style={{ background:'none', border:'1px solid #63b3ed', borderRadius:8, padding:'4px 14px', color:'#63b3ed', cursor:'pointer', fontSize:12, fontFamily:F, fontWeight:700 }}>
+          <button onClick={() => navigate('/')} style={{ background:'none', border:'1px solid #63b3ed', borderRadius:8, padding:'4px 14px', color:'#63b3ed', cursor:'pointer', fontSize:12, fontFamily:F, fontWeight:700 }}>
             ← Về bảng của tôi
           </button>
         </div>
