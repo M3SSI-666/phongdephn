@@ -240,11 +240,15 @@ function explainFailure(fails, totalKeys) {
     return { code: 500, error: 'Chưa cấu hình API key cho AI (GROQ_API_KEY / GEMINI_API_KEY trên Vercel).' };
   }
   const has = (fn) => fails.some(fn);
+  // Lỗi cần người sửa (không phải chờ) thì kèm luôn nhà cung cấp + mã lỗi, để biết đường
+  // sửa chỗ nào mà không phải mở Vercel log. Chỉ có tên provider, số thứ tự key và status
+  // — không có mẩu nào của key thật.
+  const dbg = ' [' + fails.map(f => `${f.provider}#${f.key}=${f.status || f.reason}`).join(' ') + ']';
   if (has(f => f.status === 401 || f.status === 403)) {
-    return { code: 502, error: 'API key của AI bị từ chối (sai hoặc đã thu hồi) — cần cấp lại key.' };
+    return { code: 502, error: 'API key của AI bị từ chối (sai hoặc đã thu hồi) — cần cấp lại key.' + dbg };
   }
   if (has(f => f.status === 404)) {
-    return { code: 502, error: 'Model AI không còn tồn tại — cần cập nhật tên model.' };
+    return { code: 502, error: 'Model AI không còn tồn tại — cần cập nhật tên model.' + dbg };
   }
   if (has(f => f.status === 429)) {
     return { code: 429, error: 'Hết lượt gọi AI (rate limit). Đợi ~15 giây rồi thử lại.' };
