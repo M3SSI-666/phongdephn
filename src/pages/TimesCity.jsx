@@ -72,7 +72,6 @@ function TimesCityApp() {
       <div style={s.header}>
         <div style={s.headerInner}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button onClick={() => navigate('/')} style={s.backBtn} className="tc-main-tab">&larr;</button>
             <div>
               <div style={s.headerTitle}>Times City</div>
               <div style={s.headerSub}>Quản lý bất động sản Times City</div>
@@ -147,7 +146,6 @@ const s = {
   headerInner:   { padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' },
   headerTitle:   { fontSize:18, fontWeight:800, color:C.primary, letterSpacing:-0.3 },
   headerSub:     { fontSize:11, color:'#8a9bb8', marginTop:1 },
-  backBtn:       { background:'rgba(56,178,116,0.15)', borderRadius:8, width:36, height:36, fontSize:18, color:C.primary, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700 },
   iconBtn:       { background:'rgba(255,255,255,0.07)', border:'1px solid #3a3f52', borderRadius:8, width:36, height:36, fontSize:16, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' },
   tabsContainer: { background:'#13151e', borderBottom:'1px solid #2d3240', padding:'0 12px' },
   tabsRow:       { display:'flex', gap:8, paddingTop:8, overflowX:'auto' },
