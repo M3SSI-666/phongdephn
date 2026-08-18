@@ -1,3 +1,7 @@
+// Tên model để ở biến môi trường — xem ghi chú trong api/parse-tc.js.
+const GROQ_MODEL   = process.env.GROQ_MODEL   || 'openai/gpt-oss-120b';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+
 // ============================================================
 // HANOI GEOGRAPHY DATABASE (hard-coded, loaded once)
 // AI chỉ cần nhận diện keyword → code JS tra cứu map này
@@ -421,13 +425,15 @@ async function callGroq(apiKey, prompt) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: GROQ_MODEL,
         messages: [
           { role: 'system', content: 'Return ONLY valid JSON, no markdown.' },
           { role: 'user', content: prompt },
         ],
         temperature: 0.1,
-        max_tokens: 256,
+        // gpt-oss suy luận trước khi trả lời, token suy luận cũng trừ vào hạn mức này.
+        // 256 là quá chật, JSON sẽ bị cắt cụt.
+        max_tokens: 1024,
         response_format: { type: 'json_object' },
       }),
       signal: controller.signal,
@@ -455,7 +461,7 @@ async function callGemini(apiKey, requestBody) {
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: requestBody, signal: controller.signal }
     );
 

@@ -1,3 +1,7 @@
+// Tên model để ở biến môi trường — xem ghi chú trong api/parse-tc.js.
+const GROQ_MODEL   = process.env.GROQ_MODEL   || 'openai/gpt-oss-120b';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+
 export default async function handler(req, res) {
   try {
     if (req.method !== 'POST') {
@@ -112,7 +116,7 @@ async function callGroq(apiKey, prompt) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: GROQ_MODEL,
         messages: [
           {
             role: 'system',
@@ -155,7 +159,7 @@ async function callGemini(apiKey, requestBody) {
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -1,4 +1,12 @@
 // Unified Times City parse handler: type=thue|ban|search
+
+// Nhà cung cấp AI khai tử model liên tục, và khi đó MỌI tính năng AI chết cùng lúc
+// (llama-3.3-70b-versatile bị gỡ giữa 2026 -> cả 3 key Groq trả 404, mọi request dồn
+// xuống 1 key Gemini rồi cháy quota -> người dùng chỉ thấy "Rate limit").
+// Để tên model ở biến môi trường: lần sau chỉ cần sửa biến trên Vercel, không cần deploy.
+const GROQ_MODEL   = process.env.GROQ_MODEL   || 'openai/gpt-oss-120b';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+
 export default async function handler(req, res) {
   try {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -197,12 +205,14 @@ async function callGroq(apiKey, prompt) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: GROQ_MODEL,
         messages: [
           { role: 'system', content: 'You are a JSON extractor. Return ONLY valid JSON.' },
           { role: 'user', content: prompt },
         ],
-        temperature: 0.1, max_tokens: 512,
+        // gpt-oss là model có bước suy luận, và token suy luận cũng trừ vào hạn mức này.
+        // Để 512 như cũ thì JSON dễ bị cắt cụt giữa chừng -> parse hỏng.
+        temperature: 0.1, max_tokens: 1024,
         response_format: { type: 'json_object' },
       }),
       signal: ctrl.signal,
@@ -220,7 +230,7 @@ async function callGemini(apiKey, body) {
   const t = setTimeout(() => ctrl.abort(), 10000);
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: ctrl.signal }
     );
     if (!res.ok) return { error: true, status: res.status, detail: (await res.text()).slice(0, 300) };
