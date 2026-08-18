@@ -143,12 +143,17 @@ Query: ${query}`;
     if (process.env.GROQ_API_KEY) groqKeys.push(process.env.GROQ_API_KEY);
     for (let i = 2; i <= 10; i++) { const v = process.env[`GROQ_API_KEY_${i}`]; if (v) groqKeys.push(v); }
 
+    // Gom lý do hỏng của TỪNG key. Trước đây mọi thất bại đều bị nuốt rồi báo chung
+    // là "Rate limit", nên hết quota, key bị thu hồi và AI trả chậm nhìn giống hệt nhau.
+    const fails = [];
+
     if (groqKeys.length > 0) {
       const start = Math.floor(Math.random() * groqKeys.length);
       for (let i = 0; i < groqKeys.length; i++) {
         const idx = (start + i) % groqKeys.length;
         const result = await callGroq(groqKeys[idx], PROMPT);
         if (result.data) return res.status(200).json(result.data);
+        fails.push({ provider: 'Groq', key: idx + 1, ...result });
       }
     }
 
@@ -167,10 +172,17 @@ Query: ${query}`;
         const idx = (start + i) % geminiKeys.length;
         const result = await callGemini(geminiKeys[idx], body);
         if (result.data) return res.status(200).json(result.data);
+        fails.push({ provider: 'Gemini', key: idx + 1, ...result });
       }
     }
 
-    return res.status(429).json({ error: 'Rate limit. Thử lại sau 15 giây.' });
+    console.error(`[parse-tc] type=${type} thất bại: ` + (
+      fails.length
+        ? fails.map(f => `${f.provider}#${f.key}=${f.status || f.reason}`).join(', ')
+        : 'không có API key nào được cấu hình'
+    ));
+    const { code, error } = explainFailure(fails, groqKeys.length + geminiKeys.length);
+    return res.status(code).json({ error });
   } catch (err) {
     console.error('[parse-tc]', err.message);
     return res.status(500).json({ error: err.message });
@@ -195,10 +207,11 @@ async function callGroq(apiKey, prompt) {
       }),
       signal: ctrl.signal,
     });
-    if (!res.ok) return { error: true };
+    if (!res.ok) return { error: true, status: res.status, detail: (await res.text()).slice(0, 300) };
     const d = await res.json();
-    return parseJson(d.choices?.[0]?.message?.content || '');
-  } catch { return { error: true }; }
+    const out = parseJson(d.choices?.[0]?.message?.content || '');
+    return out.data ? out : { error: true, reason: 'bad_json' };
+  } catch (e) { return { error: true, reason: e.name === 'AbortError' ? 'timeout' : 'network' }; }
   finally { clearTimeout(t); }
 }
 
@@ -210,11 +223,37 @@ async function callGemini(apiKey, body) {
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: ctrl.signal }
     );
-    if (!res.ok) return { error: true };
+    if (!res.ok) return { error: true, status: res.status, detail: (await res.text()).slice(0, 300) };
     const d = await res.json();
-    return parseJson(d.candidates?.[0]?.content?.parts?.[0]?.text || '');
-  } catch { return { error: true }; }
+    const out = parseJson(d.candidates?.[0]?.content?.parts?.[0]?.text || '');
+    return out.data ? out : { error: true, reason: 'bad_json' };
+  } catch (e) { return { error: true, reason: e.name === 'AbortError' ? 'timeout' : 'network' }; }
   finally { clearTimeout(t); }
+}
+
+// Biến đống lý do hỏng thành MỘT câu đúng sự thật cho người dùng.
+// Ưu tiên nguyên nhân cần hành động khác nhau: thiếu key > key sai > quá tải > chậm.
+// `code` quyết định client có tự thử lại hay không: CHỈ 429 mới đáng thử lại, còn key sai
+// hay model chết thì thử lại chỉ tổ bắt người dùng chờ thêm 5 giây rồi vẫn hỏng.
+function explainFailure(fails, totalKeys) {
+  if (!totalKeys) {
+    return { code: 500, error: 'Chưa cấu hình API key cho AI (GROQ_API_KEY / GEMINI_API_KEY trên Vercel).' };
+  }
+  const has = (fn) => fails.some(fn);
+  if (has(f => f.status === 401 || f.status === 403)) {
+    return { code: 502, error: 'API key của AI bị từ chối (sai hoặc đã thu hồi) — cần cấp lại key.' };
+  }
+  if (has(f => f.status === 404)) {
+    return { code: 502, error: 'Model AI không còn tồn tại — cần cập nhật tên model.' };
+  }
+  if (has(f => f.status === 429)) {
+    return { code: 429, error: 'Hết lượt gọi AI (rate limit). Đợi ~15 giây rồi thử lại.' };
+  }
+  if (fails.length && fails.every(f => f.reason === 'timeout')) {
+    return { code: 504, error: 'AI phản hồi quá chậm (quá 10 giây). Thử lại, hoặc rút gọn câu tìm.' };
+  }
+  const st = fails.find(f => f.status)?.status;
+  return { code: 502, error: st ? `AI trả lỗi ${st}. Thử lại sau ít phút.` : 'Không gọi được AI. Thử lại sau ít phút.' };
 }
 
 async function handleAdmin(req, res) {
