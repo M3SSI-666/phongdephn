@@ -7,7 +7,7 @@ import {
   parseBan, uploadToCloudinary, parseSearchQuery,
 } from '../utils/api';
 import {
-  normalizeThietKe, mapPhi, isDateSerialGia, conKey, expectOf,
+  normalizeThietKe, mapPhi, phiBaoPhi, isDateSerialGia, conKey, expectOf,
   STATUS_GRAY, STATUS_PAUSED, INVEST_COLOR, KHUNG_BAN, khungConTrong,
 } from '../utils/quyCanShared';
 import { parseBangCon, validateTagName } from '../utils/conTagState';
@@ -357,17 +357,31 @@ function QuyCanBanInner({
 
   // Đơn giá tr/m². Nếu Giá đã ghi sẵn đơn giá thì lấy trực tiếp; ngược lại (Giá là tổng,
   // tính bằng tỷ) thì chia cho diện tích.
+  //
+  // Cột Phí = "Bao phí" nghĩa là số ở ô Giá ĐÃ GỒM phí môi giới, nên phải trừ phí ra
+  // trước khi chia — nếu không thì căn bao phí luôn hiện đơn giá cao hơn thực tế và
+  // không so được với căn "Thu về" nằm ngay cạnh nó trong cùng một bảng.
+  // parseGiaValue trả về TRIỆU nên trừ thẳng mức phí (100/150/200/300 triệu) được.
   function trPerM2(item) {
     const dt = parseDienTich(item.Dien_Tich);
+    const phi = mapPhi(item.Phi) === 'Bao phí' ? phiBaoPhi(item.Thiet_Ke) : null;
+    // Trừ xong mà ra <= 0 thì dữ liệu vô lý (phí lớn hơn cả giá) -> trả null, để ô trống.
+    // Hiện một con số bịa còn tệ hơn để trống: người dùng nhìn cột này để định giá.
+    const chia = g => {
+      const v = phi != null ? g - phi : g;
+      return v > 0 ? Math.round(v / dt) : null;
+    };
     // Ưu tiên Giá Nét (giá đã làm với chủ): chia cho diện tích ra đơn giá.
     if ((item.Gia_Net||'').toString().trim()) {
       const gn = parseGiaValue(item.Gia_Net);
-      if (gn && dt) return Math.round(gn / dt);
+      if (gn && dt) return chia(gn);
     }
+    // Giá đã ghi sẵn dạng /m² ("200tr/m") thì lấy nguyên: đó là đơn giá chủ đưa, không
+    // phải tổng tiền, trừ phí vào đây là trừ nhầm đơn vị.
     const direct = perM2Price(item);
     if (direct != null) return direct;
     const g = parseGiaValue(item.Gia);
-    return (g && dt) ? Math.round(g / dt) : null;
+    return (g && dt) ? chia(g) : null;
   }
 
   function buildFilterSummary(f) {

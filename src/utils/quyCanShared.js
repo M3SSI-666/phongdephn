@@ -73,6 +73,25 @@ export function mapPhi(val) {
   return s;
 }
 
+// Phí môi giới ƯỚC LƯỢNG theo số phòng ngủ, tính bằng TRIỆU. Chỉ dùng khi cột Phí ghi
+// "Bao phí": giá chủ đưa đã gồm phí, nên đơn giá tr/m² thật phải trừ phí ra trước khi
+// chia cho diện tích. Căn "Thu về" thì giá đã là tiền chủ nhận, không trừ gì cả.
+//
+// Đây là con số ƯỚC LƯỢNG do người dùng đưa, không phải phí thật của từng căn — cột
+// tr/m² vì thế là để so sánh tương đối giữa các căn, không phải để chốt hợp đồng.
+const PHI_THEO_PN = { 1: 100, 2: 150, 3: 200, 4: 300 };
+
+// Không đọc được số phòng ngủ (Studio, ô trống, chữ lạ) thì trả null = KHÔNG trừ.
+// Đoán bừa một mức phí lên căn không rõ thiết kế thì sai số nằm thẳng trong con số
+// người dùng nhìn để định giá; giữ công thức cũ thì ít nhất nó vẫn là Giá/m² đúng nghĩa.
+export function phiBaoPhi(thietKe) {
+  const m = String(thietKe || '').match(/\d+/);
+  if (!m) return null;
+  const pn = parseInt(m[0], 10);
+  if (pn < 1) return null;
+  return PHI_THEO_PN[pn] ?? PHI_THEO_PN[4];   // 5PN trở lên lấy mức 4PN
+}
+
 // Giá bán bị lỗi khi ô Excel định dạng NGÀY (VD "d.m") -> lưu thành số serial ngày
 // (43831 ≈ 2020-01-01, ~47500 ≈ 2030). Giá bán thật tính bằng tỷ nên chỉ vài chữ số
 // (VD "6.7", "85"). Bất kỳ số nguyên >= 1000 nào ở ô Giá đều KHÔNG phải giá -> loại.
