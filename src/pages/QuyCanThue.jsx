@@ -6,6 +6,7 @@ import { normalizeThietKe, conKey, expectOf, STATUS_GRAY, STATUS_PAUSED, KHUNG_T
 import { parseBangCon, validateTagName } from '../utils/conTagState';
 import { maCanTrucMatch, maCanTangInRange, normalizeTruc, tangToNumber, numberToTang } from '../utils/maCan';
 import { resolveKhu } from '../utils/khuToa';
+import { parseDienTich, dienTichInRange, formatDienTich } from '../utils/dienTich';
 import { useConTags } from '../utils/useConTags';
 import ImportSheetModal from '../components/ImportSheetModal';
 
@@ -374,6 +375,11 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     else if (f.Gia_Min != null) parts.push(`≥ ${f.Gia_Min >= 1000 ? (f.Gia_Min/1000)+'tỷ' : f.Gia_Min+'tr'}`);
     if (f.Huong_BC) parts.push('Hướng ' + f.Huong_BC);
     if (f.Noi_That) parts.push(f.Noi_That);
+    // Ghi rõ hai đầu khoảng, kể cả khi người dùng chỉ gõ "khoảng 100m" — để thấy ngay
+    // hệ thống đã hiểu thành 95–105 chứ không phải đúng 100.
+    if (f.DT_Min != null && f.DT_Max != null) parts.push(`DT ${formatDienTich(f.DT_Min)}–${formatDienTich(f.DT_Max)}m²`);
+    else if (f.DT_Min != null) parts.push(`DT ≥ ${formatDienTich(f.DT_Min)}m²`);
+    else if (f.DT_Max != null) parts.push(`DT ≤ ${formatDienTich(f.DT_Max)}m²`);
     if (f.Truc) parts.push('Trục ' + f.Truc);
     // Hiện lại theo cách gọi của toà nhà: "Tầng 12A", không phải "Tầng 13".
     if (f.Tang_Min != null && f.Tang_Max != null) {
@@ -418,6 +424,9 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       if (aiFilter.Noi_That) { const target = normalizeNoiThat(aiFilter.Noi_That); list = list.filter(it => normalizeNoiThat(it.Noi_That) === target); }
       if (aiFilter.Toa_List) list = list.filter(it => aiFilter.Toa_List.some(t => (it.Ma_Can||'').toUpperCase().startsWith(t)));
       else if (aiFilter.Toa) list = list.filter(it => (it.Ma_Can||'').toUpperCase().startsWith(aiFilter.Toa.toUpperCase()));
+      if (aiFilter.DT_Min != null || aiFilter.DT_Max != null) {
+        list = list.filter(it => dienTichInRange(it.Dien_Tich, aiFilter.DT_Min, aiFilter.DT_Max));
+      }
       if (aiFilter.Truc) list = list.filter(it => maCanTrucMatch(it.Ma_Can, aiFilter.Truc));
       if (aiFilter.Tang_Min != null || aiFilter.Tang_Max != null) {
         list = list.filter(it => maCanTangInRange(it.Ma_Can, aiFilter.Tang_Min, aiFilter.Tang_Max));
@@ -499,10 +508,9 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       const n = s.match(/([\d.]+)/);
       return n ? parseFloat(n[1]) : 99999;
     }
-    function parseDT(dt) {
-      const n = (dt || '').replace(/[^\d.]/g, '');
-      return n ? parseFloat(n) : 0;
-    }
+    // Dùng chung bộ đọc với bộ lọc diện tích, nếu không thì sắp xếp và lọc bất đồng:
+    // cách cũ biến "75 + 25" thành 7525 và "106m2" thành 108.
+    const parseDT = dt => parseDienTich(dt) ?? 0;
     // Giá dùng để sắp xếp: ưu tiên Giá Nét (giá đã làm với chủ); trống thì lấy Giá gốc.
     function effGia(item) {
       return parseGia((item.Gia_Net || '').trim() || item.Gia);
@@ -554,9 +562,18 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       const n = typeof r[k] === 'number' ? r[k] : tangToNumber(r[k]);
       r[k] = Number.isFinite(n) ? n : null;
     });
+    // Diện tích: AI hay trả "100m2" thay vì số. Rác thì bỏ hẳn.
+    ['DT_Min', 'DT_Max'].forEach(k => {
+      if (r[k] == null) return;
+      const n = typeof r[k] === 'number' ? r[k] : parseDienTich(r[k]);
+      r[k] = Number.isFinite(n) && n > 0 ? n : null;
+    });
     // "từ tầng 20 đến tầng 10" -> đảo lại cho đúng thứ tự, thay vì ra danh sách rỗng.
     if (r.Tang_Min != null && r.Tang_Max != null && r.Tang_Min > r.Tang_Max) {
       [r.Tang_Min, r.Tang_Max] = [r.Tang_Max, r.Tang_Min];
+    }
+    if (r.DT_Min != null && r.DT_Max != null && r.DT_Min > r.DT_Max) {
+      [r.DT_Min, r.DT_Max] = [r.DT_Max, r.DT_Min];
     }
     // Nhóm tòa ("bên T", "bên P", "Park Hill", "G4"...) → danh sách mã tòa.
     // Chạy trên câu gõ gốc chứ không chỉ khi AI trả Khu: mấy cụm này cố định nên regex
@@ -918,7 +935,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
           <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', fontSize:14 }}>✨</span>
           <input
             type="text"
-            placeholder="VD: 2 ngủ có slot tài chính 19tr · 3PN tòa T18 không đồ hướng bắc..."
+            placeholder="VD: 2 ngủ có slot tài chính 19tr · 3PN bên T trên 100m · 2 ngủ trục 12 tầng 15-25..."
             value={aiQuery}
             onChange={e => setAiQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleAiSearch()}

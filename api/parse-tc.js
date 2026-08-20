@@ -119,7 +119,7 @@ Message: ${cleanText}`;
       if (!query?.trim()) return res.status(400).json({ error: 'Missing query' });
       PROMPT = `Parse this Vietnamese real estate search query for Times City Hanoi apartments. Return ONLY valid JSON, no markdown.
 
-{"Thiet_Ke":null,"Slot_Xe":null,"Gia_Max":null,"Gia_Min":null,"Huong_BC":null,"Noi_That":null,"Toa":null,"Khu":null,"Truc":null,"Tang_Min":null,"Tang_Max":null}
+{"Thiet_Ke":null,"Slot_Xe":null,"Gia_Max":null,"Gia_Min":null,"Huong_BC":null,"Noi_That":null,"Toa":null,"Khu":null,"Truc":null,"Tang_Min":null,"Tang_Max":null,"DT_Min":null,"DT_Max":null}
 
 Times City zone knowledge (IMPORTANT):
 - Khu "Times" = tòa T01,T02,T03,T04,T05,T06,T07,T08,T09,T10,T11
@@ -142,6 +142,8 @@ Rules:
   Careful: "bên T"/"bên P" are letter-prefix groups, NOT the same as "Times"/"Park". Do not confuse "bên T" with "bên trong"/"bên trái"/"bên phải", which are not zones at all.
 - Truc: apartment axis = the LAST 2-3 characters of a unit code, as a STRING. "trục 12"→"12", "trục 5"→"05" (pad to 2 digits), "trục 12A"→"12A", "trục 12B"→"12B". Valid values: "01".."12","12A","12B","15".."24","26". null if not mentioned. Do NOT infer Truc from a floor mention.
 - Tang_Min / Tang_Max: floor range as INTEGERS. Single floor sets both: "tầng 20"→Tang_Min=20,Tang_Max=20. Range: "từ tầng 10 đến tầng 20"→10 and 20, "tầng 10-20"→10 and 20. Open ended: "từ tầng 20 trở lên"→Tang_Min=20,Tang_Max=null; "dưới tầng 10"→Tang_Min=null,Tang_Max=9; "tầng cao"→Tang_Min=20,Tang_Max=null; "tầng thấp"→Tang_Min=null,Tang_Max=10. null if not mentioned.
+- DT_Min / DT_Max: floor AREA in m², as NUMBERS (decimals allowed). "trên 100m"/"lớn hơn 100m2"/"từ 100m trở lên"→DT_Min=100,DT_Max=null. "dưới 80m"/"nhỏ hơn 80m2"→DT_Min=null,DT_Max=80. "từ 80 đến 100m"/"80-100m2"/"diện tích 80~100"→DT_Min=80,DT_Max=100. Approximate: "khoảng 100m2"/"tầm 100m"/"100m2"→DT_Min=95,DT_Max=105 (±5). Comma is a decimal point: "106,5m2"→106.5.
+  ONLY set these when the query has an area unit (m, m2, m², mét, mét vuông) or the words "diện tích"/"dt". A bare number is money, never area: "tài chính 100" is Gia_Max=100, NOT area. Never take area from a floor ("tầng 20") or an axis ("trục 12").
 
 CRITICAL floor numbering: Times City skips 13 and 14, writing them as "12A" and "12B". So "12A" IS floor 13 and "12B" IS floor 14. Always output the INTEGER: "tầng 12A"→13, "tầng 12B"→14, "tầng 13"→13, "tầng 14"→14. Floors run 2..12, 12A(13), 12B(14), 15..35.
 
