@@ -4,6 +4,7 @@ import { C } from '../utils/theme';
 import { fetchQuyCanThue, postQuyCanThue, fetchQuyCanThueCon, postQuyCanThueCon, parseThue, uploadToCloudinary, parseSearchQuery } from '../utils/api';
 import { normalizeThietKe, conKey, expectOf, STATUS_GRAY, STATUS_PAUSED, KHUNG_THUE, khungConTrong } from '../utils/quyCanShared';
 import { parseBangCon, validateTagName } from '../utils/conTagState';
+import { maCanTrucMatch, maCanTangInRange, normalizeTruc, tangToNumber, numberToTang } from '../utils/maCan';
 import { useConTags } from '../utils/useConTags';
 import ImportSheetModal from '../components/ImportSheetModal';
 
@@ -372,6 +373,14 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     else if (f.Gia_Min != null) parts.push(`≥ ${f.Gia_Min >= 1000 ? (f.Gia_Min/1000)+'tỷ' : f.Gia_Min+'tr'}`);
     if (f.Huong_BC) parts.push('Hướng ' + f.Huong_BC);
     if (f.Noi_That) parts.push(f.Noi_That);
+    if (f.Truc) parts.push('Trục ' + f.Truc);
+    // Hiện lại theo cách gọi của toà nhà: "Tầng 12A", không phải "Tầng 13".
+    if (f.Tang_Min != null && f.Tang_Max != null) {
+      parts.push(f.Tang_Min === f.Tang_Max
+        ? 'Tầng ' + numberToTang(f.Tang_Min)
+        : `Tầng ${numberToTang(f.Tang_Min)}–${numberToTang(f.Tang_Max)}`);
+    } else if (f.Tang_Min != null) parts.push('Tầng ≥ ' + numberToTang(f.Tang_Min));
+    else if (f.Tang_Max != null) parts.push('Tầng ≤ ' + numberToTang(f.Tang_Max));
     if (f.Toa) parts.push('Tòa ' + f.Toa);
     if (f.Toa_List) {
       const isParkAll = f.Toa_List.length === [...KHU_TOA.ParkHill, ...KHU_TOA.ParkPremium].length;
@@ -408,6 +417,10 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       if (aiFilter.Noi_That) { const target = normalizeNoiThat(aiFilter.Noi_That); list = list.filter(it => normalizeNoiThat(it.Noi_That) === target); }
       if (aiFilter.Toa_List) list = list.filter(it => aiFilter.Toa_List.some(t => (it.Ma_Can||'').toUpperCase().startsWith(t)));
       else if (aiFilter.Toa) list = list.filter(it => (it.Ma_Can||'').toUpperCase().startsWith(aiFilter.Toa.toUpperCase()));
+      if (aiFilter.Truc) list = list.filter(it => maCanTrucMatch(it.Ma_Can, aiFilter.Truc));
+      if (aiFilter.Tang_Min != null || aiFilter.Tang_Max != null) {
+        list = list.filter(it => maCanTangInRange(it.Ma_Can, aiFilter.Tang_Min, aiFilter.Tang_Max));
+      }
     }
     // Ẩn căn theo trạng thái (2 checkbox độc lập).
     if (hideRented) list = list.filter(it => cleanMauMaCan(it.Mau_Ma_Can) !== STATUS_RENTED);
@@ -536,6 +549,20 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     }
     if (r.Thiet_Ke != null) r.Thiet_Ke = r.Thiet_Ke.toUpperCase().replace(/\s+/g, '');
     if (r.Toa != null) r.Toa = r.Toa.toUpperCase().replace(/^([A-Z]+)(\d)$/, '$10$2');
+    // AI hay trả trục dưới dạng số (12) thay vì chuỗi đã đệm 0 ("05"); trả rác thì bỏ luôn
+    // thay vì lọc ra 0 kết quả rồi để người dùng ngồi đoán.
+    if (r.Truc != null) r.Truc = normalizeTruc(r.Truc);
+    // Tầng phải là số để so khoảng. AI đôi khi trả "12A" hoặc "tầng 20" -> ép về số,
+    // trong đó 12A/12B là 13/14 chứ không phải 12.
+    ['Tang_Min', 'Tang_Max'].forEach(k => {
+      if (r[k] == null) return;
+      const n = typeof r[k] === 'number' ? r[k] : tangToNumber(r[k]);
+      r[k] = Number.isFinite(n) ? n : null;
+    });
+    // "từ tầng 20 đến tầng 10" -> đảo lại cho đúng thứ tự, thay vì ra danh sách rỗng.
+    if (r.Tang_Min != null && r.Tang_Max != null && r.Tang_Min > r.Tang_Max) {
+      [r.Tang_Min, r.Tang_Max] = [r.Tang_Max, r.Tang_Min];
+    }
     // Expand Khu → Toa_List — kiểm tra query gốc để phân biệt "Park" chung vs "Park Hill"/"Park Premium"
     if (r.Khu != null) {
       const qNorm = originalQuery.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '');

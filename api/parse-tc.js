@@ -119,7 +119,7 @@ Message: ${cleanText}`;
       if (!query?.trim()) return res.status(400).json({ error: 'Missing query' });
       PROMPT = `Parse this Vietnamese real estate search query for Times City Hanoi apartments. Return ONLY valid JSON, no markdown.
 
-{"Thiet_Ke":null,"Slot_Xe":null,"Gia_Max":null,"Gia_Min":null,"Huong_BC":null,"Noi_That":null,"Toa":null,"Khu":null}
+{"Thiet_Ke":null,"Slot_Xe":null,"Gia_Max":null,"Gia_Min":null,"Huong_BC":null,"Noi_That":null,"Toa":null,"Khu":null,"Truc":null,"Tang_Min":null,"Tang_Max":null}
 
 Times City zone knowledge (IMPORTANT):
 - Khu "Times" = tòa T01,T02,T03,T04,T05,T06,T07,T08,T09,T10,T11
@@ -135,8 +135,13 @@ Rules:
 - Noi_That: ONLY one of exactly 2 values or null. "Full đồ" if: "full đồ","full","đầy đủ","có đồ","đủ đồ". "Không đồ" if: "không đồ","ko đồ","không có đồ","trống","thô". null if not mentioned.
 - Toa: specific building code ONLY if user mentions a specific tower like "tòa T04","tòa P01","T18". Normalize: pad single digit "p1"→"P01","t4"→"T04". null if not mentioned or if a zone (Khu) is mentioned instead.
 - Khu: "Times" | "ParkHill" | "ParkPremium" | null. Detect zone mentions: "khu times"/"times"→"Times", "park hill"/"parkhill"/"khu park"→"ParkHill", "park premium"/"g4"/"premium"→"ParkPremium". If user mentions a specific Toa, set Khu=null. null if not mentioned.
+- Truc: apartment axis = the LAST 2-3 characters of a unit code, as a STRING. "trục 12"→"12", "trục 5"→"05" (pad to 2 digits), "trục 12A"→"12A", "trục 12B"→"12B". Valid values: "01".."12","12A","12B","15".."24","26". null if not mentioned. Do NOT infer Truc from a floor mention.
+- Tang_Min / Tang_Max: floor range as INTEGERS. Single floor sets both: "tầng 20"→Tang_Min=20,Tang_Max=20. Range: "từ tầng 10 đến tầng 20"→10 and 20, "tầng 10-20"→10 and 20. Open ended: "từ tầng 20 trở lên"→Tang_Min=20,Tang_Max=null; "dưới tầng 10"→Tang_Min=null,Tang_Max=9; "tầng cao"→Tang_Min=20,Tang_Max=null; "tầng thấp"→Tang_Min=null,Tang_Max=10. null if not mentioned.
+
+CRITICAL floor numbering: Times City skips 13 and 14, writing them as "12A" and "12B". So "12A" IS floor 13 and "12B" IS floor 14. Always output the INTEGER: "tầng 12A"→13, "tầng 12B"→14, "tầng 13"→13, "tầng 14"→14. Floors run 2..12, 12A(13), 12B(14), 15..35.
 
 Important: Toa and Khu are mutually exclusive — if zone is detected set Khu and leave Toa null, and vice versa.
+Truc and Tang are independent of each other and of Toa/Khu: "2 ngủ trục 12" sets Thiet_Ke="2PN" and Truc="12" and leaves the rest null.
 
 Query: ${query}`;
 
