@@ -12,6 +12,7 @@ import {
 } from '../utils/quyCanShared';
 import { parseBangCon, validateTagName } from '../utils/conTagState';
 import { maCanTrucMatch, maCanTangInRange, normalizeTruc, tangToNumber, numberToTang } from '../utils/maCan';
+import { resolveKhu } from '../utils/khuToa';
 import { useConTags } from '../utils/useConTags';
 import ImportSheetModal from '../components/ImportSheetModal';
 
@@ -396,10 +397,10 @@ function QuyCanBanInner({
     } else if (f.Tang_Min != null) parts.push('Tầng ≥ ' + numberToTang(f.Tang_Min));
     else if (f.Tang_Max != null) parts.push('Tầng ≤ ' + numberToTang(f.Tang_Max));
     if (f.Toa) parts.push('Tòa ' + f.Toa);
-    if (f.Toa_List) {
-      const isParkAll = f.Toa_List.length === [...KHU_TOA.ParkHill, ...KHU_TOA.ParkPremium].length;
-      parts.push(isParkAll ? 'Khu Park Hill + Premium' : 'Khu ' + (f.Khu || ''));
-    } else if (f.Khu) parts.push('Khu ' + f.Khu);
+    // Nhãn dựng sẵn theo nhóm. Không đếm số tòa để đoán nhóm nữa: "bên T" và "Park"
+    // cùng 12 tòa nên đếm là hiện nhầm tên nhau.
+    if (f._khuLabel) parts.push(f._khuLabel);
+    else if (f.Khu) parts.push('Khu ' + f.Khu);
     return parts.join(' · ');
   }
 
@@ -533,12 +534,6 @@ function QuyCanBanInner({
     });
   }, [filtered]);
 
-  const KHU_TOA = {
-    Times:        ['T01','T02','T03','T04','T05','T06','T07','T08','T09','T10','T11'],
-    ParkHill:     ['P01','P02','P03','T18','P05','P06','P07','P08'],
-    ParkPremium:  ['P09','P10','P11','P12'],
-  };
-
   function normalizeFilter(f, originalQuery = '') {
     const r = { ...f };
     if (r.Slot_Xe != null) {
@@ -561,18 +556,12 @@ function QuyCanBanInner({
     if (r.Tang_Min != null && r.Tang_Max != null && r.Tang_Min > r.Tang_Max) {
       [r.Tang_Min, r.Tang_Max] = [r.Tang_Max, r.Tang_Min];
     }
-    if (r.Khu != null) {
-      const qNorm = originalQuery.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '');
-      const userSaidHill    = qNorm.includes('hill') || qNorm.includes('parkhill');
-      const userSaidPremium = qNorm.includes('premium') || qNorm.includes('g4');
-      const userSaidPark    = qNorm.includes('park');
-      if (userSaidPark && !userSaidHill && !userSaidPremium) {
-        r.Toa_List = [...KHU_TOA.ParkHill, ...KHU_TOA.ParkPremium];
-      } else {
-        const key = Object.keys(KHU_TOA).find(k => k.toLowerCase() === r.Khu.toLowerCase());
-        r.Toa_List = key ? KHU_TOA[key] : null;
-      }
-    }
+    // Nhóm tòa ("bên T", "bên P", "Park Hill", "G4"...) → danh sách mã tòa.
+    // Chạy trên câu gõ gốc chứ không chỉ khi AI trả Khu: mấy cụm này cố định nên regex
+    // chắc hơn AI, và "bên T" vẫn ăn kể cả khi AI bỏ sót.
+    const khu = resolveKhu(r.Khu, originalQuery);
+    if (khu) { r.Khu = khu.key; r.Toa_List = khu.toaList; r._khuLabel = khu.label; }
+    else r.Toa_List = null;
     return r;
   }
 

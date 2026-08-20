@@ -125,6 +125,10 @@ Times City zone knowledge (IMPORTANT):
 - Khu "Times" = tòa T01,T02,T03,T04,T05,T06,T07,T08,T09,T10,T11
 - Khu "ParkHill" = tòa P01,P02,P03,T18(=P04),P05,P06,P07,P08
 - Khu "ParkPremium" = tòa P09,P10,P11,P12 (also called "G4" or "Park Premium")
+- Khu "Park" = ParkHill + ParkPremium (Park 1 through Park 12), when user says just "bên Park"/"khu Park"
+- Khu "BenT" = every tower whose CODE starts with T: T01..T11 and T18. Said as "bên T"/"bên chữ T".
+- Khu "BenP" = every tower whose CODE starts with P: P01,P02,P03,P05..P12. Said as "bên P"/"bên chữ P".
+  Note T18 IS Park 4 (code P04 does not exist), so T18 belongs to "ParkHill" and to "BenT", but NOT to "BenP".
 
 Rules:
 - Thiet_Ke: "1PN"|"2PN"|"3PN"|"4PN"|"Studio"|null. Detect: "2 ngủ"→"2PN", "2n"→"2PN", "3 phòng ngủ"→"3PN". null if not mentioned.
@@ -134,7 +138,8 @@ Rules:
 - Huong_BC: "Bắc"|"Nam"|"Đông"|"Tây"|"Đông Nam"|"Đông Bắc"|"Tây Nam"|"Tây Bắc"|null.
 - Noi_That: ONLY one of exactly 2 values or null. "Full đồ" if: "full đồ","full","đầy đủ","có đồ","đủ đồ". "Không đồ" if: "không đồ","ko đồ","không có đồ","trống","thô". null if not mentioned.
 - Toa: specific building code ONLY if user mentions a specific tower like "tòa T04","tòa P01","T18". Normalize: pad single digit "p1"→"P01","t4"→"T04". null if not mentioned or if a zone (Khu) is mentioned instead.
-- Khu: "Times" | "ParkHill" | "ParkPremium" | null. Detect zone mentions: "khu times"/"times"→"Times", "park hill"/"parkhill"/"khu park"→"ParkHill", "park premium"/"g4"/"premium"→"ParkPremium". If user mentions a specific Toa, set Khu=null. null if not mentioned.
+- Khu: "Times" | "ParkHill" | "ParkPremium" | "Park" | "BenT" | "BenP" | null. Detect: "khu times"/"times"→"Times", "park hill"/"parkhill"→"ParkHill", "park premium"/"g4"/"premium"→"ParkPremium", "khu park"/"bên park"→"Park", "bên T"/"bên chữ T"/"bắt đầu bằng chữ T"→"BenT", "bên P"/"bên chữ P"→"BenP". If user mentions a specific Toa, set Khu=null. null if not mentioned.
+  Careful: "bên T"/"bên P" are letter-prefix groups, NOT the same as "Times"/"Park". Do not confuse "bên T" with "bên trong"/"bên trái"/"bên phải", which are not zones at all.
 - Truc: apartment axis = the LAST 2-3 characters of a unit code, as a STRING. "trục 12"→"12", "trục 5"→"05" (pad to 2 digits), "trục 12A"→"12A", "trục 12B"→"12B". Valid values: "01".."12","12A","12B","15".."24","26". null if not mentioned. Do NOT infer Truc from a floor mention.
 - Tang_Min / Tang_Max: floor range as INTEGERS. Single floor sets both: "tầng 20"→Tang_Min=20,Tang_Max=20. Range: "từ tầng 10 đến tầng 20"→10 and 20, "tầng 10-20"→10 and 20. Open ended: "từ tầng 20 trở lên"→Tang_Min=20,Tang_Max=null; "dưới tầng 10"→Tang_Min=null,Tang_Max=9; "tầng cao"→Tang_Min=20,Tang_Max=null; "tầng thấp"→Tang_Min=null,Tang_Max=10. null if not mentioned.
 
