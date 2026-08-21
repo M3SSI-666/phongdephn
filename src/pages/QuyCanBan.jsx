@@ -467,6 +467,20 @@ function QuyCanBanInner({
     return list;
   }, [items, conItems, viewingCon, activeTag, aiFilter, hideSold, hidePausedRow]);
 
+  // Mã căn đang được đánh dấu Hàng Đầu Tư ở BẢNG CHÍNH.
+  //
+  // Cờ này đọc động từ bảng chính chứ không đóng dấu vào dòng con lúc gắn thẻ, vì nó
+  // do lần import gần nhất quyết định và có thể bị gỡ ở lần import sau — đóng dấu thì
+  // dòng con giữ màu hồng vĩnh viễn kể cả khi căn đã hết là hàng đầu tư.
+  // Đọc động còn tô được cả những căn đã chuyển sang bảng con TRƯỚC thay đổi này.
+  const investKeys = useMemo(() => {
+    const s = new Set();
+    for (const it of items) {
+      if ((it.Mau_Ma_Can || '') === INVEST_COLOR) s.add(conKey(it.Ma_Can));
+    }
+    return s;
+  }, [items]);
+
   // Danh sách tag (mặc định + tự thêm) và số lượng căn mỗi tag.
   // Cố tình KHÔNG lấy tag lạ có sẵn trong dữ liệu — thanh chip chỉ hiện đúng bộ tag đang dùng.
   const { allTags, tagCounts } = useMemo(() => {
@@ -1000,7 +1014,11 @@ function QuyCanBanInner({
                   {toaItems.map((item, rank) => {
                     // Tab Tất cả phản chiếu bảng công ty: chỉ giữ màu trạng thái + màu đánh dấu Hàng Đầu Tư.
                     const rawMau = item.Mau_Ma_Can || '';
-                    const mau = viewingCon ? rawMau : ((STATUS_COLORS.has(rawMau) || rawMau === INVEST_COLOR) ? rawMau : '');
+                    // Bảng con: màu user tự tô được ưu tiên; chưa tô mà bảng chính đánh dấu
+                    // Hàng Đầu Tư thì vẫn hiện hồng, để chuyển sang bảng con không mất dấu.
+                    const mau = viewingCon
+                      ? (rawMau || (investKeys.has(conKey(item.Ma_Can)) ? INVEST_COLOR : ''))
+                      : ((STATUS_COLORS.has(rawMau) || rawMau === INVEST_COLOR) ? rawMau : '');
                     const isStatus = STATUS_COLORS.has(mau);
                     // Dừng bán (vàng): chỉ tô ô Mã Căn (giống bảng công ty).
                     const cellOnlyBg = mau === STATUS_PAUSED ? '#EAB308' : undefined;
