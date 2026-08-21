@@ -14,6 +14,7 @@ import { parseBangCon, validateTagName } from '../utils/conTagState';
 import { maCanTrucMatch, maCanTangInRange, normalizeTruc, tangToNumber, numberToTang } from '../utils/maCan';
 import { resolveKhu } from '../utils/khuToa';
 import { parseDienTich, dienTichInRange, formatDienTich } from '../utils/dienTich';
+import { resolveTopN, xepHangGiaTot } from '../utils/topGiaTot';
 import { useConTags } from '../utils/useConTags';
 import ImportSheetModal from '../components/ImportSheetModal';
 
@@ -387,6 +388,9 @@ function QuyCanBanInner({
   function buildFilterSummary(f) {
     if (f._exactMaCan) return `Mã căn: ${f._exactMaCan}`;
     const parts = [];
+    // Để đầu câu: đây là thứ đổi cách đọc cả bảng (bỏ nhóm theo tòa, xếp hạng 1→N),
+    // không phải một tiêu chí lọc như mấy cái sau.
+    if (f.Top_N) parts.push(`🏆 Top ${f.Top_N} giá tốt nhất`);
     if (f.Thiet_Ke) parts.push(f.Thiet_Ke);
     if (f.Slot_Xe) parts.push('Slot: ' + f.Slot_Xe);
     if (f.Gia_Min != null && f.Gia_Max != null) parts.push(`${f.Gia_Min >= 1000 ? f.Gia_Min/1000+'tỷ' : f.Gia_Min+'tr'}–${f.Gia_Max >= 1000 ? f.Gia_Max/1000+'tỷ' : f.Gia_Max+'tr'}`);
@@ -517,6 +521,17 @@ function QuyCanBanInner({
     // Không đọc được thì xếp xuống đáy, chứ không để null lọt vào phép trừ.
     const parseDT = dt => parseDienTich(dt) ?? 0;
 
+    // Chế độ "top N giá tốt": bỏ nhóm theo tòa, trả về MỘT khối xếp hạng chung.
+    // Nhóm theo tòa ở đây là sai ý — top 10 rẻ nhất là so toàn bộ kết quả với nhau,
+    // chứ không phải rẻ nhất trong từng tòa.
+    //
+    // Cắt ở đây chứ không cắt trong `filtered`, để banner vẫn đếm được TỔNG số căn
+    // khớp tiêu chí ("87 căn phù hợp") thay vì hiện đúng con số 10 vừa cắt.
+    if (aiFilter?.Top_N) {
+      const top = xepHangGiaTot(filtered, trPerM2, it => parseDT(it.Dien_Tich), aiFilter.Top_N);
+      return [[`🏆 Top ${aiFilter.Top_N} giá tốt nhất (Tr/m² thấp nhất)`, top]];
+    }
+
     const map = new Map();
     for (const item of filtered) {
       const m = (item.Ma_Can||'').toUpperCase().match(/^([A-Z]+\d{1,2})/);
@@ -545,7 +560,7 @@ function QuyCanBanInner({
       if (ib === -1) return -1;
       return ia - ib;
     });
-  }, [filtered]);
+  }, [filtered, aiFilter]);
 
   function normalizeFilter(f, originalQuery = '') {
     const r = { ...f };
@@ -584,6 +599,9 @@ function QuyCanBanInner({
     const khu = resolveKhu(r.Khu, originalQuery);
     if (khu) { r.Khu = khu.key; r.Toa_List = khu.toaList; r._khuLabel = khu.label; }
     else r.Toa_List = null;
+    // "top 10 giá tốt nhất" → cắt còn 10 căn đơn giá tr/m² thấp nhất. Cũng đọc từ câu
+    // gõ gốc trước, vì "top 10" là cụm cố định, regex chắc hơn AI.
+    r.Top_N = resolveTopN(r.Top_N, originalQuery);
     return r;
   }
 
@@ -914,7 +932,7 @@ function QuyCanBanInner({
           <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', fontSize:14 }}>✨</span>
           <input
             type="text"
-            placeholder="VD: 2 ngủ có slot tài chính 4 tỷ · 3PN bên P từ 80 đến 100m · trục 12 tầng cao..."
+            placeholder="VD: top 10 căn 2PN giá tốt nhất · 3PN bên P từ 80 đến 100m · trục 12 tầng cao..."
             value={aiQuery}
             onChange={e => setAiQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleAiSearch()}
@@ -971,7 +989,7 @@ function QuyCanBanInner({
                       <span style={st.toaLabel}>{toa}</span>
                     </td>
                   </tr>
-                  {toaItems.map(item => {
+                  {toaItems.map((item, rank) => {
                     // Tab Tất cả phản chiếu bảng công ty: chỉ giữ màu trạng thái + màu đánh dấu Hàng Đầu Tư.
                     const rawMau = item.Mau_Ma_Can || '';
                     const mau = viewingCon ? rawMau : ((STATUS_COLORS.has(rawMau) || rawMau === INVEST_COLOR) ? rawMau : '');
@@ -987,7 +1005,12 @@ function QuyCanBanInner({
                     return (
                     <tr key={item._rowIndex} id={`cb-row-${item.Ma_Can}`} className="cb-row" style={st.tr}>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', fontSize:12, background: isRecentUpdate(item.Ngay_Update) ? 'rgba(250, 204, 21, 0.22)' : rowBg}}>{item.Ngay_Update}</td>
-                      <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', background: maCanBg, color: (maCanWhiteText || isPaused) ? '#fff' : undefined, borderRadius: (isPaused || maCanWhiteText) ? 6 : 0}}>{item.Ma_Can}</td>
+                      <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', background: maCanBg, color: (maCanWhiteText || isPaused) ? '#fff' : undefined, borderRadius: (isPaused || maCanWhiteText) ? 6 : 0}}>
+                        {aiFilter?.Top_N && (
+                          <span style={{ marginRight:4, fontSize:10, fontWeight:800, color:'#f6c453' }}>{rank + 1}.</span>
+                        )}
+                        {item.Ma_Can}
+                      </td>
                       <td style={{...st.td, textAlign:'center', background: rowBg}}>{item.Thiet_Ke}</td>
                       <td style={{...st.td, textAlign:'center', background: rowBg}}>{(item.Dien_Tich||'').replace(/\s*m²|m2|m$/i,'').trim()}</td>
                       <td style={{...st.td, textAlign:'center', background: rowBg}}>
