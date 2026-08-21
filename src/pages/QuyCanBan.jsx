@@ -42,9 +42,17 @@ const EMPTY_FORM = {
   Noi_That: '', SDT: '', Ten_Chu: '', Hinh_Anh: '', Nguon: '', Ghi_Chu: '', Mau_Ma_Can: '',
 };
 
-// Bảng hàng con (tag) cho Quỹ Căn Bán.
+// Bảng hàng con (tag) cho Quỹ Căn Bán. Chỉ chia theo số phòng ngủ.
+//
+// Đã bỏ "2 ngủ slot" và "3 ngủ slot": có slot xe hay không đã là một cột riêng và
+// lọc được bằng ô tìm kiếm ("2 ngủ có slot"), nên tách thêm thẻ chỉ làm căn 2 ngủ
+// nằm rải ở hai chỗ.
+//
+// Căn còn đang gắn hai thẻ cũ sẽ KHÔNG hiện nữa (thanh chip cố tình chỉ đọc danh
+// sách này, không quét thẻ lạ trong dữ liệu). Dòng vẫn nằm nguyên trong Sheet con,
+// gắn lại thẻ ở tab "Tất cả" là thấy lại.
 const DEFAULT_TAGS_BAN = [
-  '1 ngủ', '2 ngủ', '2 ngủ slot', '3 ngủ', '3 ngủ slot', '4 ngủ',
+  '1 ngủ', '2 ngủ', '3 ngủ', '4 ngủ',
 ];
 // Quỹ Đập Thông dùng chung giao diện nhưng chia theo khu, không theo số phòng ngủ.
 const DEFAULT_TAGS_DAPTHONG = ['Khu T', 'Khu P'];
