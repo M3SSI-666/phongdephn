@@ -7,6 +7,8 @@ import { parseBangCon, validateTagName } from '../utils/conTagState';
 import { maCanTrucMatch, maCanTangInRange, normalizeTruc, tangToNumber, numberToTang } from '../utils/maCan';
 import { resolveKhu } from '../utils/khuToa';
 import { parseDienTich, dienTichInRange, formatDienTich } from '../utils/dienTich';
+import { parseGiaThue } from '../utils/giaThue';
+import { resolveTopN, xepHangGiaTot } from '../utils/topGiaTot';
 import { useConTags } from '../utils/useConTags';
 import ImportSheetModal from '../components/ImportSheetModal';
 
@@ -358,16 +360,21 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     return () => clearInterval(iv);
   }, [userId, role, isViewAs]);
 
-  function parseGiaValue(gia) {
-    const s = (gia||'').toLowerCase().replace(/\s+/g,'');
-    const ty = s.match(/([\d.]+)t[ỷy]/); if (ty) return parseFloat(ty[1]) * 1000;
-    const tr = s.match(/([\d.]+)tr/); if (tr) return parseFloat(tr[1]);
-    const n = s.match(/([\d.]+)/); return n ? parseFloat(n[1]) : null;
+  // Dùng chung bộ đọc với phần sắp xếp và xếp hạng. Bản cũ ở đây không đổi dấu phẩy
+  // thành dấu chấm nên "13,5tr" bị đọc thành 5 triệu, và bộ lọc giá sai gần hết bảng.
+  const parseGiaValue = parseGiaThue;
+
+  // Giá dùng để sắp xếp / xếp hạng: ưu tiên Giá Nét (giá đã làm với chủ), trống thì lấy Giá gốc.
+  function effGia(item) {
+    return parseGiaThue((item.Gia_Net || '').toString().trim() || item.Gia);
   }
 
   function buildFilterSummary(f) {
     if (f._exactMaCan) return `Mã căn: ${f._exactMaCan}`;
     const parts = [];
+    // Để đầu câu: đây là thứ đổi cách đọc cả bảng (bỏ nhóm theo tòa, xếp hạng 1→N),
+    // không phải một tiêu chí lọc như mấy cái sau.
+    if (f.Top_N) parts.push(`🏆 Top ${f.Top_N} giá tốt nhất`);
     if (f.Thiet_Ke) parts.push(f.Thiet_Ke);
     if (f.Slot_Xe) parts.push('Slot: ' + f.Slot_Xe);
     if (f.Gia_Min != null && f.Gia_Max != null) parts.push(`${f.Gia_Min}–${f.Gia_Max}tr`);
@@ -499,21 +506,25 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       const m = (thietKe || '').match(/(\d+)\s*[Pp][Nn]/);
       return m ? parseInt(m[1]) : 99;
     }
-    function parseGia(gia) {
-      const s = (gia || '').toLowerCase().replace(/,/g, '.').replace(/\s+/g, '');
-      const ty = s.match(/([\d.]+)\s*t[ỷy]/);
-      if (ty) return parseFloat(ty[1]) * 1000;
-      const tr = s.match(/([\d.]+)\s*tr/);
-      if (tr) return parseFloat(tr[1]);
-      const n = s.match(/([\d.]+)/);
-      return n ? parseFloat(n[1]) : 99999;
-    }
     // Dùng chung bộ đọc với bộ lọc diện tích, nếu không thì sắp xếp và lọc bất đồng:
     // cách cũ biến "75 + 25" thành 7525 và "106m2" thành 108.
     const parseDT = dt => parseDienTich(dt) ?? 0;
-    // Giá dùng để sắp xếp: ưu tiên Giá Nét (giá đã làm với chủ); trống thì lấy Giá gốc.
-    function effGia(item) {
-      return parseGia((item.Gia_Net || '').trim() || item.Gia);
+    // Không đọc được giá thì xếp xuống đáy khi SẮP XẾP (99999), nhưng bị loại hẳn khi
+    // XẾP HẠNG top N — hai việc khác nhau, xem chú thích ở khối top bên dưới.
+    const giaSort = item => effGia(item) ?? 99999;
+
+    // Chế độ "top N giá tốt": bỏ nhóm theo tòa, trả về MỘT khối xếp hạng chung.
+    // Nhóm theo tòa ở đây là sai ý — top 15 rẻ nhất là so toàn bộ kết quả với nhau,
+    // chứ không phải rẻ nhất trong từng tòa.
+    //
+    // Bên Thuê xếp theo GIÁ THUÊ/THÁNG chứ không phải giá chia diện tích: khách thuê
+    // hỏi theo ngân sách hàng tháng ("tôi có 15tr"), không hỏi theo đơn giá m².
+    //
+    // Cắt ở đây chứ không cắt trong `filtered`, để banner vẫn đếm được TỔNG số căn
+    // khớp tiêu chí ("355 căn phù hợp") thay vì hiện đúng con số 15 vừa cắt.
+    if (aiFilter?.Top_N) {
+      const top = xepHangGiaTot(filtered, effGia, it => parseDT(it.Dien_Tich), aiFilter.Top_N);
+      return [[`🏆 Top ${aiFilter.Top_N} giá tốt nhất (thuê rẻ nhất)`, top]];
     }
 
     const map = new Map();
@@ -528,7 +539,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       arr.sort((a, b) => {
         const pn = parsePN(a.Thiet_Ke) - parsePN(b.Thiet_Ke);
         if (pn !== 0) return pn;
-        const gia = effGia(a) - effGia(b);
+        const gia = giaSort(a) - giaSort(b);
         if (gia !== 0) return gia;
         return parseDT(b.Dien_Tich) - parseDT(a.Dien_Tich);
       });
@@ -541,7 +552,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       if (ib === -1) return -1;
       return ia - ib;
     });
-  }, [filtered]);
+  }, [filtered, aiFilter]);
 
   // ── AI Search ──
   function normalizeFilter(f, originalQuery = '') {
@@ -581,6 +592,9 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     const khu = resolveKhu(r.Khu, originalQuery);
     if (khu) { r.Khu = khu.key; r.Toa_List = khu.toaList; r._khuLabel = khu.label; }
     else r.Toa_List = null;
+    // "top 15 giá tốt nhất" → cắt còn 15 căn thuê rẻ nhất. Cũng đọc từ câu gõ gốc trước,
+    // vì "top 15" là cụm cố định, regex chắc hơn AI.
+    r.Top_N = resolveTopN(r.Top_N, originalQuery);
     return r;
   }
 
@@ -935,7 +949,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
           <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', fontSize:14 }}>✨</span>
           <input
             type="text"
-            placeholder="VD: 2 ngủ có slot tài chính 19tr · 3PN bên T trên 100m · 2 ngủ trục 12 tầng 15-25..."
+            placeholder="VD: top 15 căn 2N bên T giá tốt nhất · 3PN bên T trên 100m · trục 12 tầng 15-25..."
             value={aiQuery}
             onChange={e => setAiQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleAiSearch()}
@@ -995,7 +1009,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                     </td>
                   </tr>
                   {/* Các căn trong tòa */}
-                  {toaItems.map(item => {
+                  {toaItems.map((item, rank) => {
                     const rawMau = cleanMauMaCan(item.Mau_Ma_Can); // bỏ màu trạng thái đã loại (đỏ cũ)
                     // Tab "Tất cả": chỉ giữ màu trạng thái công ty (xám/vàng); bỏ màu user tự tô.
                     const mau = viewingCon ? rawMau : (STATUS_COLORS.has(rawMau) ? rawMau : '');
@@ -1011,7 +1025,12 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                     return (
                     <tr key={item._rowIndex} id={`ct-row-${item.Ma_Can}`} className="ct-row" style={st.tr}>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', fontSize:12, background: isRecentUpdate(item.Ngay_Update) ? 'rgba(250, 204, 21, 0.22)' : undefined}}>{item.Ngay_Update}</td>
-                      <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', background: maCanBg, color: (maCanWhiteText || isPaused) ? '#fff' : undefined, borderRadius: (isPaused || maCanWhiteText) ? 6 : 0}}>{item.Ma_Can}</td>
+                      <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', background: maCanBg, color: (maCanWhiteText || isPaused) ? '#fff' : undefined, borderRadius: (isPaused || maCanWhiteText) ? 6 : 0}}>
+                        {aiFilter?.Top_N && (
+                          <span style={{ marginRight:4, fontSize:10, fontWeight:800, color:'#f6c453' }}>{rank + 1}.</span>
+                        )}
+                        {item.Ma_Can}
+                      </td>
                       <td style={{...st.td, textAlign:'center', background: rowBg}}>{item.Thiet_Ke}</td>
                       <td style={{...st.td, textAlign:'center', background: rowBg}}>{(item.Dien_Tich||'').replace(/\s*m²|m2|m$/i,'').trim()}</td>
                       <td style={{...st.td, textAlign:'center', background: rowBg}}>
