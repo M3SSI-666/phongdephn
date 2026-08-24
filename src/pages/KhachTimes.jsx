@@ -13,7 +13,8 @@ import {
 import dagre from '@dagrejs/dagre';
 import '@xyflow/react/dist/style.css';
 import { C } from '../utils/theme';
-import { fetchKhachTimes, postKhachTimes, parseSearchQuery, fetchKhachTimesKhu, postKhachTimesKhu } from '../utils/api';
+import { fetchKhachTimes, postKhachTimes, parseSearchQuery, fetchKhachTimesKhu, postKhachTimesKhu, fetchTasks, postTask } from '../utils/api';
+import { sapXepTask, keoTask, thuTuTiepTheo } from '../utils/taskOrder';
 // Dùng lại nguyên validator của thẻ bảng con bên Quỹ Căn (đã có unit test ở
 // test/conTagState.test.js: chặn tên rỗng, dấu phẩy, đầu = + - @, trùng không phân biệt
 // hoa thường). Viết validator thứ hai là mở đường cho 2 luật lệch nhau.
@@ -296,6 +297,18 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   const [activeKhu, setActiveKhu] = useState(null);  // null = xem tất cả khu
   const [khuItems, setKhuItems] = useState([]);      // danh mục khu + ghi chú, từ sheet Khach_Times_Khu
 
+  // ── Task hàng ngày (chỉ admin) ──
+  // taskMode để RIÊNG, không nhét thành phần tử thứ 4 của SUB_TABS: mỗi phần tử SUB_TABS
+  // mang theo `filter`/`nhuCau` được dùng ở chỗ khác (lọc danh sách, điền form thêm khách),
+  // thêm một mục không có hai trường đó là gài mìn vào những chỗ đang chạy tốt.
+  const isAdmin = role === 'admin';
+  const [taskMode, setTaskMode] = useState(false);
+  const [tasks, setTasks] = useState([]);
+  const [taskInput, setTaskInput] = useState('');
+  const [taskErr, setTaskErr] = useState('');
+  const [taskDragIdx, setTaskDragIdx] = useState(null);
+  const [taskOverIdx, setTaskOverIdx] = useState(null);
+
   // ── Doanh thu (chỉ tab Khách Homestay) ──
   // Khoảng ngày mặc định: từ đầu tháng này đến hôm nay, để mở lên là có số ngay.
   const [tuNgay, setTuNgay] = useState(() => { const d = new Date(); return toDayKey(new Date(d.getFullYear(), d.getMonth(), 1)); });
@@ -384,6 +397,83 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     }, 30000);
     return () => clearInterval(interval);
   }, [userId, role, isViewAs, loadKhuData]);
+
+  // ── Task hàng ngày ──
+  // Không gắn vào vòng poll 30s: đây là danh sách cá nhân, và mỗi lượt poll đè state sẽ nuốt
+  // mất thao tác lạc quan (tick xong / vừa kéo) đang chờ server xác nhận. Tải lại khi mở tab.
+  const loadTasks = useCallback(async () => {
+    if (!isAdmin || !userId) return;
+    try {
+      setTaskErr('');
+      const data = await fetchTasks(userId);
+      setTasks(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setTaskErr(e.message);
+    }
+  }, [isAdmin, userId]);
+
+  useEffect(() => { if (taskMode) loadTasks(); }, [taskMode, loadTasks]);
+
+  // Luôn kèm isAdmin: admin bấm "xem như" một nhân viên thì role đổi ngay tại chỗ, và nếu
+  // chỉ xét taskMode thì tab Task còn nguyên trên màn hình của phiên nhân viên đó.
+  const inTaskMode = taskMode && isAdmin;
+
+  const taskSorted = useMemo(() => sapXepTask(tasks), [tasks]);
+
+  // Mọi động tác đều LẠC QUAN (đổi state trước, gọi mạng sau) — danh sách việc phải phản hồi
+  // tức thì. Hỏng thì báo và tải lại từ sheet, không đoán mò trạng thái nào là đúng.
+  const taskAction = useCallback(async (payload) => {
+    try {
+      await postTask({ ...payload, Owner_Id: userId });
+    } catch (e) {
+      showToast('Lỗi lưu task: ' + e.message, 'error');
+      loadTasks();
+    }
+  }, [userId, showToast, loadTasks]);
+
+  const addTask = useCallback(() => {
+    const text = taskInput.trim();
+    if (!text) return;
+    // Id sinh ở client vì server không có cách nào khác để nhận ra dòng vừa append là dòng
+    // nào — và _rowIndex thì không dùng được (sheet dùng chung, xoá 1 dòng là trượt hết).
+    const Id = `t${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+    const Thu_Tu = String(thuTuTiepTheo(tasks));
+    setTasks(prev => [...prev, { Id, Noi_Dung: text, Xong: '', Thu_Tu, Owner_Id: userId }]);
+    setTaskInput('');
+    taskAction({ action: 'addtask', Id, Noi_Dung: text, Thu_Tu });
+  }, [taskInput, tasks, userId, taskAction]);
+
+  const toggleTask = useCallback((task) => {
+    const Xong = task.Xong ? '' : '1';
+    setTasks(prev => prev.map(t => (t.Id === task.Id ? { ...t, Xong } : t)));
+    taskAction({ action: 'settask', Id: task.Id, Xong });
+  }, [taskAction]);
+
+  const editTask = useCallback((task) => {
+    const v = window.prompt('Sửa nội dung công việc:', task.Noi_Dung || '');
+    if (v === null) return;
+    const Noi_Dung = v.trim();
+    if (!Noi_Dung || Noi_Dung === task.Noi_Dung) return;
+    setTasks(prev => prev.map(t => (t.Id === task.Id ? { ...t, Noi_Dung } : t)));
+    taskAction({ action: 'settask', Id: task.Id, Noi_Dung });
+  }, [taskAction]);
+
+  const delTask = useCallback((task) => {
+    if (!window.confirm(`Xoá công việc "${task.Noi_Dung}"?`)) return;
+    setTasks(prev => prev.filter(t => t.Id !== task.Id));
+    taskAction({ action: 'deltask', Id: task.Id });
+  }, [taskAction]);
+
+  const dropTask = useCallback((toIdx) => {
+    const from = taskDragIdx;
+    setTaskDragIdx(null);
+    setTaskOverIdx(null);
+    if (from === null) return;
+    const moved = keoTask(taskSorted, from, toIdx);
+    if (!moved) return;
+    setTasks(moved.list);
+    taskAction({ action: 'reordertask', orders: moved.orders });
+  }, [taskDragIdx, taskSorted, taskAction]);
 
   // Inline update — thay đổi 1 field ngay trong bảng, auto save
   const inlineUpdate = useCallback(async (item, field, value) => {
@@ -960,20 +1050,31 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
             <button onClick={loadData} disabled={loading} style={s.reloadBtn} className="kt-btn" title="Tải lại">
               {loading ? '...' : '↻'}
             </button>
-            <div className="kt-subtabs-row" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginLeft: 36 }}>
+            {/* Task — chỉ admin. Nằm giữa nút tải lại và nhóm tag khách, đúng chỗ user chỉ. */}
+            {isAdmin && (
+              <button
+                onClick={() => setTaskMode(true)}
+                className="kt-subtab"
+                style={{ ...s.subTab, ...(inTaskMode ? s.subTabActive : {}), marginLeft: 36 }}
+                title="Việc cần làm hàng ngày"
+              >
+                📌 Task
+              </button>
+            )}
+            <div className="kt-subtabs-row" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginLeft: isAdmin ? 12 : 36 }}>
               {SUB_TABS.map((tab) => (
                 <button
                   key={tab.key}
-                  onClick={() => setActiveSubTab(tab.key)}
+                  onClick={() => { setTaskMode(false); setActiveSubTab(tab.key); }}
                   className="kt-subtab"
-                  style={{ ...s.subTab, ...(activeSubTab === tab.key ? s.subTabActive : {}) }}
+                  style={{ ...s.subTab, ...(!inTaskMode && activeSubTab === tab.key ? s.subTabActive : {}) }}
                 >
                   {tab.label}
                 </button>
               ))}
             </div>
             {/* Chuyển chế độ xem: Bảng / Mind Map — tab Khách thuê và Khách bán */}
-            {isMindMapTab && (
+            {isMindMapTab && !inTaskMode && (
               <div style={{ display: 'flex', gap: 8, marginLeft: 36 }}>
                 {[
                   { key: 'table', label: '☰ Bảng' },
@@ -1011,7 +1112,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         </div>
 
         {/* Search + Filter */}
-        <div className="kt-filter-row" style={s.filterRow}>
+        <div className="kt-filter-row" style={{ ...s.filterRow, ...(inTaskMode ? { display: 'none' } : {}) }}>
           <div style={s.searchWrap}>
             <span style={s.searchIcon}>&#128269;</span>
             <input
@@ -1072,7 +1173,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         </div>
 
         {/* Thẻ khu vực — chỉ tab Khách Homestay */}
-        {isHomestayTab && (
+        {isHomestayTab && !inTaskMode && (
           <div style={{ marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 11, color: '#8a9bb8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', marginRight: 2 }}>Khu vực:</span>
@@ -1131,7 +1232,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         )}
 
         {/* Tiêu chí AI đã nhận dạng */}
-        {aiFilter && (
+        {aiFilter && !inTaskMode && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 16, marginTop: -4 }}>
             <span style={{ fontSize: 12, color: '#4ADE80', fontWeight: 700 }}>✨ AI nhận dạng:</span>
             {[
@@ -1159,11 +1260,77 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
           </div>
         )}
 
-        {error && <div style={s.errorBox}>{error}</div>}
-        {loading && <div style={s.loadingBox}>Đang tải dữ liệu...</div>}
+        {/* ── Tab Task: việc cần làm hàng ngày, kéo-thả để sắp thứ tự ưu tiên ── */}
+        {inTaskMode && (
+          <div style={s.taskPanel}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                value={taskInput}
+                onChange={(e) => setTaskInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') addTask(); }}
+                placeholder="Việc cần làm hôm nay... (Enter để thêm)"
+                style={s.taskInput}
+              />
+              <button onClick={addTask} style={s.addBtn} className="kt-btn">+ Thêm Task</button>
+            </div>
+
+            {taskErr && <div style={s.errorBox}>{taskErr}</div>}
+
+            {taskSorted.length === 0 && !taskErr && (
+              <div style={s.loadingBox}>Chưa có công việc nào. Gõ vào ô trên để thêm.</div>
+            )}
+
+            {taskSorted.map((task, i) => {
+              const done = !!(task.Xong || '').toString().trim();
+              return (
+                <div
+                  key={task.Id}
+                  draggable
+                  onDragStart={() => setTaskDragIdx(i)}
+                  onDragEnd={() => { setTaskDragIdx(null); setTaskOverIdx(null); }}
+                  onDragOver={(e) => { e.preventDefault(); setTaskOverIdx(i); }}
+                  onDrop={(e) => { e.preventDefault(); dropTask(i); }}
+                  style={{
+                    ...s.taskRow,
+                    opacity: taskDragIdx === i ? 0.4 : 1,
+                    borderTop: taskOverIdx === i && taskDragIdx !== i
+                      ? `2px solid ${C.primary}` : '2px solid transparent',
+                  }}
+                >
+                  <span style={{ cursor: 'grab', color: '#8a9bb8', fontSize: 15, userSelect: 'none' }} title="Kéo để sắp thứ tự ưu tiên">&#9776;</span>
+                  <span style={s.taskNum}>{i + 1}</span>
+                  <input
+                    type="checkbox"
+                    checked={done}
+                    onChange={() => toggleTask(task)}
+                    style={{ width: 17, height: 17, cursor: 'pointer', accentColor: C.primary, flexShrink: 0 }}
+                    title={done ? 'Bỏ đánh dấu xong' : 'Đánh dấu đã xong'}
+                  />
+                  <span
+                    onDoubleClick={() => editTask(task)}
+                    style={{
+                      flex: 1, fontSize: 14, fontWeight: 600, wordBreak: 'break-word',
+                      textDecoration: done ? 'line-through' : 'none',
+                      color: done ? '#6b7a94' : C.text,
+                    }}
+                    title="Nháy đúp để sửa"
+                  >
+                    {task.Noi_Dung}
+                  </span>
+                  <button onClick={() => editTask(task)} style={s.khuIconBtn} title="Sửa nội dung">&#9998;</button>
+                  <button onClick={() => delTask(task)} style={s.khuIconBtn} title="Xoá công việc">&#128465;</button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {!inTaskMode && error && <div style={s.errorBox}>{error}</div>}
+        {!inTaskMode && loading && <div style={s.loadingBox}>Đang tải dữ liệu...</div>}
 
         {/* Mind Map view — tab Khách thuê và Khách bán */}
-        {!loading && !error && isMindMapTab && viewMode === 'mindmap' && (
+        {!inTaskMode && !loading && !error && isMindMapTab && viewMode === 'mindmap' && (
           <MindMapFlow
             tree={mindMapTree}
             collapsed={mmCollapsed}
@@ -1177,7 +1344,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         )}
 
         {/* Table */}
-        {!loading && !error && !(isMindMapTab && viewMode === 'mindmap') && (
+        {!inTaskMode && !loading && !error && !(isMindMapTab && viewMode === 'mindmap') && (
           <div className="kt-table-wrap" style={s.tableWrap}>
             <table style={s.table}>
               <thead>
@@ -1946,6 +2113,11 @@ const s = {
   tagChip: { background: '#22263a', color: '#cbd5e1', border: '1.5px solid #3a3f52', borderRadius: 16, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: F, whiteSpace: 'nowrap' },
   tagChipActive: { background: 'linear-gradient(135deg,#38b274,#2a8a5a)', color: '#fff', border: '1.5px solid #38b274', borderRadius: 16, padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: F, whiteSpace: 'nowrap' },
   khuIconBtn: { background: 'none', border: '1px solid #3a3f52', borderRadius: 6, padding: '2px 7px', fontSize: 12, color: '#8a9bb8', cursor: 'pointer', fontFamily: F, lineHeight: 1.4 },
+  // ── Tab Task ──
+  taskPanel: { background: '#1a1d27', border: '1.5px solid #2d3240', borderRadius: 14, padding: 16, maxWidth: 820 },
+  taskInput: { flex: 1, minWidth: 220, padding: '10px 14px', border: '1.5px solid #3a3f52', borderRadius: 10, fontSize: 14, fontFamily: F, outline: 'none', background: '#1e2130', color: '#e2e8f0', boxSizing: 'border-box' },
+  taskRow: { display: 'flex', alignItems: 'center', gap: 10, background: '#22263a', borderRadius: 10, padding: '10px 12px', marginBottom: 6 },
+  taskNum: { fontSize: 11, fontWeight: 800, color: '#8a9bb8', minWidth: 18, textAlign: 'right', flexShrink: 0 },
   // Ô doanh thu — viền xanh cho tách khỏi dãy chip khu vực bên trái.
   dtBox: { display: 'flex', alignItems: 'center', gap: 6, background: '#16281f', border: '1.5px solid #2f6b4f', borderRadius: 16, padding: '4px 12px', whiteSpace: 'nowrap' },
   dtLabel: { fontSize: 11, color: '#8a9bb8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px' },

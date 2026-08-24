@@ -384,3 +384,27 @@ export async function postKhachTimesKhu(payload) {
   }
   return res.json();
 }
+
+// ============ Task hàng ngày (tab Task) ============
+// Vẫn là endpoint /api/khachtimes, chọn sheet bằng sheet=task — gộp function để không
+// vượt giới hạn Serverless Functions của Vercel.
+export async function fetchTasks(userId) {
+  const params = new URLSearchParams({ t: Date.now(), sheet: 'task' });
+  if (userId) params.set('userId', userId);
+  const res = await fetch(`/api/khachtimes?${params}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Fetch task failed');
+  return res.json();
+}
+
+export async function postTask(payload) {
+  const res = await fetch('/api/khachtimes?sheet=task', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...payload, sheet: 'task' }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Action failed (${res.status})`);
+  }
+  return res.json();
+}

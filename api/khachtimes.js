@@ -19,6 +19,13 @@ const KHU_SHEET = 'Khach_Times_Khu';
 const KHU_COLUMNS = 'A:C';
 const KHU_HEADERS = ['Ten_Khu', 'Ghi_Chu', 'Owner_Id'];
 
+// Sheet thứ ba: danh sách công việc hàng ngày (tab Task, chỉ admin thấy). Cũng gộp vào
+// function này qua ?sheet=task — thêm file api/ mới là vượt trần 12 function của Vercel.
+// 5 columns: Id, Noi_Dung, Xong, Thu_Tu, Owner_Id
+const TASK_SHEET = 'Khach_Times_Task';
+const TASK_COLUMNS = 'A:E';
+const TASK_HEADERS = ['Id', 'Noi_Dung', 'Xong', 'Thu_Tu', 'Owner_Id'];
+
 export default async function handler(req, res) {
   try {
     const SHEET_ID = process.env.GOOGLE_SHEETS_ID;
@@ -37,17 +44,19 @@ export default async function handler(req, res) {
     // Rẽ nhánh ở đây thay vì luồn một biến SHEET_NAME xuống handler dùng chung: 2 sheet có
     // schema khác hẳn (28 vs 3 cột) và động từ khác hẳn, dùng chung sẽ đẻ ra `if (isKhu)`
     // trong từng nhánh action.
-    const isKhu = req.query?.sheet === 'khu' || req.body?.sheet === 'khu';
+    const sheet = req.query?.sheet || req.body?.sheet || '';
+    const isKhu  = sheet === 'khu';
+    const isTask = sheet === 'task';
 
     if (req.method === 'GET') {
-      return isKhu
-        ? handleKhuGet(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY)
-        : handleGet(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
+      if (isKhu)  return handleKhuGet(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
+      if (isTask) return handleTaskGet(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
+      return handleGet(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
     }
     if (req.method === 'POST') {
-      return isKhu
-        ? handleKhuPost(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY)
-        : handlePost(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
+      if (isKhu)  return handleKhuPost(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
+      if (isTask) return handleTaskPost(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
+      return handlePost(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
@@ -432,6 +441,192 @@ async function createKhuSheet(sheetId, token) {
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ values: [KHU_HEADERS] }),
   });
+}
+
+// ============ Task hàng ngày (?sheet=task) ============
+async function handleTaskGet(req, res, sheetId, email, key) {
+  const token = await getAccessToken(email, key, true);
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${TASK_SHEET}!${TASK_COLUMNS}`;
+  const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    // Lần chạy đầu chưa có sheet. Tự tạo rồi trả rỗng — người dùng không phải vào Google
+    // Sheet gõ tay cái gì trước khi dùng được tab Task.
+    if (errText.includes('Unable to parse range')) {
+      await createTaskSheet(sheetId, token);
+      return res.status(200).json([]);
+    }
+    return res.status(500).json({ error: 'sheets_read', detail: errText });
+  }
+
+  const rows = (await response.json()).values || [];
+  const items = rows.slice(1).map(row => ({
+    Id: row[0] || '',
+    Noi_Dung: row[1] || '',
+    Xong: row[2] || '',
+    Thu_Tu: row[3] || '',
+    Owner_Id: row[4] || '',
+  })).filter(it => it.Id);
+
+  const userId = req.query.userId || '';
+  // Task là việc riêng của từng người. Không có userId thì trả rỗng, không trả cả bảng.
+  const filtered = userId ? items.filter(it => it.Owner_Id === userId) : [];
+
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  return res.status(200).json(filtered);
+}
+
+async function handleTaskPost(req, res, sheetId, email, key) {
+  const payload = req.body;
+  if (!payload || !payload.action) {
+    return res.status(400).json({ error: 'Missing action' });
+  }
+  const ownerId = String(payload.Owner_Id || '');
+  if (!ownerId) return res.status(400).json({ error: 'Thiếu Owner_Id' });
+
+  const token = await getAccessToken(email, key, true);
+
+  if (payload.action === 'addtask') {
+    const id = String(payload.Id || '').trim();
+    const noiDung = String(payload.Noi_Dung || '').trim().slice(0, 2000);
+    if (!id) return res.status(400).json({ error: 'Thiếu Id' });
+    if (!noiDung) return res.status(400).json({ error: 'Nội dung task đang trống' });
+    const r = await appendTask(sheetId, token, [id, noiDung, '', String(payload.Thu_Tu ?? ''), ownerId]);
+    if (r !== true) return res.status(500).json(r);
+    return res.status(200).json({ success: true });
+  }
+
+  // Mọi động tác còn lại đều cần biết task nằm ở dòng nào. Dò TRÊN SERVER theo
+  // (Owner_Id, Id), tuyệt đối không nhận _rowIndex của client: sheet dùng chung, một dòng
+  // bị xoá là mọi _rowIndex client đang giữ đều trượt sang task của người khác.
+  const idx = await findTaskRows(sheetId, token, ownerId);
+  if (idx.error) return res.status(500).json(idx.error);
+
+  if (payload.action === 'settask') {
+    const row = idx.map[String(payload.Id || '').trim()];
+    if (!row) return res.status(404).json({ error: 'Không tìm thấy task (có thể đã bị xoá)' });
+    // Ghi từng ô RIÊNG: tick "xong" ở máy này không được đè lên nội dung đang sửa ở máy kia.
+    const data = [];
+    if (payload.Noi_Dung !== undefined) {
+      data.push({ range: `${TASK_SHEET}!B${row}`, values: [[String(payload.Noi_Dung).slice(0, 2000)]] });
+    }
+    if (payload.Xong !== undefined) {
+      data.push({ range: `${TASK_SHEET}!C${row}`, values: [[payload.Xong ? '1' : '']] });
+    }
+    if (!data.length) return res.status(400).json({ error: 'Không có gì để sửa' });
+    const r = await batchWriteValues(sheetId, token, data);
+    if (r !== true) return res.status(500).json(r);
+    return res.status(200).json({ success: true });
+  }
+
+  if (payload.action === 'reordertask') {
+    const orders = Array.isArray(payload.orders) ? payload.orders : [];
+    if (!orders.length) return res.status(400).json({ error: 'Missing orders' });
+    const data = orders
+      .map(o => ({ row: idx.map[String(o.Id || '').trim()], o }))
+      // Task đã bị xoá ở máy khác thì bỏ qua, không để nó làm hỏng cả lượt sắp xếp.
+      .filter(x => x.row)
+      .map(x => ({ range: `${TASK_SHEET}!D${x.row}`, values: [[String(x.o.Thu_Tu)]] }));
+    if (!data.length) return res.status(200).json({ success: true, mode: 'noop' });
+    const r = await batchWriteValues(sheetId, token, data);
+    if (r !== true) return res.status(500).json(r);
+    return res.status(200).json({ success: true });
+  }
+
+  if (payload.action === 'deltask') {
+    const row = idx.map[String(payload.Id || '').trim()];
+    // Xoá 2 lần (hoặc xoá thứ máy khác vừa xoá) là no-op sạch, không phải lỗi.
+    if (!row) return res.status(200).json({ success: true, mode: 'noop' });
+    const gid = await getSheetGid(sheetId, token, TASK_SHEET);
+    if (gid === null) return res.status(404).json({ error: 'Sheet Khach_Times_Task not found' });
+    const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requests: [{
+          deleteDimension: {
+            range: { sheetId: gid, dimension: 'ROWS', startIndex: row - 1, endIndex: row },
+          },
+        }],
+      }),
+    });
+    if (!r.ok) return res.status(500).json({ error: 'sheets_deltask', detail: await r.text() });
+    return res.status(200).json({ success: true });
+  }
+
+  return res.status(400).json({ error: `Unknown action: ${payload.action}` });
+}
+
+// Bản đồ Id -> số dòng, chỉ gồm task của đúng ownerId. Một lượt đọc dùng chung cho cả
+// sửa / xoá / sắp xếp, nên kéo-thả 20 task vẫn chỉ tốn 2 lượt gọi Google.
+async function findTaskRows(sheetId, token, ownerId) {
+  const ranges = ['A', 'E'].map(c => `ranges=${TASK_SHEET}!${c}:${c}`).join('&');
+  const r = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchGet?${ranges}&majorDimension=COLUMNS`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!r.ok) {
+    const errText = await r.text();
+    if (errText.includes('Unable to parse range')) return { map: {} };
+    return { error: { error: 'sheets_read', detail: errText } };
+  }
+  const vr = (await r.json()).valueRanges || [];
+  // Mỗi cột bị cắt đuôi ĐỘC LẬP (cột rỗng hẳn thì không có key `values`), nên duyệt theo
+  // cột Id và đọc cột Owner bằng (arr[i] || '') — không zip, không Math.min.
+  const idCol  = vr[0]?.values?.[0] || [];
+  const ownCol = vr[1]?.values?.[0] || [];
+  const map = {};
+  // i = 0 là dòng tiêu đề -> dòng sheet = i + 1.
+  for (let i = 1; i < idCol.length; i++) {
+    const id = String(idCol[i] || '').trim();
+    if (id && (ownCol[i] || '') === ownerId) map[id] = i + 1;
+  }
+  return { map };
+}
+
+async function appendTask(sheetId, token, row) {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${TASK_SHEET}!A1:append?valueInputOption=${WRITE_MODE}&insertDataOption=INSERT_ROWS`;
+  const send = () => fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: [row] }),
+  });
+  let r = await send();
+  if (!r.ok) {
+    const errText = await r.text();
+    if (!errText.includes('Unable to parse range')) {
+      return { error: 'sheets_append_task', detail: errText };
+    }
+    // Task đầu tiên được thêm trước khi có ai mở tab Task (chưa qua handleTaskGet).
+    await createTaskSheet(sheetId, token);
+    r = await send();
+    if (!r.ok) return { error: 'sheets_append_task', detail: await r.text() };
+  }
+  return true;
+}
+
+async function createTaskSheet(sheetId, token) {
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requests: [{ addSheet: { properties: { title: TASK_SHEET } } }] }),
+  });
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${TASK_SHEET}!A1:E1?valueInputOption=${WRITE_MODE}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: [TASK_HEADERS] }),
+  });
+}
+
+async function batchWriteValues(sheetId, token, data) {
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchUpdate`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ valueInputOption: WRITE_MODE, data }),
+  });
+  return r.ok ? true : { error: 'sheets_batch_write', detail: await r.text() };
 }
 
 // gid của sheet không bao giờ đổi -> nhớ lại để đường xoá bớt 1 lượt gọi metadata.
