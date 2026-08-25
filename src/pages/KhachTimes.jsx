@@ -49,9 +49,10 @@ const TASK_COLORS = [
 ];
 
 // Tay cầm kéo · STT · Xong · Công việc · Giờ · Ghi chú · Nút.
-// Cột Giờ rộng cố định 62px: nội dung luôn ngắn ("9h", "14:30"), cho nó co giãn thì nó ăn
-// mất chỗ của Công việc.
-const TASK_GRID = '22px 34px 34px minmax(0, 2fr) 62px minmax(0, 1fr) 70px';
+// Cột Giờ rộng cố định 80px: nội dung luôn ngắn ("9h", "14:30"), cho nó co giãn thì nó ăn
+// mất chỗ của Công việc. 80 chứ không phải vừa khít chữ — trừ đi viền và đệm hai bên thì ô
+// nhập lúc sửa chỉ còn hơn 40px, hẹp hơn nữa là gõ "14:30" không nhìn thấy hết.
+const TASK_GRID = '22px 34px 34px minmax(0, 2fr) 80px minmax(0, 1fr) 70px';
 
 const TRANG_THAI_OPTIONS = [
   { value: '', label: '--', bg: 'transparent', text: '#999' },
@@ -1335,10 +1336,9 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                 <span />
                 <span style={s.taskColHead}>STT</span>
                 <span style={s.taskColHead}>Xong</span>
-                {/* paddingRight bù lại paddingLeft của taskColLine, không thì chữ lệch phải 5px */}
-                <span style={{ ...s.taskColHead, ...s.taskColLine, paddingRight: 10 }}>Công việc</span>
-                <span style={{ ...s.taskColHead, ...s.taskColLine, paddingRight: 10 }}>Giờ</span>
-                <span style={{ ...s.taskColHead, ...s.taskColLine, paddingRight: 10 }}>Ghi chú</span>
+                <span style={{ ...s.taskColHead, ...s.taskColLine }}>Công việc</span>
+                <span style={{ ...s.taskColHead, ...s.taskColLine }}>Giờ</span>
+                <span style={{ ...s.taskColHead, ...s.taskColLine }}>Ghi chú</span>
                 <span />
               </div>
             )}
@@ -2281,7 +2281,9 @@ const s = {
   // Tiêu đề căn giữa cột; nội dung bên dưới vẫn căn trái cho dễ đọc.
   taskColHead: { fontSize: 10.5, fontWeight: 800, color: '#cbd6e8', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center' },
   // Vạch ngăn cột — thay cho việc chỉ dựa vào khoảng trắng.
-  taskColLine: { borderLeft: '1px solid #363d51', paddingLeft: 10, minWidth: 0 },
+  // Đệm phải PHẢI bằng đệm trái: lệch nhau thì tiêu đề và dữ liệu căn giữa ra hai điểm khác
+  // nhau, nhìn như tiêu đề bị xô sang trái vài pixel.
+  taskColLine: { borderLeft: '1px solid #363d51', paddingLeft: 10, paddingRight: 10, minWidth: 0 },
   taskCellInput: { width: '100%', boxSizing: 'border-box', padding: '5px 8px', border: `1.5px solid ${C.primary}`, borderRadius: 7, fontFamily: F, fontWeight: 600, outline: 'none', background: '#12141d', color: '#e8edf5' },
   taskPalette: { position: 'absolute', top: 28, right: 0, zIndex: 20, display: 'flex', gap: 6, background: '#2a2f42', border: '1.5px solid #3a3f52', borderRadius: 10, padding: 8, boxShadow: '0 6px 18px rgba(0,0,0,0.45)' },
   // Ô doanh thu — viền xanh cho tách khỏi dãy chip khu vực bên trái.
