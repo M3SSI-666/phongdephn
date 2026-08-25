@@ -48,11 +48,11 @@ const TASK_COLORS = [
   { label: 'Tím',        value: '#9F7AEA' },
 ];
 
-// Tay cầm kéo · STT · Xong · Công việc · Giờ · Ghi chú · Nút.
-// Cột Giờ rộng cố định 80px: nội dung luôn ngắn ("9h", "14:30"), cho nó co giãn thì nó ăn
-// mất chỗ của Công việc. 80 chứ không phải vừa khít chữ — trừ đi viền và đệm hai bên thì ô
-// nhập lúc sửa chỉ còn hơn 40px, hẹp hơn nữa là gõ "14:30" không nhìn thấy hết.
-const TASK_GRID = '22px 34px 34px minmax(0, 2fr) 80px minmax(0, 1fr) 70px';
+// Tay cầm kéo · STT · Xong · Công việc · Thời gian · Ghi chú · Nút.
+// Cột Thời gian rộng cố định 110px: ô nhập tự do nên ngoài "14:30" còn có "ngày mai",
+// "cuối tuần"… Trừ viền và đệm hai bên còn ~88px — vừa đủ cho tiêu đề "THỜI GIAN" đứng một
+// dòng. Để nó co giãn thì nó ăn mất chỗ của cột Công việc.
+const TASK_GRID = '22px 34px 34px minmax(0, 2fr) 110px minmax(0, 1fr) 70px';
 
 const TRANG_THAI_OPTIONS = [
   { value: '', label: '--', bg: 'transparent', text: '#999' },
@@ -1337,7 +1337,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                 <span style={s.taskColHead}>STT</span>
                 <span style={s.taskColHead}>Xong</span>
                 <span style={{ ...s.taskColHead, ...s.taskColLine }}>Công việc</span>
-                <span style={{ ...s.taskColHead, ...s.taskColLine }}>Giờ</span>
+                <span style={{ ...s.taskColHead, ...s.taskColLine }}>Thời gian</span>
                 <span style={{ ...s.taskColHead, ...s.taskColLine }}>Ghi chú</span>
                 <span />
               </div>
@@ -1424,13 +1424,13 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                         onDoubleClick={() => startTaskEdit(task, 'Gio')}
                         style={{
                           fontSize: 12.5, fontWeight: 700, cursor: 'text', display: 'block',
-                          textAlign: 'center',
+                          textAlign: 'center', wordBreak: 'break-word',
                           color: task.Gio ? '#f0b429' : '#5f6d85',
                           textDecoration: done ? 'line-through' : 'none',
                         }}
-                        title="Nháy đúp để đặt giờ"
+                        title="Nháy đúp để đặt thời gian"
                       >
-                        {task.Gio || '--:--'}
+                        {task.Gio || '—'}
                       </span>
                     )}
                   </div>
