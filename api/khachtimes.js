@@ -21,10 +21,12 @@ const KHU_HEADERS = ['Ten_Khu', 'Ghi_Chu', 'Owner_Id'];
 
 // Sheet thứ ba: danh sách công việc hàng ngày (tab Task, chỉ admin thấy). Cũng gộp vào
 // function này qua ?sheet=task — thêm file api/ mới là vượt trần 12 function của Vercel.
-// 5 columns: Id, Noi_Dung, Xong, Thu_Tu, Owner_Id
+// 7 columns: Id, Noi_Dung, Xong, Thu_Tu, Owner_Id, Mau, Ghi_Chu
+// Mau và Ghi_Chu thêm sau, nên phải nằm CUỐI (F, G): chèn vào giữa sẽ đẩy Owner_Id sang
+// cột khác và findTaskRows đọc cột E ra rỗng -> mọi task cũ thành "không tìm thấy".
 const TASK_SHEET = 'Khach_Times_Task';
-const TASK_COLUMNS = 'A:E';
-const TASK_HEADERS = ['Id', 'Noi_Dung', 'Xong', 'Thu_Tu', 'Owner_Id'];
+const TASK_COLUMNS = 'A:G';
+const TASK_HEADERS = ['Id', 'Noi_Dung', 'Xong', 'Thu_Tu', 'Owner_Id', 'Mau', 'Ghi_Chu'];
 
 export default async function handler(req, res) {
   try {
@@ -461,12 +463,26 @@ async function handleTaskGet(req, res, sheetId, email, key) {
   }
 
   const rows = (await response.json()).values || [];
+
+  // Sheet tạo ở bản trước chỉ có 5 tiêu đề. Bù 2 tiêu đề mới đúng một lần, để người mở
+  // Google Sheet còn đọc được cột F/G là gì. Dữ liệu vẫn đọc theo chỉ số cột nên không
+  // phụ thuộc bước này — nó thuần tuý là dọn dẹp cho mắt người.
+  if ((rows[0] || []).length < TASK_HEADERS.length) {
+    fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${TASK_SHEET}!A1:G1?valueInputOption=${WRITE_MODE}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [TASK_HEADERS] }),
+    }).catch(() => {});
+  }
+
   const items = rows.slice(1).map(row => ({
     Id: row[0] || '',
     Noi_Dung: row[1] || '',
     Xong: row[2] || '',
     Thu_Tu: row[3] || '',
     Owner_Id: row[4] || '',
+    Mau: row[5] || '',
+    Ghi_Chu: row[6] || '',
   })).filter(it => it.Id);
 
   const userId = req.query.userId || '';
@@ -493,7 +509,7 @@ async function handleTaskPost(req, res, sheetId, email, key) {
     const noiDung = String(payload.Noi_Dung || '').trim().slice(0, 2000);
     if (!id) return res.status(400).json({ error: 'Thiếu Id' });
     if (!noiDung) return res.status(400).json({ error: 'Nội dung task đang trống' });
-    const r = await appendTask(sheetId, token, [id, noiDung, '', String(payload.Thu_Tu ?? ''), ownerId]);
+    const r = await appendTask(sheetId, token, [id, noiDung, '', String(payload.Thu_Tu ?? ''), ownerId, '', '']);
     if (r !== true) return res.status(500).json(r);
     return res.status(200).json({ success: true });
   }
@@ -514,6 +530,12 @@ async function handleTaskPost(req, res, sheetId, email, key) {
     }
     if (payload.Xong !== undefined) {
       data.push({ range: `${TASK_SHEET}!C${row}`, values: [[payload.Xong ? '1' : '']] });
+    }
+    if (payload.Mau !== undefined) {
+      data.push({ range: `${TASK_SHEET}!F${row}`, values: [[String(payload.Mau).slice(0, 20)]] });
+    }
+    if (payload.Ghi_Chu !== undefined) {
+      data.push({ range: `${TASK_SHEET}!G${row}`, values: [[String(payload.Ghi_Chu).slice(0, 2000)]] });
     }
     if (!data.length) return res.status(400).json({ error: 'Không có gì để sửa' });
     const r = await batchWriteValues(sheetId, token, data);
@@ -613,7 +635,7 @@ async function createTaskSheet(sheetId, token) {
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ requests: [{ addSheet: { properties: { title: TASK_SHEET } } }] }),
   });
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${TASK_SHEET}!A1:E1?valueInputOption=${WRITE_MODE}`, {
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${TASK_SHEET}!A1:G1?valueInputOption=${WRITE_MODE}`, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ values: [TASK_HEADERS] }),

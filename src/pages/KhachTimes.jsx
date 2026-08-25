@@ -36,6 +36,18 @@ const RAINBOW_COLORS = [
   { label: 'Tím',        value: '#9F7AEA' },
 ];
 
+// Màu đánh dấu task. Dùng làm VIỀN + nền mờ, KHÔNG dùng làm màu chữ: chàm #5B21B6 hay
+// đỏ #E53E3E đặt lên nền tối là chữ chìm nghỉm.
+const TASK_COLORS = [
+  { label: 'Không màu',  value: '' },
+  { label: 'Đỏ',         value: '#E53E3E' },
+  { label: 'Cam',        value: '#DD6B20' },
+  { label: 'Vàng',       value: '#D69E2E' },
+  { label: 'Xanh lá',    value: '#38A169' },
+  { label: 'Xanh dương', value: '#3182CE' },
+  { label: 'Tím',        value: '#9F7AEA' },
+];
+
 const TRANG_THAI_OPTIONS = [
   { value: '', label: '--', bg: 'transparent', text: '#999' },
   { value: 'Miss', label: 'Miss', bg: '#F8D7DA', text: '#721C24' },
@@ -308,6 +320,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   const [taskErr, setTaskErr] = useState('');
   const [taskDragIdx, setTaskDragIdx] = useState(null);
   const [taskOverIdx, setTaskOverIdx] = useState(null);
+  const [taskPaletteId, setTaskPaletteId] = useState(null); // Id của task đang mở bảng màu
 
   // ── Doanh thu (chỉ tab Khách Homestay) ──
   // Khoảng ngày mặc định: từ đầu tháng này đến hôm nay, để mở lên là có số ngay.
@@ -456,6 +469,22 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     if (!Noi_Dung || Noi_Dung === task.Noi_Dung) return;
     setTasks(prev => prev.map(t => (t.Id === task.Id ? { ...t, Noi_Dung } : t)));
     taskAction({ action: 'settask', Id: task.Id, Noi_Dung });
+  }, [taskAction]);
+
+  const noteTask = useCallback((task) => {
+    const v = window.prompt('Ghi chú cho công việc này:', task.Ghi_Chu || '');
+    if (v === null) return;
+    const Ghi_Chu = v.trim();
+    if (Ghi_Chu === (task.Ghi_Chu || '')) return;
+    setTasks(prev => prev.map(t => (t.Id === task.Id ? { ...t, Ghi_Chu } : t)));
+    taskAction({ action: 'settask', Id: task.Id, Ghi_Chu });
+  }, [taskAction]);
+
+  const colorTask = useCallback((task, Mau) => {
+    setTaskPaletteId(null);
+    if (Mau === (task.Mau || '')) return;
+    setTasks(prev => prev.map(t => (t.Id === task.Id ? { ...t, Mau } : t)));
+    taskAction({ action: 'settask', Id: task.Id, Mau });
   }, [taskAction]);
 
   const delTask = useCallback((task) => {
@@ -1281,8 +1310,20 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
               <div style={s.loadingBox}>Chưa có công việc nào. Gõ vào ô trên để thêm.</div>
             )}
 
+            {taskSorted.length > 0 && (
+              <div style={{ ...s.taskRow, background: 'none', padding: '0 12px 6px', marginBottom: 0 }}>
+                <span style={{ width: 15 }} />
+                <span style={s.taskNum} />
+                <span style={{ width: 17 }} />
+                <span style={{ ...s.taskColHead, flex: 2 }}>Công việc</span>
+                <span style={{ ...s.taskColHead, flex: 1 }}>Ghi chú</span>
+                <span style={{ width: 78 }} />
+              </div>
+            )}
+
             {taskSorted.map((task, i) => {
               const done = !!(task.Xong || '').toString().trim();
+              const mau = task.Mau || '';
               return (
                 <div
                   key={task.Id}
@@ -1293,6 +1334,10 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                   onDrop={(e) => { e.preventDefault(); dropTask(i); }}
                   style={{
                     ...s.taskRow,
+                    // Màu dùng làm viền trái + nền mờ. Chữ luôn giữ màu sáng riêng để mọi
+                    // màu trong bảng đều đọc được trên nền tối.
+                    background: mau ? `${mau}26` : '#22263a',
+                    borderLeft: `4px solid ${mau || 'transparent'}`,
                     opacity: taskDragIdx === i ? 0.4 : 1,
                     borderTop: taskOverIdx === i && taskDragIdx !== i
                       ? `2px solid ${C.primary}` : '2px solid transparent',
@@ -1310,16 +1355,52 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                   <span
                     onDoubleClick={() => editTask(task)}
                     style={{
-                      flex: 1, fontSize: 14, fontWeight: 600, wordBreak: 'break-word',
+                      flex: 2, fontSize: 14, fontWeight: 600, wordBreak: 'break-word',
                       textDecoration: done ? 'line-through' : 'none',
-                      color: done ? '#6b7a94' : C.text,
+                      color: done ? '#7d8ba5' : '#e8edf5',
                     }}
                     title="Nháy đúp để sửa"
                   >
                     {task.Noi_Dung}
                   </span>
+                  <span
+                    onClick={() => noteTask(task)}
+                    style={{
+                      flex: 1, fontSize: 12.5, wordBreak: 'break-word', cursor: 'pointer',
+                      color: task.Ghi_Chu ? '#b9c6da' : '#5f6d85',
+                      fontStyle: task.Ghi_Chu ? 'normal' : 'italic',
+                    }}
+                    title="Bấm để sửa ghi chú"
+                  >
+                    {task.Ghi_Chu || '+ ghi chú'}
+                  </span>
+
+                  {/* Bảng màu mở ngay trong hàng. Bấm lại nút để đóng. */}
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                    <button
+                      onClick={() => setTaskPaletteId(taskPaletteId === task.Id ? null : task.Id)}
+                      style={{ ...s.khuIconBtn, background: mau || 'transparent', color: mau ? '#fff' : '#8a9bb8' }}
+                      title="Đổi màu"
+                    >&#9679;</button>
+                    {taskPaletteId === task.Id && (
+                      <div style={s.taskPalette}>
+                        {TASK_COLORS.map((c) => (
+                          <button
+                            key={c.value || 'none'}
+                            onClick={() => colorTask(task, c.value)}
+                            title={c.label}
+                            style={{
+                              width: 20, height: 20, borderRadius: '50%', cursor: 'pointer',
+                              background: c.value || 'transparent',
+                              border: c.value === mau ? '2px solid #fff' : '1.5px solid #4a5168',
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <button onClick={() => editTask(task)} style={s.khuIconBtn} title="Sửa nội dung">&#9998;</button>
-                  <button onClick={() => delTask(task)} style={s.khuIconBtn} title="Xoá công việc">&#128465;</button>
+                  <button onClick={() => delTask(task)} style={s.khuIconBtn} title="Xoá công việc">&#10005;</button>
                 </div>
               );
             })}
@@ -2118,6 +2199,8 @@ const s = {
   taskInput: { flex: 1, minWidth: 220, padding: '10px 14px', border: '1.5px solid #3a3f52', borderRadius: 10, fontSize: 14, fontFamily: F, outline: 'none', background: '#1e2130', color: '#e2e8f0', boxSizing: 'border-box' },
   taskRow: { display: 'flex', alignItems: 'center', gap: 10, background: '#22263a', borderRadius: 10, padding: '10px 12px', marginBottom: 6 },
   taskNum: { fontSize: 11, fontWeight: 800, color: '#8a9bb8', minWidth: 18, textAlign: 'right', flexShrink: 0 },
+  taskColHead: { fontSize: 10.5, fontWeight: 800, color: '#7d8ba5', textTransform: 'uppercase', letterSpacing: '0.5px' },
+  taskPalette: { position: 'absolute', top: 26, right: 0, zIndex: 20, display: 'flex', gap: 6, background: '#2a2f42', border: '1.5px solid #3a3f52', borderRadius: 10, padding: 8, boxShadow: '0 6px 18px rgba(0,0,0,0.45)' },
   // Ô doanh thu — viền xanh cho tách khỏi dãy chip khu vực bên trái.
   dtBox: { display: 'flex', alignItems: 'center', gap: 6, background: '#16281f', border: '1.5px solid #2f6b4f', borderRadius: 16, padding: '4px 12px', whiteSpace: 'nowrap' },
   dtLabel: { fontSize: 11, color: '#8a9bb8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px' },
