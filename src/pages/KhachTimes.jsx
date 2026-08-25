@@ -48,6 +48,9 @@ const TASK_COLORS = [
   { label: 'Tím',        value: '#9F7AEA' },
 ];
 
+// Tay cầm kéo · STT · Xong · Công việc · Ghi chú · Nút.
+const TASK_GRID = '22px 34px 34px minmax(0, 2fr) minmax(0, 1fr) 70px';
+
 const TRANG_THAI_OPTIONS = [
   { value: '', label: '--', bg: 'transparent', text: '#999' },
   { value: 'Miss', label: 'Miss', bg: '#F8D7DA', text: '#721C24' },
@@ -321,6 +324,11 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   const [taskDragIdx, setTaskDragIdx] = useState(null);
   const [taskOverIdx, setTaskOverIdx] = useState(null);
   const [taskPaletteId, setTaskPaletteId] = useState(null); // Id của task đang mở bảng màu
+  // Ô đang sửa tại chỗ: { id, field, value }. Giữ thêm một bản ref để chốt được đúng MỘT
+  // lần — bấm Enter làm input mất focus, nên onBlur chạy ngay sau onKeyDown và nếu chỉ dựa
+  // vào state thì cùng một lần sửa bị ghi lên sheet hai lượt.
+  const [taskEdit, setTaskEdit] = useState(null);
+  const taskEditRef = useRef(null);
 
   // ── Doanh thu (chỉ tab Khách Homestay) ──
   // Khoảng ngày mặc định: từ đầu tháng này đến hôm nay, để mở lên là có số ngay.
@@ -462,23 +470,33 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     taskAction({ action: 'settask', Id: task.Id, Xong });
   }, [taskAction]);
 
-  const editTask = useCallback((task) => {
-    const v = window.prompt('Sửa nội dung công việc:', task.Noi_Dung || '');
-    if (v === null) return;
-    const Noi_Dung = v.trim();
-    if (!Noi_Dung || Noi_Dung === task.Noi_Dung) return;
-    setTasks(prev => prev.map(t => (t.Id === task.Id ? { ...t, Noi_Dung } : t)));
-    taskAction({ action: 'settask', Id: task.Id, Noi_Dung });
-  }, [taskAction]);
+  // Sửa TẠI CHỖ, không dùng window.prompt: hộp thoại của trình duyệt thả từ mép trên xuống,
+  // font và nút bấm của hệ điều hành, nhìn không dính dáng gì tới trang.
+  const startTaskEdit = useCallback((task, field) => {
+    const cur = { id: task.Id, field, value: task[field] || '' };
+    taskEditRef.current = cur;
+    setTaskEdit(cur);
+  }, []);
 
-  const noteTask = useCallback((task) => {
-    const v = window.prompt('Ghi chú cho công việc này:', task.Ghi_Chu || '');
-    if (v === null) return;
-    const Ghi_Chu = v.trim();
-    if (Ghi_Chu === (task.Ghi_Chu || '')) return;
-    setTasks(prev => prev.map(t => (t.Id === task.Id ? { ...t, Ghi_Chu } : t)));
-    taskAction({ action: 'settask', Id: task.Id, Ghi_Chu });
-  }, [taskAction]);
+  const cancelTaskEdit = useCallback(() => {
+    taskEditRef.current = null;
+    setTaskEdit(null);
+  }, []);
+
+  const commitTaskEdit = useCallback(() => {
+    const cur = taskEditRef.current;
+    if (!cur) return;              // đã chốt rồi (Enter xong tới lượt onBlur) -> bỏ qua
+    taskEditRef.current = null;
+    setTaskEdit(null);
+    const v = cur.value.trim();
+    // Nội dung rỗng thì huỷ, giữ chữ cũ: một task không tên thì không còn là task nữa.
+    // Ghi chú thì được phép xoá trắng.
+    if (cur.field === 'Noi_Dung' && !v) return;
+    const task = tasks.find(t => t.Id === cur.id);
+    if (!task || (task[cur.field] || '') === v) return;
+    setTasks(prev => prev.map(t => (t.Id === cur.id ? { ...t, [cur.field]: v } : t)));
+    taskAction({ action: 'settask', Id: cur.id, [cur.field]: v });
+  }, [tasks, taskAction]);
 
   const colorTask = useCallback((task, Mau) => {
     setTaskPaletteId(null);
@@ -1311,23 +1329,45 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
             )}
 
             {taskSorted.length > 0 && (
-              <div style={{ ...s.taskRow, background: 'none', padding: '0 12px 6px', marginBottom: 0 }}>
-                <span style={{ width: 15 }} />
-                <span style={s.taskNum} />
-                <span style={{ width: 17 }} />
-                <span style={{ ...s.taskColHead, flex: 2 }}>Công việc</span>
-                <span style={{ ...s.taskColHead, flex: 1 }}>Ghi chú</span>
-                <span style={{ width: 78 }} />
+              <div style={s.taskHeadRow}>
+                <span />
+                <span style={{ ...s.taskColHead, textAlign: 'center' }}>STT</span>
+                <span style={{ ...s.taskColHead, textAlign: 'center' }}>Xong</span>
+                <span style={{ ...s.taskColHead, ...s.taskColLine }}>Công việc</span>
+                <span style={{ ...s.taskColHead, ...s.taskColLine }}>Ghi chú</span>
+                <span />
               </div>
             )}
 
             {taskSorted.map((task, i) => {
               const done = !!(task.Xong || '').toString().trim();
               const mau = task.Mau || '';
+              const editing = taskEdit && taskEdit.id === task.Id ? taskEdit.field : null;
+
+              // Ô sửa tại chỗ: Enter/click ra ngoài để lưu, Esc để huỷ.
+              const cell = (field) => (
+                <input
+                  autoFocus
+                  value={taskEdit.value}
+                  onChange={(e) => {
+                    const next = { ...taskEditRef.current, value: e.target.value };
+                    taskEditRef.current = next;
+                    setTaskEdit(next);
+                  }}
+                  onBlur={commitTaskEdit}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitTaskEdit();
+                    else if (e.key === 'Escape') cancelTaskEdit();
+                  }}
+                  style={{ ...s.taskCellInput, fontSize: field === 'Noi_Dung' ? 14 : 12.5 }}
+                />
+              );
+
               return (
                 <div
                   key={task.Id}
-                  draggable
+                  // Tắt kéo khi đang sửa: hàng draggable nuốt thao tác bôi đen chữ trong ô.
+                  draggable={!editing}
                   onDragStart={() => setTaskDragIdx(i)}
                   onDragEnd={() => { setTaskDragIdx(null); setTaskOverIdx(null); }}
                   onDragOver={(e) => { e.preventDefault(); setTaskOverIdx(i); }}
@@ -1343,45 +1383,56 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                       ? `2px solid ${C.primary}` : '2px solid transparent',
                   }}
                 >
-                  <span style={{ cursor: 'grab', color: '#8a9bb8', fontSize: 15, userSelect: 'none' }} title="Kéo để sắp thứ tự ưu tiên">&#9776;</span>
+                  <span style={{ cursor: 'grab', color: '#8a9bb8', fontSize: 15, userSelect: 'none', textAlign: 'center' }} title="Kéo để sắp thứ tự ưu tiên">&#9776;</span>
                   <span style={s.taskNum}>{i + 1}</span>
                   <input
                     type="checkbox"
                     checked={done}
                     onChange={() => toggleTask(task)}
-                    style={{ width: 17, height: 17, cursor: 'pointer', accentColor: C.primary, flexShrink: 0 }}
+                    style={{ width: 17, height: 17, cursor: 'pointer', accentColor: C.primary, justifySelf: 'center' }}
                     title={done ? 'Bỏ đánh dấu xong' : 'Đánh dấu đã xong'}
                   />
-                  <span
-                    onDoubleClick={() => editTask(task)}
-                    style={{
-                      flex: 2, fontSize: 14, fontWeight: 600, wordBreak: 'break-word',
-                      textDecoration: done ? 'line-through' : 'none',
-                      color: done ? '#7d8ba5' : '#e8edf5',
-                    }}
-                    title="Nháy đúp để sửa"
-                  >
-                    {task.Noi_Dung}
-                  </span>
-                  <span
-                    onClick={() => noteTask(task)}
-                    style={{
-                      flex: 1, fontSize: 12.5, wordBreak: 'break-word', cursor: 'pointer',
-                      color: task.Ghi_Chu ? '#b9c6da' : '#5f6d85',
-                      fontStyle: task.Ghi_Chu ? 'normal' : 'italic',
-                    }}
-                    title="Bấm để sửa ghi chú"
-                  >
-                    {task.Ghi_Chu || '+ ghi chú'}
-                  </span>
 
-                  {/* Bảng màu mở ngay trong hàng. Bấm lại nút để đóng. */}
-                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <div style={s.taskColLine}>
+                    {editing === 'Noi_Dung' ? cell('Noi_Dung') : (
+                      <span
+                        onDoubleClick={() => startTaskEdit(task, 'Noi_Dung')}
+                        style={{
+                          fontSize: 14, fontWeight: 600, wordBreak: 'break-word', cursor: 'text',
+                          textDecoration: done ? 'line-through' : 'none',
+                          color: done ? '#7d8ba5' : '#e8edf5',
+                        }}
+                        title="Nháy đúp để sửa"
+                      >
+                        {task.Noi_Dung}
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={s.taskColLine}>
+                    {editing === 'Ghi_Chu' ? cell('Ghi_Chu') : (
+                      <span
+                        onDoubleClick={() => startTaskEdit(task, 'Ghi_Chu')}
+                        style={{
+                          fontSize: 12.5, wordBreak: 'break-word', cursor: 'text',
+                          color: task.Ghi_Chu ? '#b9c6da' : '#5f6d85',
+                          fontStyle: task.Ghi_Chu ? 'normal' : 'italic',
+                        }}
+                        title="Nháy đúp để sửa ghi chú"
+                      >
+                        {task.Ghi_Chu || 'nháy đúp để ghi chú'}
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', position: 'relative' }}>
+                    {/* Bảng màu mở ngay trong hàng. Bấm lại nút để đóng. */}
                     <button
                       onClick={() => setTaskPaletteId(taskPaletteId === task.Id ? null : task.Id)}
                       style={{ ...s.khuIconBtn, background: mau || 'transparent', color: mau ? '#fff' : '#8a9bb8' }}
                       title="Đổi màu"
                     >&#9679;</button>
+                    <button onClick={() => delTask(task)} style={s.khuIconBtn} title="Xoá công việc">&#10005;</button>
                     {taskPaletteId === task.Id && (
                       <div style={s.taskPalette}>
                         {TASK_COLORS.map((c) => (
@@ -1399,8 +1450,6 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                       </div>
                     )}
                   </div>
-                  <button onClick={() => editTask(task)} style={s.khuIconBtn} title="Sửa nội dung">&#9998;</button>
-                  <button onClick={() => delTask(task)} style={s.khuIconBtn} title="Xoá công việc">&#10005;</button>
                 </div>
               );
             })}
@@ -2195,12 +2244,18 @@ const s = {
   tagChipActive: { background: 'linear-gradient(135deg,#38b274,#2a8a5a)', color: '#fff', border: '1.5px solid #38b274', borderRadius: 16, padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: F, whiteSpace: 'nowrap' },
   khuIconBtn: { background: 'none', border: '1px solid #3a3f52', borderRadius: 6, padding: '2px 7px', fontSize: 12, color: '#8a9bb8', cursor: 'pointer', fontFamily: F, lineHeight: 1.4 },
   // ── Tab Task ──
-  taskPanel: { background: '#1a1d27', border: '1.5px solid #2d3240', borderRadius: 14, padding: 16, maxWidth: 820 },
+  taskPanel: { background: '#1a1d27', border: '1.5px solid #2d3240', borderRadius: 14, padding: 16 },
   taskInput: { flex: 1, minWidth: 220, padding: '10px 14px', border: '1.5px solid #3a3f52', borderRadius: 10, fontSize: 14, fontFamily: F, outline: 'none', background: '#1e2130', color: '#e2e8f0', boxSizing: 'border-box' },
-  taskRow: { display: 'flex', alignItems: 'center', gap: 10, background: '#22263a', borderRadius: 10, padding: '10px 12px', marginBottom: 6 },
-  taskNum: { fontSize: 11, fontWeight: 800, color: '#8a9bb8', minWidth: 18, textAlign: 'right', flexShrink: 0 },
+  // Lưới chung cho dòng tiêu đề và mọi dòng task -> các cột thẳng hàng tuyệt đối.
+  // minmax(0,·) là bắt buộc: thiếu nó thì ghi chú dài đẩy toang cột thay vì tự xuống dòng.
+  taskRow: { display: 'grid', gridTemplateColumns: TASK_GRID, alignItems: 'center', gap: 10, background: '#22263a', borderRadius: 10, padding: '10px 12px', marginBottom: 6 },
+  taskHeadRow: { display: 'grid', gridTemplateColumns: TASK_GRID, alignItems: 'center', gap: 10, padding: '0 16px 8px', borderLeft: '4px solid transparent' },
+  taskNum: { fontSize: 12, fontWeight: 800, color: '#8a9bb8', textAlign: 'center' },
   taskColHead: { fontSize: 10.5, fontWeight: 800, color: '#7d8ba5', textTransform: 'uppercase', letterSpacing: '0.5px' },
-  taskPalette: { position: 'absolute', top: 26, right: 0, zIndex: 20, display: 'flex', gap: 6, background: '#2a2f42', border: '1.5px solid #3a3f52', borderRadius: 10, padding: 8, boxShadow: '0 6px 18px rgba(0,0,0,0.45)' },
+  // Vạch ngăn cột — thay cho việc chỉ dựa vào khoảng trắng.
+  taskColLine: { borderLeft: '1px solid #363d51', paddingLeft: 10, minWidth: 0 },
+  taskCellInput: { width: '100%', boxSizing: 'border-box', padding: '5px 8px', border: `1.5px solid ${C.primary}`, borderRadius: 7, fontFamily: F, fontWeight: 600, outline: 'none', background: '#12141d', color: '#e8edf5' },
+  taskPalette: { position: 'absolute', top: 28, right: 0, zIndex: 20, display: 'flex', gap: 6, background: '#2a2f42', border: '1.5px solid #3a3f52', borderRadius: 10, padding: 8, boxShadow: '0 6px 18px rgba(0,0,0,0.45)' },
   // Ô doanh thu — viền xanh cho tách khỏi dãy chip khu vực bên trái.
   dtBox: { display: 'flex', alignItems: 'center', gap: 6, background: '#16281f', border: '1.5px solid #2f6b4f', borderRadius: 16, padding: '4px 12px', whiteSpace: 'nowrap' },
   dtLabel: { fontSize: 11, color: '#8a9bb8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px' },
