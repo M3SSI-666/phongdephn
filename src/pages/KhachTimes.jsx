@@ -1363,7 +1363,12 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                     if (e.key === 'Enter') commitTaskEdit();
                     else if (e.key === 'Escape') cancelTaskEdit();
                   }}
-                  style={{ ...s.taskCellInput, fontSize: field === 'Noi_Dung' ? 14 : 12.5 }}
+                  // Ô nhập căn giống hệt ô hiển thị, không thì chữ nhảy chỗ lúc mở sửa.
+                  style={{
+                    ...s.taskCellInput,
+                    fontSize: field === 'Noi_Dung' ? 14 : 12.5,
+                    textAlign: field === 'Noi_Dung' ? 'left' : 'center',
+                  }}
                 />
               );
 
@@ -1419,6 +1424,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                         onDoubleClick={() => startTaskEdit(task, 'Gio')}
                         style={{
                           fontSize: 12.5, fontWeight: 700, cursor: 'text', display: 'block',
+                          textAlign: 'center',
                           color: task.Gio ? '#f0b429' : '#5f6d85',
                           textDecoration: done ? 'line-through' : 'none',
                         }}
@@ -1434,7 +1440,8 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                       <span
                         onDoubleClick={() => startTaskEdit(task, 'Ghi_Chu')}
                         style={{
-                          fontSize: 12.5, wordBreak: 'break-word', cursor: 'text',
+                          fontSize: 12.5, wordBreak: 'break-word', cursor: 'text', display: 'block',
+                          textAlign: 'center',
                           color: task.Ghi_Chu ? '#b9c6da' : '#5f6d85',
                           fontStyle: task.Ghi_Chu ? 'normal' : 'italic',
                         }}
@@ -2272,7 +2279,7 @@ const s = {
   taskHeadRow: { display: 'grid', gridTemplateColumns: TASK_GRID, alignItems: 'center', gap: 10, padding: '0 16px 8px', borderLeft: '4px solid transparent' },
   taskNum: { fontSize: 12, fontWeight: 800, color: '#8a9bb8', textAlign: 'center' },
   // Tiêu đề căn giữa cột; nội dung bên dưới vẫn căn trái cho dễ đọc.
-  taskColHead: { fontSize: 10.5, fontWeight: 800, color: '#7d8ba5', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center' },
+  taskColHead: { fontSize: 10.5, fontWeight: 800, color: '#cbd6e8', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center' },
   // Vạch ngăn cột — thay cho việc chỉ dựa vào khoảng trắng.
   taskColLine: { borderLeft: '1px solid #363d51', paddingLeft: 10, minWidth: 0 },
   taskCellInput: { width: '100%', boxSizing: 'border-box', padding: '5px 8px', border: `1.5px solid ${C.primary}`, borderRadius: 7, fontFamily: F, fontWeight: 600, outline: 'none', background: '#12141d', color: '#e8edf5' },
