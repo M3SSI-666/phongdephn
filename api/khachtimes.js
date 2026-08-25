@@ -21,12 +21,13 @@ const KHU_HEADERS = ['Ten_Khu', 'Ghi_Chu', 'Owner_Id'];
 
 // Sheet thứ ba: danh sách công việc hàng ngày (tab Task, chỉ admin thấy). Cũng gộp vào
 // function này qua ?sheet=task — thêm file api/ mới là vượt trần 12 function của Vercel.
-// 7 columns: Id, Noi_Dung, Xong, Thu_Tu, Owner_Id, Mau, Ghi_Chu
-// Mau và Ghi_Chu thêm sau, nên phải nằm CUỐI (F, G): chèn vào giữa sẽ đẩy Owner_Id sang
-// cột khác và findTaskRows đọc cột E ra rỗng -> mọi task cũ thành "không tìm thấy".
+// 8 columns: Id, Noi_Dung, Xong, Thu_Tu, Owner_Id, Mau, Ghi_Chu, Gio
+// Mau / Ghi_Chu / Gio thêm sau, nên phải nằm CUỐI theo đúng thứ tự được thêm: chèn vào giữa
+// sẽ đẩy Owner_Id sang cột khác và findTaskRows đọc cột E ra rỗng -> mọi task cũ thành
+// "không tìm thấy". Giờ hiển thị giữa Công việc và Ghi chú, nhưng trong sheet vẫn ở cột H.
 const TASK_SHEET = 'Khach_Times_Task';
-const TASK_COLUMNS = 'A:G';
-const TASK_HEADERS = ['Id', 'Noi_Dung', 'Xong', 'Thu_Tu', 'Owner_Id', 'Mau', 'Ghi_Chu'];
+const TASK_COLUMNS = 'A:H';
+const TASK_HEADERS = ['Id', 'Noi_Dung', 'Xong', 'Thu_Tu', 'Owner_Id', 'Mau', 'Ghi_Chu', 'Gio'];
 
 export default async function handler(req, res) {
   try {
@@ -464,11 +465,11 @@ async function handleTaskGet(req, res, sheetId, email, key) {
 
   const rows = (await response.json()).values || [];
 
-  // Sheet tạo ở bản trước chỉ có 5 tiêu đề. Bù 2 tiêu đề mới đúng một lần, để người mở
-  // Google Sheet còn đọc được cột F/G là gì. Dữ liệu vẫn đọc theo chỉ số cột nên không
+  // Sheet tạo ở bản trước thiếu vài tiêu đề cuối. Bù cho đủ đúng một lần, để người mở
+  // Google Sheet còn đọc được các cột F/G/H là gì. Dữ liệu vẫn đọc theo chỉ số cột nên không
   // phụ thuộc bước này — nó thuần tuý là dọn dẹp cho mắt người.
   if ((rows[0] || []).length < TASK_HEADERS.length) {
-    fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${TASK_SHEET}!A1:G1?valueInputOption=${WRITE_MODE}`, {
+    fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${TASK_SHEET}!A1:H1?valueInputOption=${WRITE_MODE}`, {
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ values: [TASK_HEADERS] }),
@@ -483,6 +484,7 @@ async function handleTaskGet(req, res, sheetId, email, key) {
     Owner_Id: row[4] || '',
     Mau: row[5] || '',
     Ghi_Chu: row[6] || '',
+    Gio: row[7] || '',
   })).filter(it => it.Id);
 
   const userId = req.query.userId || '';
@@ -509,7 +511,7 @@ async function handleTaskPost(req, res, sheetId, email, key) {
     const noiDung = String(payload.Noi_Dung || '').trim().slice(0, 2000);
     if (!id) return res.status(400).json({ error: 'Thiếu Id' });
     if (!noiDung) return res.status(400).json({ error: 'Nội dung task đang trống' });
-    const r = await appendTask(sheetId, token, [id, noiDung, '', String(payload.Thu_Tu ?? ''), ownerId, '', '']);
+    const r = await appendTask(sheetId, token, [id, noiDung, '', String(payload.Thu_Tu ?? ''), ownerId, '', '', '']);
     if (r !== true) return res.status(500).json(r);
     return res.status(200).json({ success: true });
   }
@@ -536,6 +538,9 @@ async function handleTaskPost(req, res, sheetId, email, key) {
     }
     if (payload.Ghi_Chu !== undefined) {
       data.push({ range: `${TASK_SHEET}!G${row}`, values: [[String(payload.Ghi_Chu).slice(0, 2000)]] });
+    }
+    if (payload.Gio !== undefined) {
+      data.push({ range: `${TASK_SHEET}!H${row}`, values: [[String(payload.Gio).slice(0, 30)]] });
     }
     if (!data.length) return res.status(400).json({ error: 'Không có gì để sửa' });
     const r = await batchWriteValues(sheetId, token, data);
@@ -635,7 +640,7 @@ async function createTaskSheet(sheetId, token) {
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ requests: [{ addSheet: { properties: { title: TASK_SHEET } } }] }),
   });
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${TASK_SHEET}!A1:G1?valueInputOption=${WRITE_MODE}`, {
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${TASK_SHEET}!A1:H1?valueInputOption=${WRITE_MODE}`, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ values: [TASK_HEADERS] }),

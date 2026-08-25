@@ -48,8 +48,10 @@ const TASK_COLORS = [
   { label: 'Tím',        value: '#9F7AEA' },
 ];
 
-// Tay cầm kéo · STT · Xong · Công việc · Ghi chú · Nút.
-const TASK_GRID = '22px 34px 34px minmax(0, 2fr) minmax(0, 1fr) 70px';
+// Tay cầm kéo · STT · Xong · Công việc · Giờ · Ghi chú · Nút.
+// Cột Giờ rộng cố định 62px: nội dung luôn ngắn ("9h", "14:30"), cho nó co giãn thì nó ăn
+// mất chỗ của Công việc.
+const TASK_GRID = '22px 34px 34px minmax(0, 2fr) 62px minmax(0, 1fr) 70px';
 
 const TRANG_THAI_OPTIONS = [
   { value: '', label: '--', bg: 'transparent', text: '#999' },
@@ -1335,6 +1337,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                 <span style={s.taskColHead}>Xong</span>
                 {/* paddingRight bù lại paddingLeft của taskColLine, không thì chữ lệch phải 5px */}
                 <span style={{ ...s.taskColHead, ...s.taskColLine, paddingRight: 10 }}>Công việc</span>
+                <span style={{ ...s.taskColHead, ...s.taskColLine, paddingRight: 10 }}>Giờ</span>
                 <span style={{ ...s.taskColHead, ...s.taskColLine, paddingRight: 10 }}>Ghi chú</span>
                 <span />
               </div>
@@ -1406,6 +1409,22 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                         title="Nháy đúp để sửa"
                       >
                         {task.Noi_Dung}
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={s.taskColLine}>
+                    {editing === 'Gio' ? cell('Gio') : (
+                      <span
+                        onDoubleClick={() => startTaskEdit(task, 'Gio')}
+                        style={{
+                          fontSize: 12.5, fontWeight: 700, cursor: 'text', display: 'block',
+                          color: task.Gio ? '#f0b429' : '#5f6d85',
+                          textDecoration: done ? 'line-through' : 'none',
+                        }}
+                        title="Nháy đúp để đặt giờ"
+                      >
+                        {task.Gio || '--:--'}
                       </span>
                     )}
                   </div>
