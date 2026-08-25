@@ -14,6 +14,7 @@ import { parseBangCon, validateTagName } from '../utils/conTagState';
 import { maCanTrucMatch, maCanTangInRange, normalizeTruc, tangToNumber, numberToTang } from '../utils/maCan';
 import { resolveKhu } from '../utils/khuToa';
 import { parseDienTich, dienTichInRange, formatDienTich } from '../utils/dienTich';
+import { anhCloudinary } from '../utils/anhCloudinary';
 import { resolveTopN, xepHangGiaTot } from '../utils/topGiaTot';
 import { useConTags } from '../utils/useConTags';
 import ImportSheetModal from '../components/ImportSheetModal';
@@ -873,7 +874,7 @@ function QuyCanBanInner({
             <span style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,background:'rgba(0,0,0,0.35)',borderRadius:4}}>▶</span>
           </div>
         ) : (
-          <img key={i} src={u} alt="" style={{width:32,height:32,objectFit:'cover',borderRadius:4}} />
+          <img key={i} src={anhCloudinary(u, 64)} alt="" style={{width:32,height:32,objectFit:'cover',borderRadius:4}} />
         ))}
         {urls.length > 2 && <span style={{fontSize:11,color:'#8a9bb8',alignSelf:'center'}}>+{urls.length-2}</span>}
       </div>
@@ -1261,7 +1262,7 @@ function QuyCanBanInner({
                             <span style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, background:'rgba(0,0,0,0.4)', borderRadius:8 }}>▶</span>
                           </div>
                         ) : (
-                          <img src={url} alt="" style={{ width:72, height:72, objectFit:'cover', borderRadius:8, border:'1px solid #3a3f52' }} />
+                          <img src={anhCloudinary(url, 144)} alt="" style={{ width:72, height:72, objectFit:'cover', borderRadius:8, border:'1px solid #3a3f52' }} />
                         )}
                         <button
                           type="button" onClick={() => removeImage(url)}
@@ -1541,7 +1542,7 @@ function LightboxModal({ urls, startIndex, maCan = 'anh', defaultTab = 'anh', on
             {isVideoUrl(urls[idx]) ? (
               <video key={urls[idx]} src={urls[idx]} controls autoPlay style={lb.img} />
             ) : (
-              <img src={urls[idx]} alt="" style={lb.img} />
+              <img src={anhCloudinary(urls[idx], 1600)} alt="" style={lb.img} />
             )}
             {idx < urls.length - 1 && <button onClick={() => setIdx(i => i + 1)} style={lb.arrowRight}>›</button>}
           </div>
@@ -1560,7 +1561,7 @@ function LightboxModal({ urls, startIndex, maCan = 'anh', defaultTab = 'anh', on
                       <span style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,background:'rgba(0,0,0,0.4)'}}>▶</span>
                     </>
                   ) : (
-                    <img src={u} alt="" style={{width:58,height:58,objectFit:'cover'}} />
+                    <img src={anhCloudinary(u, 116)} alt="" style={{width:58,height:58,objectFit:'cover'}} />
                   )}
                 </div>
               ))}

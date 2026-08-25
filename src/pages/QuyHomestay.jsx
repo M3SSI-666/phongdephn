@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
 import { fetchQuyHomestay, postQuyHomestay, uploadToCloudinary, parseSearchQuery } from '../utils/api';
+import { anhCloudinary } from '../utils/anhCloudinary';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -340,7 +341,7 @@ function QuyHomestayInner({ overrideUserId, overrideRole, isViewAs = false } = {
     return (
       <div style={{ display: 'flex', gap: 3 }}>
         {urls.slice(0, 2).map((u, i) => (
-          <img key={i} src={u} alt="" style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4 }} />
+          <img key={i} src={anhCloudinary(u, 64)} alt="" style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4 }} />
         ))}
         {urls.length > 2 && <span style={{ fontSize: 11, color: C.textMuted, alignSelf: 'center' }}>+{urls.length - 2}</span>}
       </div>
@@ -560,7 +561,7 @@ function QuyHomestayInner({ overrideUserId, overrideRole, isViewAs = false } = {
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
                     {form.Hinh_Anh.split(',').map(u => u.trim()).filter(Boolean).map((url, i) => (
                       <div key={i} style={{ position: 'relative' }}>
-                        <img src={url} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: `1px solid ${C.border}` }} />
+                        <img src={anhCloudinary(url, 128)} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: `1px solid ${C.border}` }} />
                         <button
                           type="button"
                           onClick={() => removeImage(url)}
