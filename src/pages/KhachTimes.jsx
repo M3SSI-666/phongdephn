@@ -1331,10 +1331,11 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
             {taskSorted.length > 0 && (
               <div style={s.taskHeadRow}>
                 <span />
-                <span style={{ ...s.taskColHead, textAlign: 'center' }}>STT</span>
-                <span style={{ ...s.taskColHead, textAlign: 'center' }}>Xong</span>
-                <span style={{ ...s.taskColHead, ...s.taskColLine }}>Công việc</span>
-                <span style={{ ...s.taskColHead, ...s.taskColLine }}>Ghi chú</span>
+                <span style={s.taskColHead}>STT</span>
+                <span style={s.taskColHead}>Xong</span>
+                {/* paddingRight bù lại paddingLeft của taskColLine, không thì chữ lệch phải 5px */}
+                <span style={{ ...s.taskColHead, ...s.taskColLine, paddingRight: 10 }}>Công việc</span>
+                <span style={{ ...s.taskColHead, ...s.taskColLine, paddingRight: 10 }}>Ghi chú</span>
                 <span />
               </div>
             )}
@@ -2251,7 +2252,8 @@ const s = {
   taskRow: { display: 'grid', gridTemplateColumns: TASK_GRID, alignItems: 'center', gap: 10, background: '#22263a', borderRadius: 10, padding: '10px 12px', marginBottom: 6 },
   taskHeadRow: { display: 'grid', gridTemplateColumns: TASK_GRID, alignItems: 'center', gap: 10, padding: '0 16px 8px', borderLeft: '4px solid transparent' },
   taskNum: { fontSize: 12, fontWeight: 800, color: '#8a9bb8', textAlign: 'center' },
-  taskColHead: { fontSize: 10.5, fontWeight: 800, color: '#7d8ba5', textTransform: 'uppercase', letterSpacing: '0.5px' },
+  // Tiêu đề căn giữa cột; nội dung bên dưới vẫn căn trái cho dễ đọc.
+  taskColHead: { fontSize: 10.5, fontWeight: 800, color: '#7d8ba5', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center' },
   // Vạch ngăn cột — thay cho việc chỉ dựa vào khoảng trắng.
   taskColLine: { borderLeft: '1px solid #363d51', paddingLeft: 10, minWidth: 0 },
   taskCellInput: { width: '100%', boxSizing: 'border-box', padding: '5px 8px', border: `1.5px solid ${C.primary}`, borderRadius: 7, fontFamily: F, fontWeight: 600, outline: 'none', background: '#12141d', color: '#e8edf5' },

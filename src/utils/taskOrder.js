@@ -3,17 +3,18 @@
 // Độ ưu tiên CHÍNH LÀ vị trí trong danh sách — không có cột "mức ưu tiên" riêng. Kéo lên
 // trên = quan trọng hơn.
 
-const xong  = t => ((t.Xong || '').toString().trim() ? 1 : 0);
 const thuTu = t => { const n = Number(t.Thu_Tu); return Number.isFinite(n) ? n : 0; };
 
-// Việc chưa xong lên trên, việc đã xong tụt xuống cuối; trong mỗi nhóm thì theo Thu_Tu.
+// Xếp thuần theo Thu_Tu. Đánh dấu Xong KHÔNG làm task đổi chỗ — dòng vừa tick vẫn nằm
+// nguyên chỗ cũ, chỉ gạch ngang. Cho tụt xuống cuối thì đúng lúc người dùng đang nhìn vào
+// dòng đó nó lại nhảy đi mất, và muốn bỏ tick thì phải đi tìm lại.
 //
 // Sắp theo chỉ số gốc ở nấc cuối để hai task cùng Thu_Tu (vd cùng bằng 0 lúc mới nhập tay
 // vào sheet) giữ nguyên thứ tự dòng, không nhảy loạn mỗi lần render.
 export function sapXepTask(list) {
   return list
     .map((t, i) => ({ t, i }))
-    .sort((a, b) => xong(a.t) - xong(b.t) || thuTu(a.t) - thuTu(b.t) || a.i - b.i)
+    .sort((a, b) => thuTu(a.t) - thuTu(b.t) || a.i - b.i)
     .map(x => x.t);
 }
 

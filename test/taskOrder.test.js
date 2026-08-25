@@ -5,9 +5,10 @@ import { sapXepTask, keoTask, thuTuTiepTheo } from '../src/utils/taskOrder.js';
 const t = (Id, Thu_Tu, Xong = '') => ({ Id, Thu_Tu: String(Thu_Tu), Xong });
 const ids = list => list.map(x => x.Id);
 
-test('việc đã xong tụt xuống cuối, dù Thu_Tu nhỏ', () => {
+// Tick Xong không được làm dòng nhảy đi chỗ khác ngay dưới con trỏ người dùng.
+test('việc đã xong vẫn đứng nguyên chỗ', () => {
   const list = [t('a', 1, '1'), t('b', 2), t('c', 3)];
-  assert.deepEqual(ids(sapXepTask(list)), ['b', 'c', 'a']);
+  assert.deepEqual(ids(sapXepTask(list)), ['a', 'b', 'c']);
 });
 
 test('trong cùng nhóm thì xếp theo Thu_Tu', () => {
@@ -23,9 +24,9 @@ test('cùng Thu_Tu thì giữ nguyên thứ tự dòng gốc', () => {
 });
 
 test('sapXepTask không sửa mảng gốc', () => {
-  const list = [t('a', 1, '1'), t('b', 2)];
+  const list = [t('b', 2), t('a', 1)];
   sapXepTask(list);
-  assert.deepEqual(ids(list), ['a', 'b']);
+  assert.deepEqual(ids(list), ['b', 'a']);
 });
 
 test('keoTask: kéo lên trên', () => {
