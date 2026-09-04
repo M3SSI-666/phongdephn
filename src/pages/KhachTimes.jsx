@@ -315,11 +315,10 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   const [activeKhu, setActiveKhu] = useState(null);  // null = xem tất cả khu
   const [khuItems, setKhuItems] = useState([]);      // danh mục khu + ghi chú, từ sheet Khach_Times_Khu
 
-  // ── Task hàng ngày (chỉ admin) ──
+  // ── Task hàng ngày ──
   // taskMode để RIÊNG, không nhét thành phần tử thứ 4 của SUB_TABS: mỗi phần tử SUB_TABS
   // mang theo `filter`/`nhuCau` được dùng ở chỗ khác (lọc danh sách, điền form thêm khách),
   // thêm một mục không có hai trường đó là gài mìn vào những chỗ đang chạy tốt.
-  const isAdmin = role === 'admin';
   const [taskMode, setTaskMode] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [taskInput, setTaskInput] = useState('');
@@ -423,10 +422,14 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   }, [userId, role, isViewAs, loadKhuData]);
 
   // ── Task hàng ngày ──
+  // Mọi vai trò đều dùng được, không riêng admin: sheet Task lọc thuần theo Owner_Id nên ai
+  // cũng chỉ thấy đúng việc của mình, không đụng được vào dữ liệu chung của công ty.
+  // Trong chế độ "xem như", userId là id của nhân viên -> admin thấy và sửa được việc của họ.
+  //
   // Không gắn vào vòng poll 30s: đây là danh sách cá nhân, và mỗi lượt poll đè state sẽ nuốt
   // mất thao tác lạc quan (tick xong / vừa kéo) đang chờ server xác nhận. Tải lại khi mở tab.
   const loadTasks = useCallback(async () => {
-    if (!isAdmin || !userId) return;
+    if (!userId) return;
     try {
       setTaskErr('');
       const data = await fetchTasks(userId);
@@ -434,13 +437,9 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     } catch (e) {
       setTaskErr(e.message);
     }
-  }, [isAdmin, userId]);
+  }, [userId]);
 
   useEffect(() => { if (taskMode) loadTasks(); }, [taskMode, loadTasks]);
-
-  // Luôn kèm isAdmin: admin bấm "xem như" một nhân viên thì role đổi ngay tại chỗ, và nếu
-  // chỉ xét taskMode thì tab Task còn nguyên trên màn hình của phiên nhân viên đó.
-  const inTaskMode = taskMode && isAdmin;
 
   const taskSorted = useMemo(() => sapXepTask(tasks), [tasks]);
 
@@ -1100,31 +1099,29 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
             <button onClick={loadData} disabled={loading} style={s.reloadBtn} className="kt-btn" title="Tải lại">
               {loading ? '...' : '↻'}
             </button>
-            {/* Task — chỉ admin. Nằm giữa nút tải lại và nhóm tag khách, đúng chỗ user chỉ. */}
-            {isAdmin && (
-              <button
-                onClick={() => setTaskMode(true)}
-                className="kt-subtab"
-                style={{ ...s.subTab, ...(inTaskMode ? s.subTabActive : {}), marginLeft: 36 }}
-                title="Việc cần làm hàng ngày"
-              >
-                📌 Task
-              </button>
-            )}
-            <div className="kt-subtabs-row" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginLeft: isAdmin ? 12 : 36 }}>
+            {/* Task — nằm giữa nút tải lại và nhóm tag khách, đúng chỗ user chỉ. */}
+            <button
+              onClick={() => setTaskMode(true)}
+              className="kt-subtab"
+              style={{ ...s.subTab, ...(taskMode ? s.subTabActive : {}), marginLeft: 36 }}
+              title="Việc cần làm hàng ngày"
+            >
+              📌 Task
+            </button>
+            <div className="kt-subtabs-row" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginLeft: 12 }}>
               {SUB_TABS.map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => { setTaskMode(false); setActiveSubTab(tab.key); }}
                   className="kt-subtab"
-                  style={{ ...s.subTab, ...(!inTaskMode && activeSubTab === tab.key ? s.subTabActive : {}) }}
+                  style={{ ...s.subTab, ...(!taskMode && activeSubTab === tab.key ? s.subTabActive : {}) }}
                 >
                   {tab.label}
                 </button>
               ))}
             </div>
             {/* Chuyển chế độ xem: Bảng / Mind Map — tab Khách thuê và Khách bán */}
-            {isMindMapTab && !inTaskMode && (
+            {isMindMapTab && !taskMode && (
               <div style={{ display: 'flex', gap: 8, marginLeft: 36 }}>
                 {[
                   { key: 'table', label: '☰ Bảng' },
@@ -1162,7 +1159,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         </div>
 
         {/* Search + Filter */}
-        <div className="kt-filter-row" style={{ ...s.filterRow, ...(inTaskMode ? { display: 'none' } : {}) }}>
+        <div className="kt-filter-row" style={{ ...s.filterRow, ...(taskMode ? { display: 'none' } : {}) }}>
           <div style={s.searchWrap}>
             <span style={s.searchIcon}>&#128269;</span>
             <input
@@ -1223,7 +1220,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         </div>
 
         {/* Thẻ khu vực — chỉ tab Khách Homestay */}
-        {isHomestayTab && !inTaskMode && (
+        {isHomestayTab && !taskMode && (
           <div style={{ marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 11, color: '#8a9bb8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', marginRight: 2 }}>Khu vực:</span>
@@ -1282,7 +1279,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         )}
 
         {/* Tiêu chí AI đã nhận dạng */}
-        {aiFilter && !inTaskMode && (
+        {aiFilter && !taskMode && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 16, marginTop: -4 }}>
             <span style={{ fontSize: 12, color: '#4ADE80', fontWeight: 700 }}>✨ AI nhận dạng:</span>
             {[
@@ -1311,7 +1308,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         )}
 
         {/* ── Tab Task: việc cần làm hàng ngày, kéo-thả để sắp thứ tự ưu tiên ── */}
-        {inTaskMode && (
+        {taskMode && (
           <div style={s.taskPanel}>
             <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
               <input
@@ -1483,11 +1480,11 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
           </div>
         )}
 
-        {!inTaskMode && error && <div style={s.errorBox}>{error}</div>}
-        {!inTaskMode && loading && <div style={s.loadingBox}>Đang tải dữ liệu...</div>}
+        {!taskMode && error && <div style={s.errorBox}>{error}</div>}
+        {!taskMode && loading && <div style={s.loadingBox}>Đang tải dữ liệu...</div>}
 
         {/* Mind Map view — tab Khách thuê và Khách bán */}
-        {!inTaskMode && !loading && !error && isMindMapTab && viewMode === 'mindmap' && (
+        {!taskMode && !loading && !error && isMindMapTab && viewMode === 'mindmap' && (
           <MindMapFlow
             tree={mindMapTree}
             collapsed={mmCollapsed}
@@ -1501,7 +1498,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         )}
 
         {/* Table */}
-        {!inTaskMode && !loading && !error && !(isMindMapTab && viewMode === 'mindmap') && (
+        {!taskMode && !loading && !error && !(isMindMapTab && viewMode === 'mindmap') && (
           <div className="kt-table-wrap" style={s.tableWrap}>
             <table style={s.table}>
               <thead>
