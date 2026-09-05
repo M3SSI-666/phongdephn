@@ -138,8 +138,10 @@ function hienTrangText(item) {
   const nt = normalizeNoiThat(item.Noi_That);
   const parts = [];
   if (nt) parts.push(nt);
+  // Không slot thì IM LẶNG, không viết "không có slot xe". Đây là tin đi chào hàng: kể ra
+  // thứ căn không có là tự dìm hàng, mà khách cần slot thì kiểu gì cũng hỏi.
+  // Hệ quả: căn không nội thất và không slot sẽ không có dòng "Hiện trạng" nào cả — đúng ý.
   if (item.Slot_Xe === 'Có') parts.push('có slot xe');
-  else if (item.Slot_Xe === 'Không') parts.push('không có slot xe');
   return parts.join(', ');
 }
 
