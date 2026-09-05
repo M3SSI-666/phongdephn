@@ -185,9 +185,12 @@ Query: ${query}`;
     for (let i = 2; i <= 10; i++) { const v = process.env[`GEMINI_API_KEY_${i}`]; if (v) geminiKeys.push(v); }
 
     if (geminiKeys.length > 0) {
+      // gemini-2.5-flash cũng suy luận trước khi trả lời, và phần suy luận ăn vào
+      // maxOutputTokens. Để 512 thì lớp dự phòng này cụt y hệt Groq -> Groq hỏng là chết cả
+      // hai, đúng lúc cần nó nhất. Trả lời chỉ ~200 token nên 2048 là rộng rãi.
       const body = JSON.stringify({
         contents: [{ parts: [{ text: PROMPT }] }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 512 },
+        generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
       });
       const start = Math.floor(Math.random() * geminiKeys.length);
       for (let i = 0; i < geminiKeys.length; i++) {
@@ -198,9 +201,11 @@ Query: ${query}`;
       }
     }
 
+    // Kèm luôn `detail` — nguyên văn nhà cung cấp trả về. Trước đây nó được lấy ở callGroq
+    // rồi vứt đi, nên log chỉ có mỗi con số status: nhìn "400" mà không biết 400 vì cái gì.
     console.error(`[parse-tc] type=${type} thất bại: ` + (
       fails.length
-        ? fails.map(f => `${f.provider}#${f.key}=${f.status || f.reason}`).join(', ')
+        ? fails.map(f => `${f.provider}#${f.key}=${f.status || f.reason}${f.detail ? ` ${f.detail}` : ''}`).join(' | ')
         : 'không có API key nào được cấu hình'
     ));
     const { code, error } = explainFailure(fails, groqKeys.length + geminiKeys.length);
@@ -225,8 +230,14 @@ async function callGroq(apiKey, prompt) {
           { role: 'user', content: prompt },
         ],
         // gpt-oss là model có bước suy luận, và token suy luận cũng trừ vào hạn mức này.
-        // Để 512 như cũ thì JSON dễ bị cắt cụt giữa chừng -> parse hỏng.
-        temperature: 0.1, max_tokens: 1024,
+        // Kèm response_format json_object thì Groq KHÔNG trả về phần JSON dở dang — nó ném
+        // luôn HTTP 400 ("either return valid JSON or throw"). Nên hết token giữa chừng
+        // không ra JSON hỏng để mình bắt, mà ra lỗi 400 lúc có lúc không, tuỳ lần đó model
+        // nghĩ dài hay ngắn. 1024 vẫn quá chật: đo thực tế hỏng ~3/8 lượt.
+        // Hai lớp chặn: bớt suy luận, và chừa thừa chỗ cho JSON (~200 token) đi ra.
+        temperature: 0.1,
+        reasoning_effort: 'low',
+        max_tokens: 4096,
         response_format: { type: 'json_object' },
       }),
       signal: ctrl.signal,
@@ -276,6 +287,12 @@ function explainFailure(fails, totalKeys) {
   }
   if (has(f => f.status === 429)) {
     return { code: 429, error: 'Hết lượt gọi AI (rate limit). Đợi ~15 giây rồi thử lại.' };
+  }
+  // 400 ở đây gần như luôn là JSON bị cắt cụt vì model nghĩ hơi dài (xem callGroq).
+  // Lần gọi sau thường qua ngay, nên bảo người dùng "chờ ít phút" là chỉ tổ bắt họ đứng
+  // đợi một thứ mà thời gian không chữa được.
+  if (has(f => f.status === 400)) {
+    return { code: 502, error: 'AI trả về dữ liệu dở dang — bấm Parse lại lần nữa là được.' + dbg };
   }
   if (fails.length && fails.every(f => f.reason === 'timeout')) {
     return { code: 504, error: 'AI phản hồi quá chậm (quá 10 giây). Thử lại, hoặc rút gọn câu tìm.' };
