@@ -8,6 +8,7 @@ import {
   normHeader, canonicalStatusColor, normalizeThietKe, mapPhi,
   isDateSerialGia, INVEST_COLOR,
 } from './quyCanShared';
+import { slotTuGhiChu, soSlotTuGhiChu, slotTuOXe } from './slotXe';
 import {
   fetchQuyCanThue, postQuyCanThue,
   fetchQuyCanBan, postQuyCanBan,
@@ -37,21 +38,6 @@ function formatGiaTy(val) {
   const n = s.match(/^[\d.,]+$/);
   if (!n) return s;
   return `${s} tỷ`;
-}
-
-// Sheet Đập Thông không có cột Xe riêng — số slot xe nằm trong Ghi Chú (VD "Có đồ, 2 slot xe").
-// Trích số slot: "1 slot" -> "1", "2 slot xe" -> "2". Bắt cả biến thể gõ thiếu (sot/slt/slot).
-function parseSlotXe(ghiChu) {
-  const s = (ghiChu || '').toString().toLowerCase();
-  const m = s.match(/(\d+)\s*s(?:lot|ot|lt)/);
-  return m ? m[1] : 'Không';
-}
-
-// Sheet Hàng Đầu Tư (và một số sheet Bán) không có cột Xe riêng — slot xe ghi trong Ghi Chú.
-// Trả về "Có"/"Không" (khác Đập Thông trả về số slot). Nhận diện "slot"/"sot"/"slt".
-function hasSlotXe(ghiChu) {
-  const s = (ghiChu || '').toString().toLowerCase();
-  return /\d+\s*s(?:lot|ot|lt)|s(?:lot|ot|lt)\s*xe/.test(s) ? 'Có' : 'Không';
 }
 
 // Tên sheet -> mảng token đã bỏ dấu. Dùng để so khớp THEO TỪ thay vì regex "chứa chuỗi":
@@ -91,7 +77,6 @@ const IMPORT_CONFIG_THUE = {
     const thang = g('thang');
     const nam = g('nam');
     const tgVao = thang && nam ? `${thang}/${nam}` : (thang || nam || '');
-    const slot = g('slot xe');
     return {
       Ma_Can:        g('ma can').toUpperCase(),
       Thiet_Ke:      normalizeThietKe(g('pn')),
@@ -100,7 +85,9 @@ const IMPORT_CONFIG_THUE = {
       Gia:           g('gia'),
       Phi_MG:        g('phi mg'),
       Noi_That:      importNoiThat(g('tt')),
-      Slot_Xe:       slot ? 'Có' : 'Không',
+      // Sheet Thuê có cột Slot xe riêng. Ô trống -> Không (sheet này không có chỗ nào khác
+      // để hỏi), nhưng ô ghi "không"/"0" cũng phải ra Không chứ không phải "ô có chữ = có".
+      Slot_Xe:       slotTuOXe(g('slot xe')) || 'Không',
       Thoi_Gian_Vao: tgVao,
       Ten_Chu:       g('ten chu', 'ten chu '),
       Lien_He:       g('sdt chu', 'sdt chu '),
@@ -149,8 +136,9 @@ const IMPORT_CONFIG_BAN = {
       Huong_Cua:   g('cua'),
       Gia:         formatGiaTy(g('gia ty', 'gia tỷ', 'gia')),
       Phi:         mapPhi(g('phi', 'tv or bp')),
-      // Có cột Xe -> dùng luôn; sheet không có cột Xe (Park Hill/G4/Đầu Tư) -> suy từ Ghi Chú.
-      Slot_Xe:     g('xe') ? 'Có' : hasSlotXe(g('ghi chu')),
+      // Ô Xe có ghi gì -> tin ô đó; ô trống, hoặc sheet không có cột Xe (Park Hill/G4/Đầu Tư)
+      // -> suy từ Ghi Chú.
+      Slot_Xe:     slotTuOXe(g('xe')) || slotTuGhiChu(g('ghi chu')),
       Noi_That:    '',
       SDT:         g('sdt chu nha', 'sdt chu', 'sdt', 'sđt'),
       Ten_Chu:     g('ten chu nha', 'ten chu', 'tên chủ'),
@@ -194,7 +182,7 @@ const IMPORT_CONFIG_DAPTHONG = {
       Huong_Cua:   g('cua'),
       Gia:         formatGiaTy(g('gia ty', 'gia tỷ', 'gia')),
       Phi:         mapPhi(g('phi bp tv', 'phi', 'tv or bp')),
-      Slot_Xe:     parseSlotXe(g('ghi chu')),
+      Slot_Xe:     soSlotTuGhiChu(g('ghi chu')),
       Noi_That:    '',
       SDT:         g('sdt chu nha', 'sdt chu', 'sdt', 'sđt'),
       Ten_Chu:     g('ten chu nha', 'ten chu', 'tên chủ'),
