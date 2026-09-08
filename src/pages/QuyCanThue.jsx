@@ -184,10 +184,13 @@ function buildCustomerMessage(item) {
   if (ht) lines.push(`- Hiện trạng: ${ht}`);
   const gia = giaText(item.Gia_Net || item.Gia); // ưu tiên giá nét (giá đã làm với chủ) nếu có
   if (gia) lines.push(`- Giá: ${gia}`);
+  // Ô trống thì bỏ hẳn dòng, giống mọi trường khác ở trên: để lại cái nhãn cụt
+  // "- Thời gian vào được:" trong tin gửi khách trông như tin soạn dở.
+  if (item.Thoi_Gian_Vao) lines.push(`- Thời gian vào được: ${item.Thoi_Gian_Vao}`);
   return lines.join('\n');
 }
 
-// Tin nhắn gửi Sales: như gửi khách nhưng thêm Thời gian vào + Phí MG (thông tin nội bộ).
+// Tin nhắn gửi Sales: như gửi khách nhưng thêm Phí MG (thông tin nội bộ).
 function buildSalesMessage(item) {
   const { toa, tang } = parseToaTang(item.Ma_Can);
   const header = toa
@@ -206,7 +209,7 @@ function buildSalesMessage(item) {
   if (gia) lines.push(`- Giá: ${gia}`);
   const phiMg = (item.Phi_MG || '').toString().trim();
   if (phiMg) lines.push(`- Phí mg: ${phiMg}`);
-  if (item.Thoi_Gian_Vao) lines.push(`- Thời gian vào: ${item.Thoi_Gian_Vao}`);
+  if (item.Thoi_Gian_Vao) lines.push(`- Thời gian vào được: ${item.Thoi_Gian_Vao}`);
   return lines.join('\n');
 }
 
