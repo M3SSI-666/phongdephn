@@ -119,18 +119,6 @@ function thietKeText(val) {
   return m ? `${m[1]} phòng ngủ` : s;
 }
 
-// Ghép Nội Thất + Slot Xe thành câu "Hiện trạng".
-function hienTrangText(item) {
-  const nt = normalizeNoiThat(item.Noi_That);
-  const parts = [];
-  if (nt) parts.push(nt);
-  // Không slot thì IM LẶNG, không viết "không có slot xe". Đây là tin đi chào hàng: kể ra
-  // thứ căn không có là tự dìm hàng, mà khách cần slot thì kiểu gì cũng hỏi.
-  // Hệ quả: căn không nội thất và không slot sẽ không có dòng "Hiện trạng" nào cả — đúng ý.
-  if (item.Slot_Xe === 'Có') parts.push('có slot xe');
-  return parts.join(', ');
-}
-
 // Viết đầy đủ giá bán cho tin nhắn: "13" -> "13 tỷ"; "13 tỷ" giữ nguyên;
 // đơn giá /m² (VD "115tr/m2") -> "115 triệu/m²". Không nhận ra thì giữ nguyên.
 function giaTextBan(val) {
@@ -170,8 +158,6 @@ function buildCustomerMessage(item) {
   // là thứ họ cân nhắc ngay, nói trước đỡ mất một vòng hỏi lại.
   const hbc = huongText(item.Huong_BC);
   if (hbc) lines.push(`- Hướng ban công: ${hbc}`);
-  const ht = hienTrangText(item);
-  if (ht) lines.push(`- Hiện trạng: ${ht}`);
   const gia = giaTextBan(item.Gia_Net || item.Gia); // ưu tiên giá nét nếu có
   if (gia) {
     const phi = mapPhi(item.Phi);
