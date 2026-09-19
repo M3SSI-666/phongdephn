@@ -166,6 +166,10 @@ function buildCustomerMessage(item) {
   if (tk) lines.push(`- Thiết kế: ${tk}`);
   const dt = (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim();
   if (dt) lines.push(`- Diện tích: ${dt} m²`);
+  // Bán thì GIỮ hướng ban công, khác tin cho thuê đã bỏ: người mua ở lâu dài nên hướng
+  // là thứ họ cân nhắc ngay, nói trước đỡ mất một vòng hỏi lại.
+  const hbc = huongText(item.Huong_BC);
+  if (hbc) lines.push(`- Hướng ban công: ${hbc}`);
   const ht = hienTrangText(item);
   if (ht) lines.push(`- Hiện trạng: ${ht}`);
   const gia = giaTextBan(item.Gia_Net || item.Gia); // ưu tiên giá nét nếu có
