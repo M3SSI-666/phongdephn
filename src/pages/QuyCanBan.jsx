@@ -156,17 +156,16 @@ function giaTextBan(val) {
 
 // Tạo tin nhắn gửi khách từ 1 căn bán (để copy vào clipboard).
 function buildCustomerMessage(item) {
-  const { toa, tang } = parseToaTang(item.Ma_Can);
+  // Chỉ nêu tòa, bỏ tầng. Vẫn giữ parseToaTang vì Mã Căn mới là nơi chứa số tòa.
+  const { toa } = parseToaTang(item.Ma_Can);
   const header = toa
-    ? `Thông tin căn hộ tòa ${toa}${tang ? ` – tầng ${tang}` : ''}:`
+    ? `Thông tin căn hộ tòa ${toa}:`
     : `Thông tin căn hộ ${item.Ma_Can || ''}:`;
   const lines = [header];
   const tk = thietKeText(item.Thiet_Ke);
   if (tk) lines.push(`- Thiết kế: ${tk}`);
   const dt = (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim();
   if (dt) lines.push(`- Diện tích: ${dt} m²`);
-  const hbc = huongText(item.Huong_BC);
-  if (hbc) lines.push(`- Hướng ban công: ${hbc}`);
   const ht = hienTrangText(item);
   if (ht) lines.push(`- Hiện trạng: ${ht}`);
   const gia = giaTextBan(item.Gia_Net || item.Gia); // ưu tiên giá nét nếu có

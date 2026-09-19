@@ -169,17 +169,16 @@ function giaText(val) {
 
 // Tạo form tin nhắn gửi khách từ 1 căn (để copy vào clipboard).
 function buildCustomerMessage(item) {
-  const { toa, tang } = parseToaTang(item.Ma_Can);
+  // Chỉ nêu tòa, bỏ tầng. Vẫn giữ parseToaTang vì Mã Căn mới là nơi chứa số tòa.
+  const { toa } = parseToaTang(item.Ma_Can);
   const header = toa
-    ? `Thông tin căn hộ tòa ${toa}${tang ? ` – tầng ${tang}` : ''}:`
+    ? `Thông tin căn hộ tòa ${toa}:`
     : `Thông tin căn hộ ${item.Ma_Can || ''}:`;
   const lines = [header];
   const tk = thietKeText(item.Thiet_Ke);
   if (tk) lines.push(`- Thiết kế: ${tk}`);
   const dt = (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim();
   if (dt) lines.push(`- Diện tích: ${dt} m²`);
-  const hbc = huongText(item.Huong_BC);
-  if (hbc) lines.push(`- Hướng ban công: ${hbc}`);
   const ht = hienTrangText(item);
   if (ht) lines.push(`- Hiện trạng: ${ht}`);
   const gia = giaText(item.Gia_Net || item.Gia); // ưu tiên giá nét (giá đã làm với chủ) nếu có
@@ -192,17 +191,16 @@ function buildCustomerMessage(item) {
 
 // Tin nhắn gửi Sales: như gửi khách nhưng thêm Phí MG (thông tin nội bộ).
 function buildSalesMessage(item) {
-  const { toa, tang } = parseToaTang(item.Ma_Can);
+  // Chỉ nêu tòa, bỏ tầng. Vẫn giữ parseToaTang vì Mã Căn mới là nơi chứa số tòa.
+  const { toa } = parseToaTang(item.Ma_Can);
   const header = toa
-    ? `Thông tin căn hộ tòa ${toa}${tang ? ` – tầng ${tang}` : ''}:`
+    ? `Thông tin căn hộ tòa ${toa}:`
     : `Thông tin căn hộ ${item.Ma_Can || ''}:`;
   const lines = [header];
   const tk = thietKeText(item.Thiet_Ke);
   if (tk) lines.push(`- Thiết kế: ${tk}`);
   const dt = (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim();
   if (dt) lines.push(`- Diện tích: ${dt} m²`);
-  const hbc = huongText(item.Huong_BC);
-  if (hbc) lines.push(`- Hướng ban công: ${hbc}`);
   const ht = hienTrangText(item);
   if (ht) lines.push(`- Hiện trạng: ${ht}`);
   const gia = giaText(item.Gia_Net || item.Gia); // ưu tiên giá nét (giá đã làm với chủ) nếu có
