@@ -1517,7 +1517,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                       ? [{ h: 'Căn Lock', w: 130 }, { h: 'Trạng thái', w: 120 }, { h: 'Tổng tiền', w: 120 }]
                       : [{ h: 'Tài chính', w: 90 }, { h: 'Căn tư vấn', w: 160 }, { h: 'Trạng thái', w: 120 }]),
                     ...(isHomestayTab
-                      ? [{ h: 'Khách cọc', w: 80 }, { h: 'Cọc Host', w: 80 }, { h: 'Host', w: 100 }]
+                      ? [{ h: 'Khách cọc', w: 80 }, { h: 'Cọc Host', w: 80 }, { h: 'Host', w: 100 }, { h: 'Khu vực', w: 90 }]
                       : [{ h: 'Cọc', w: 80 }]),
                     { h: 'Thu về', w: 90 }, { h: 'Ghi chú', w: 220 }, { h: '', w: 64 },
                   ].map(({ h, w }, idx) => (
@@ -1527,7 +1527,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={isBanTab ? 19 : (isHomestayTab ? 18 : 18)} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
+                  <tr><td colSpan={isHomestayTab ? 20 : (isBanTab ? 19 : 18)} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
                 ) : (
                   filtered.map((item) => (
                     <tr
@@ -1626,6 +1626,9 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                           <td style={{ ...s.td, textAlign: 'center', fontSize: 12 }}>{item.Coc_Host}</td>
                           {/* Host */}
                           <td style={{ ...s.td, textAlign: 'center', fontSize: 12 }}>{item.Chu_Can}</td>
+                          {/* Khu vực — qua khuOf chứ không đọc thẳng item.Khu_Vuc, để khách cũ
+                              (ô rỗng) hiện "Times" giống số đếm trên chip lọc phía trên. */}
+                          <td style={{ ...s.td, textAlign: 'center', fontSize: 12 }}>{khuOf(item)}</td>
                         </>
                       )}
                       {/* Thu về */}
