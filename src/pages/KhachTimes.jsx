@@ -82,6 +82,10 @@ const HOMESTAY_TRANG_THAI_OPTIONS = [
 const KHU_MAC_DINH = 'Times';
 const khuOf = (it) => (it.Khu_Vuc || '').trim() || KHU_MAC_DINH;
 
+// Màu chữ cho từng khu trong bảng. Chín màu tách bạch trên nền tối; quá chín khu mới lặp lại.
+const KHU_MAU = ['#38bdf8', '#a3e635', '#fbbf24', '#f472b6', '#c084fc',
+                 '#2dd4bf', '#fb923c', '#818cf8', '#f87171'];
+
 const NHU_CAU_OPTIONS = ['Thuê', 'Mua', 'Homestay'];
 const SLOT_XE_OPTIONS = ['Có', 'Không', 'Null'];
 const NOI_THAT_OPTIONS = ['Full đồ', 'Không đồ'];
@@ -605,6 +609,18 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     });
     return [...set];
   }, [items, khuItems]);
+
+  // Tên khu -> màu chữ. Gán theo VỊ TRÍ trong allKhu chứ không băm tên: băm thì hai khu dễ
+  // trùng màu (thử 12 tên thật với 7 màu đã có 3 khu cùng màu), mà trùng màu là hỏng đúng
+  // cái việc cột này sinh ra để làm.
+  // Vị trí ổn định vì allKhu = Times, rồi danh mục sheet (thêm khu chỉ nối vào cuối), nên
+  // khu mới không làm đổi màu khu cũ. Xoá khu thì có xê dịch, nhưng xoá đã bị chặn khi khu
+  // đó còn khách.
+  const khuMau = useMemo(() => {
+    const m = {};
+    allKhu.forEach((k, i) => { m[k] = KHU_MAU[i % KHU_MAU.length]; });
+    return m;
+  }, [allKhu]);
 
   // Số khách trong từng khu — chỉ đếm khách Homestay, khớp đúng bộ lọc bên dưới.
   const khuCounts = useMemo(() => {
@@ -1628,7 +1644,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                           <td style={{ ...s.td, textAlign: 'center', fontSize: 12 }}>{item.Chu_Can}</td>
                           {/* Khu vực — qua khuOf chứ không đọc thẳng item.Khu_Vuc, để khách cũ
                               (ô rỗng) hiện "Times" giống số đếm trên chip lọc phía trên. */}
-                          <td style={{ ...s.td, textAlign: 'center', fontSize: 12 }}>{khuOf(item)}</td>
+                          <td style={{ ...s.td, textAlign: 'center', fontSize: 12, fontWeight: 700, color: khuMau[khuOf(item)] || KHU_MAU[0] }}>{khuOf(item)}</td>
                         </>
                       )}
                       {/* Thu về */}
