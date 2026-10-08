@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Fragment, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import {
@@ -21,6 +21,7 @@ import { sapXepTask, keoTask, thuTuTiepTheo } from '../utils/taskOrder';
 import { validateTagName } from '../utils/conTagState';
 import { noteDateFlag, toDayKey, noteDayKey } from '../utils/khachDate';
 import { parseTienVnd, formatVnd } from '../utils/tien';
+import { nhanNhomPhongNgu, soSanhNhomPhongNgu } from '../utils/nhomPhongNgu';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -246,7 +247,16 @@ function matchLoai(it, filterLoai) {
 }
 
 // Thứ tự hiển thị. Cũng phải dùng chung giữa filtered và tabRows, cùng lý do như trên.
-function sortKhach(a, b) {
+//
+// nhomPn (tab Khách bán / Khách thuê): gom theo dòng căn khách đang hỏi trước, trong dải
+// mới xét thứ tự thủ công. Phải nhét vào ĐÂY chứ không sắp lại lúc render: handleDrop và
+// spreadToTab đánh lại Thu_Tu theo đúng thứ tự của filtered/tabRows, nên render một đằng
+// mà hai mảng đó một nẻo là kéo-thả ghi số vào nhầm người.
+function sortKhach(a, b, nhomPn = false) {
+  if (nhomPn) {
+    const g = soSanhNhomPhongNgu(nhanNhomPhongNgu(a.Phong_Ngu), nhanNhomPhongNgu(b.Phong_Ngu));
+    if (g !== 0) return g;
+  }
   // Ưu tiên thứ tự thủ công (Thu_Tu) — số nhỏ lên đầu.
   const ta = a.Thu_Tu !== '' && a.Thu_Tu != null ? Number(a.Thu_Tu) : null;
   const tb = b.Thu_Tu !== '' && b.Thu_Tu != null ? Number(b.Thu_Tu) : null;
@@ -598,6 +608,9 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   const isThueTab = activeSubTab === 'thue';
   // Tab cho phép chế độ xem Mind Map: Khách thuê và Khách bán.
   const isMindMapTab = isThueTab || isBanTab;
+  // Hai tab này chia bảng thành dải theo dòng căn khách đang hỏi (1N, 2N...). Homestay thì
+  // không: bên đó đã chia theo khu vực rồi, chồng thêm một kiểu chia nữa là rối.
+  const nhomTheoPhongNgu = isThueTab || isBanTab;
   // Bộ trạng thái áp dụng theo tab hiện tại.
   const trangThaiOptions = isHomestayTab ? HOMESTAY_TRANG_THAI_OPTIONS : TRANG_THAI_OPTIONS;
 
@@ -625,6 +638,28 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     return m;
   }, [allKhu]);
 
+  // Cột của bảng theo tab đang mở. Tách ra khỏi JSX để dải phân cách và dòng "không tìm
+  // thấy" lấy được số cột THẬT — trước đây colSpan là số viết tay, thêm bớt cột là lệch.
+  // Cộng 1 cho cột tay cầm kéo-thả nằm ngoài mảng này.
+  const cols = useMemo(() => [
+    { h: 'Ngày PS', w: 80 }, { h: 'Tên (Zalo)', w: 110 },
+    { h: 'SĐT', w: 100 }, { h: 'Nhu cầu', w: 80 }, { h: 'PN', w: 44 },
+    ...(isHomestayTab ? [] : [{ h: 'Diện tích', w: 80 }]),
+    ...(isBanTab ? [{ h: 'Tầng', w: 60 }, { h: 'Ban công', w: 70 }, { h: 'Cửa', w: 70 }] : []),
+    ...(isHomestayTab ? [] : [{ h: 'Nội thất', w: 110 }, { h: 'Slot', w: 50 }]),
+    ...(isBanTab ? [] : (isHomestayTab
+      ? [{ h: 'Thời hạn', w: 90 }, { h: 'Check In', w: 66 }, { h: 'Check Out', w: 66 }]
+      : [{ h: 'Thời hạn', w: 90 }, { h: 'Ngày vào', w: 66 }])),
+    ...(isHomestayTab
+      ? [{ h: 'Căn Lock', w: 130 }, { h: 'Trạng thái', w: 120 }, { h: 'Tổng tiền', w: 120 }]
+      : [{ h: 'Tài chính', w: 90 }, { h: 'Căn tư vấn', w: 160 }, { h: 'Trạng thái', w: 120 }]),
+    ...(isHomestayTab
+      ? [{ h: 'Khách cọc', w: 80 }, { h: 'Cọc Host', w: 80 }, { h: 'Host', w: 100 }, { h: 'Khu vực', w: 90 }]
+      : [{ h: 'Cọc', w: 80 }]),
+    { h: 'Thu về', w: 90 }, { h: 'Ghi chú', w: 220 }, { h: '', w: 64 },
+  ], [isHomestayTab, isBanTab]);
+  const soCot = cols.length + 1;
+
   // Số khách trong từng khu — chỉ đếm khách Homestay, khớp đúng bộ lọc bên dưới.
   const khuCounts = useMemo(() => {
     const m = {};
@@ -647,8 +682,8 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   // Đây là "khung" để đánh lại Thu_Tu khi kéo-thả: Thu_Tu là thứ tự dùng chung cho cả tab, nên
   // phải đánh số trên đủ tập khách của tab thì số mới không đụng nhau giữa các khu.
   const tabRows = useMemo(
-    () => items.filter((it) => matchLoai(it, filterLoai)).sort(sortKhach),
-    [items, filterLoai]
+    () => items.filter((it) => matchLoai(it, filterLoai)).sort((a, b) => sortKhach(a, b, nhomTheoPhongNgu)),
+    [items, filterLoai, nhomTheoPhongNgu]
   );
 
   const filtered = useMemo(() => {
@@ -678,9 +713,9 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
         (it.Ghi_Chu || '').toLowerCase().includes(q)
       );
     }
-    list.sort(sortKhach);
+    list.sort((a, b) => sortKhach(a, b, nhomTheoPhongNgu));
     return list;
-  }, [items, filterLoai, filterTrangThai, search, aiFilter, isHomestayTab, activeKhu]);
+  }, [items, filterLoai, filterTrangThai, search, aiFilter, isHomestayTab, activeKhu, nhomTheoPhongNgu]);
 
   // Doanh thu = tổng cột "Thu về", ngày tính theo cột "Ngày PS".
   // Tính trên `filtered`, tức là THEO ĐÚNG BỘ LỌC ĐANG XEM: chọn chip khu Times thì ra doanh
@@ -1526,34 +1561,31 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
               <thead>
                 <tr>
                   <th style={{ ...s.th, width: 30, minWidth: 30, padding: '10px 2px' }} title={canDrag ? 'Kéo để sắp xếp' : 'Xoá ô tìm kiếm để kéo sắp xếp'}></th>
-                  {[
-                    { h: 'Ngày PS', w: 80 }, { h: 'Tên (Zalo)', w: 110 },
-                    { h: 'SĐT', w: 100 }, { h: 'Nhu cầu', w: 80 }, { h: 'PN', w: 44 },
-                    ...(isHomestayTab ? [] : [{ h: 'Diện tích', w: 80 }]),
-                    ...(isBanTab ? [{ h: 'Tầng', w: 60 }, { h: 'Ban công', w: 70 }, { h: 'Cửa', w: 70 }] : []),
-                    ...(isHomestayTab ? [] : [{ h: 'Nội thất', w: 110 }, { h: 'Slot', w: 50 }]),
-                    ...(isBanTab ? [] : (isHomestayTab
-                      ? [{ h: 'Thời hạn', w: 90 }, { h: 'Check In', w: 66 }, { h: 'Check Out', w: 66 }]
-                      : [{ h: 'Thời hạn', w: 90 }, { h: 'Ngày vào', w: 66 }])),
-                    ...(isHomestayTab
-                      ? [{ h: 'Căn Lock', w: 130 }, { h: 'Trạng thái', w: 120 }, { h: 'Tổng tiền', w: 120 }]
-                      : [{ h: 'Tài chính', w: 90 }, { h: 'Căn tư vấn', w: 160 }, { h: 'Trạng thái', w: 120 }]),
-                    ...(isHomestayTab
-                      ? [{ h: 'Khách cọc', w: 80 }, { h: 'Cọc Host', w: 80 }, { h: 'Host', w: 100 }, { h: 'Khu vực', w: 90 }]
-                      : [{ h: 'Cọc', w: 80 }]),
-                    { h: 'Thu về', w: 90 }, { h: 'Ghi chú', w: 220 }, { h: '', w: 64 },
-                  ].map(({ h, w }, idx) => (
+                  {cols.map(({ h, w }, idx) => (
                     <th key={h || `act_${idx}`} style={{ ...s.th, width: w, minWidth: w }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={isHomestayTab ? 20 : (isBanTab ? 19 : 18)} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
+                  <tr><td colSpan={soCot} style={s.emptyTd}>{items.length === 0 ? 'Chưa có khách hàng nào' : 'Không tìm thấy kết quả'}</td></tr>
                 ) : (
-                  filtered.map((item) => (
+                  filtered.map((item, i) => {
+                  // Dải chỉ mở ở hàng ĐẦU của mỗi nhóm. filtered đã được sortKhach gom sẵn
+                  // theo nhóm nên chỉ cần so với hàng ngay trên, không phải gom lại ở đây.
+                  const nhan = nhomTheoPhongNgu ? nhanNhomPhongNgu(item.Phong_Ngu) : null;
+                  const moDai = nhan !== null
+                    && (i === 0 || nhanNhomPhongNgu(filtered[i - 1].Phong_Ngu) !== nhan);
+                  return (
+                    <Fragment key={item._rowIndex}>
+                    {moDai && (
+                      <tr>
+                        <td colSpan={soCot} style={s.nhomHeader}>
+                          <span style={s.nhomLabel}>{nhan}</span>
+                        </td>
+                      </tr>
+                    )}
                     <tr
-                      key={item._rowIndex}
                       className="kt-row"
                       style={{
                         ...s.tr,
@@ -1661,7 +1693,9 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                         <button onClick={() => setDeleteTarget(item)} style={{ ...s.actionBtn, ...s.deleteBtn }} title="Xoá">&#128465;</button>
                       </td>
                     </tr>
-                  ))
+                    </Fragment>
+                  );
+                  })
                 )}
               </tbody>
             </table>
@@ -2322,6 +2356,9 @@ const s = {
   td: { padding: '8px 8px', verticalAlign: 'middle', fontSize: 13, borderRight: colDivider, color: '#e2e8f0' },
   tdName: { minWidth: 100, whiteSpace: 'nowrap' },
   emptyTd: { textAlign: 'center', padding: 40, color: '#8a9bb8', fontSize: 14 },
+  // Dải phân cách theo dòng căn (1N, 2N...) — cùng kiểu với dải chia theo tòa ở Quỹ Căn.
+  nhomHeader: { background: '#EF4444', padding: '7px 0', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.18)', borderBottom: '1px solid rgba(255,255,255,0.18)' },
+  nhomLabel: { fontWeight: 700, fontSize: 13, color: '#fff', letterSpacing: 3, textTransform: 'uppercase' },
   actionBtn: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: '4px 6px', borderRadius: 6, transition: 'background 0.12s', color: '#8a9bb8' },
   deleteBtn: { color: C.error },
   moveBtn: { fontSize: 10, padding: '1px 5px', color: '#34d399', lineHeight: 1 },
