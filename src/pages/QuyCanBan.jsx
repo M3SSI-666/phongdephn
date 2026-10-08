@@ -9,6 +9,7 @@ import {
 import {
   normalizeThietKe, mapPhi, phiBaoPhi, isDateSerialGia, conKey, expectOf,
   STATUS_GRAY, STATUS_PAUSED, INVEST_COLOR, KHUNG_BAN, khungConTrong,
+  nhanNhomThietKe, soSanhNhomThietKe,
 } from '../utils/quyCanShared';
 import { parseBangCon, validateTagName } from '../utils/conTagState';
 import { maCanTrucMatch, maCanTangInRange, normalizeTruc, tangToNumber, numberToTang } from '../utils/maCan';
@@ -521,23 +522,16 @@ function QuyCanBanInner({
   });
   canApplyRemoteRef.current = canApplyRemote;
 
-  const TOA_ORDER = [
-    'T01','T02','T03','T04','T05','T06','T07','T08','T09','T10','T11',
-    'P01','P02','P03','T18','P05','P06','P07','P08',
-    'P09','P10','P11','P12',
-  ];
-
+  // Dải phân cách trong bảng gom theo THIẾT KẾ (1N, 2N, 3N, 4N...) chứ không theo tòa nữa.
+  // Tòa vẫn đọc được ngay trên Mã Căn của từng hàng, còn số phòng ngủ mới là thứ khách hỏi
+  // đầu tiên, nên gom theo nó thì lướt bảng nhanh hơn.
   const grouped = useMemo(() => {
-    function parsePN(thietKe) {
-      const m = (thietKe || '').match(/(\d+)\s*[Pp][Nn]/);
-      return m ? parseInt(m[1]) : 99;
-    }
     // Không đọc được thì xếp xuống đáy, chứ không để null lọt vào phép trừ.
     const parseDT = dt => parseDienTich(dt) ?? 0;
 
-    // Chế độ "top N giá tốt": bỏ nhóm theo tòa, trả về MỘT khối xếp hạng chung.
-    // Nhóm theo tòa ở đây là sai ý — top 10 rẻ nhất là so toàn bộ kết quả với nhau,
-    // chứ không phải rẻ nhất trong từng tòa.
+    // Chế độ "top N giá tốt": bỏ nhóm theo thiết kế, trả về MỘT khối xếp hạng chung.
+    // Nhóm ở đây là sai ý — top 10 rẻ nhất là so toàn bộ kết quả với nhau,
+    // chứ không phải rẻ nhất trong từng nhóm.
     //
     // Cắt ở đây chứ không cắt trong `filtered`, để banner vẫn đếm được TỔNG số căn
     // khớp tiêu chí ("87 căn phù hợp") thay vì hiện đúng con số 10 vừa cắt.
@@ -548,32 +542,23 @@ function QuyCanBanInner({
 
     const map = new Map();
     for (const item of filtered) {
-      const m = (item.Ma_Can||'').toUpperCase().match(/^([A-Z]+\d{1,2})/);
-      const key = m ? m[1] : '—';
+      const key = nhanNhomThietKe(item.Thiet_Ke);
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(item);
     }
     const entries = Array.from(map.entries());
     entries.forEach(([, arr]) => {
+      // Trong một dải thì số phòng ngủ đã như nhau, nên bỏ luôn vế so theo PN của bản cũ.
       arr.sort((a, b) => {
-        // sắp xếp CHÍNH theo đơn giá Tr/m² từ thấp -> cao (bất kể số PN)
+        // sắp xếp CHÍNH theo đơn giá Tr/m² từ thấp -> cao
         const ta = trPerM2(a), tb = trPerM2(b);
         const va = ta == null ? Infinity : ta;
         const vb = tb == null ? Infinity : tb;
         if (va !== vb) return va - vb;
-        const pn = parsePN(a.Thiet_Ke) - parsePN(b.Thiet_Ke);
-        if (pn !== 0) return pn;
         return parseDT(b.Dien_Tich) - parseDT(a.Dien_Tich); // diện tích lớn hơn lên trên
       });
     });
-    return entries.sort(([a],[b]) => {
-      const ia = TOA_ORDER.indexOf(a);
-      const ib = TOA_ORDER.indexOf(b);
-      if (ia === -1 && ib === -1) return a.localeCompare(b);
-      if (ia === -1) return 1;
-      if (ib === -1) return -1;
-      return ia - ib;
-    });
+    return entries.sort(([a], [b]) => soSanhNhomThietKe(a, b));
   }, [filtered, aiFilter]);
 
   function normalizeFilter(f, originalQuery = '') {
@@ -996,14 +981,16 @@ function QuyCanBanInner({
                     ? 'Bảng con này chưa có căn nào. Vào tab "Tất cả" rồi bấm 🏷 để chuyển căn vào đây.'
                     : (items.length === 0 ? 'Chưa có căn nào. Bấm "+ Thêm Căn" để bắt đầu.' : 'Không tìm thấy')}
                 </td></tr>
-              ) : grouped.map(([toa, toaItems]) => (
+              ) : grouped.map(([nhom, nhomItems]) => (
                 <>
-                  <tr key={`header-${toa}`}>
-                    <td colSpan={headers.length} style={st.toaHeader}>
-                      <span style={st.toaLabel}>{toa}</span>
+                  {/* Dải phân cách theo thiết kế */}
+                  <tr key={`header-${nhom}`}>
+                    <td colSpan={headers.length} style={st.nhomHeader}>
+                      <span style={st.nhomLabel}>{nhom}</span>
                     </td>
                   </tr>
-                  {toaItems.map((item, rank) => {
+                  {/* Các căn trong dải */}
+                  {nhomItems.map((item, rank) => {
                     // Tab Tất cả phản chiếu bảng công ty: chỉ giữ màu trạng thái + màu đánh dấu Hàng Đầu Tư.
                     const rawMau = item.Mau_Ma_Can || '';
                     // Bảng con: màu user tự tô được ưu tiên; chưa tô mà bảng chính đánh dấu
@@ -1599,8 +1586,8 @@ const st = {
   tr:          { borderBottom:'1.5px solid rgba(255,255,255,0.22)', transition:'background 0.12s' },
   td:          { padding:'8px 8px', verticalAlign:'middle', fontSize:13, borderRight:D, color:'#e2e8f0' },
   emptyTd:     { textAlign:'center', padding:40, color:'#8a9bb8', fontSize:14 },
-  toaHeader:   { background:'#EF4444', padding:'7px 0', textAlign:'center', borderTop:'1px solid rgba(255,255,255,0.18)', borderBottom:'1px solid rgba(255,255,255,0.18)' },
-  toaLabel:    { fontWeight:700, fontSize:13, color:'#fff', letterSpacing:3, textTransform:'uppercase' },
+  nhomHeader:  { background:'#EF4444', padding:'7px 0', textAlign:'center', borderTop:'1px solid rgba(255,255,255,0.18)', borderBottom:'1px solid rgba(255,255,255,0.18)' },
+  nhomLabel:   { fontWeight:700, fontSize:13, color:'#fff', letterSpacing:3, textTransform:'uppercase' },
   actionBtn:   { background:'none', border:'none', cursor:'pointer', fontSize:16, padding:'4px 6px', borderRadius:6, color:C.textMuted },
   overlay:     { position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 },
   tagChip:       { background:'#22263a', color:'#cbd5e1', border:'1.5px solid #3a3f52', borderRadius:16, padding:'5px 12px', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },

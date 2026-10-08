@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { phiBaoPhi, mapPhi, normalizeThietKe } from '../src/utils/quyCanShared.js';
+import {
+  phiBaoPhi, mapPhi, normalizeThietKe,
+  nhanNhomThietKe, soSanhNhomThietKe, NHOM_DAP_THONG, NHOM_CHUA_RO,
+} from '../src/utils/quyCanShared.js';
 
 test('phiBaoPhi: bốn mức phí theo số phòng ngủ', () => {
   assert.equal(phiBaoPhi('1PN'), 100);
@@ -50,4 +53,37 @@ test('normalizeThietKe: "2N" là cách ghi khác của "2PN"', () => {
   assert.equal(normalizeThietKe('2PN'), '2PN');
   assert.equal(normalizeThietKe('Studio'), 'Studio');
   assert.equal(normalizeThietKe(''), '');
+});
+
+test('nhanNhomThietKe: mọi cách ghi số phòng ngủ về cùng một dải', () => {
+  assert.equal(nhanNhomThietKe('2PN'), '2N');
+  assert.equal(nhanNhomThietKe('2N'),  '2N');
+  assert.equal(nhanNhomThietKe('2 pn'), '2N');
+  assert.equal(nhanNhomThietKe('1PN'), '1N');
+  assert.equal(nhanNhomThietKe('5PN'), '5N');
+});
+
+// Thiết kế không đọc ra số phòng ngủ phải giữ nguyên chữ — gom "2N1VS" vào "2N" là
+// nói sai căn đó có gì. Hai giá trị này đang có thật trong sheet.
+test('nhanNhomThietKe: thiết kế lạ giữ nguyên chữ', () => {
+  assert.equal(nhanNhomThietKe('Duplex'), 'Duplex');
+  assert.equal(nhanNhomThietKe('2N1VS'), '2N1VS');
+  assert.equal(nhanNhomThietKe(NHOM_DAP_THONG), NHOM_DAP_THONG);
+});
+
+test('nhanNhomThietKe: ô trống thành dải "Chưa rõ"', () => {
+  ['', '   ', null, undefined].forEach(v =>
+    assert.equal(nhanNhomThietKe(v), NHOM_CHUA_RO, `phải ra Chưa rõ với "${v}"`));
+});
+
+test('soSanhNhomThietKe: 1N - 2N - 3N - 4N rồi mới tới Đập thông', () => {
+  const sap = ['Chưa rõ', 'Duplex', NHOM_DAP_THONG, '3N', '1N', '10N', '2N', '4N']
+    .sort(soSanhNhomThietKe);
+  assert.deepEqual(sap,
+    ['1N', '2N', '3N', '4N', '10N', NHOM_DAP_THONG, 'Duplex', NHOM_CHUA_RO]);
+});
+
+// So theo SỐ chứ không theo chữ: sắp chuỗi thì "10N" chen lên trước "2N".
+test('soSanhNhomThietKe: 10N xếp sau 2N', () => {
+  assert.ok(soSanhNhomThietKe('2N', '10N') < 0);
 });
