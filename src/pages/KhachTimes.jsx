@@ -582,10 +582,13 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   // ── Kéo-thả sắp xếp ──
   const [dragRowIndex, setDragRowIndex] = useState(null); // _rowIndex của hàng đang kéo
   const [dragOverIndex, setDragOverIndex] = useState(null); // _rowIndex của hàng đang được rê tới
-  // Chỉ cho kéo-thả khi xem danh sách đầy đủ của 1 tab (không tìm kiếm, không lọc trạng thái):
-  // hai bộ lọc đó bỏ khách ra khỏi danh sách một cách rời rạc, kéo xong thứ tự của khách bị
-  // ẩn sẽ nhảy lung tung. Lọc khu vực thì KHÔNG chặn — handleDrop xử lý riêng (xem bên dưới).
-  const canDrag = !search.trim() && !aiFilter && filterTrangThai.length === 0;
+  // Lọc trạng thái KHÔNG chặn kéo-thả. Tab Khách thuê/Khách bán bật sẵn hai trạng thái ngay
+  // khi mở (xem useEffect đổi tab), nên chặn theo bộ lọc này là khoá cứng kéo-thả ở đúng hai
+  // tab đó — chỉ Homestay kéo được. Khách bị ẩn không xê dịch vì spreadToTab rót thứ tự mới
+  // vào đúng các vị trí cũ của tập đang hiện.
+  // Tìm kiếm/AI thì vẫn chặn: hai thứ đó chỉ sống tạm trong lúc gõ, kéo nhầm trong đó rồi
+  // xoá ô tìm là không còn gì để lần lại đã đổi cái gì.
+  const canDrag = !search.trim() && !aiFilter;
 
   // Tab Khách bán: ẩn cột/trường "Thời hạn" và "Ngày vào" vì không cần thiết.
   const isBanTab = activeSubTab === 'ban';
@@ -872,14 +875,13 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     }
   }, [showToast, loadData]);
 
-  // Đang lọc theo khu: thứ tự mới chỉ nói về các khách TRONG khu đó, nhưng Thu_Tu lại là thứ
-  // tự dùng chung cho cả tab. Nếu đánh số 1..n riêng cho khu, khách khu khác vẫn giữ số cũ và
-  // xem ở "Tất cả khu" sẽ thấy hai khu cài răng lược lẫn nhau.
-  // Cách xử lý: giữ nguyên các VỊ TRÍ mà khu này đang chiếm trong danh sách đầy đủ của tab, rồi
-  // rót thứ tự mới vào đúng những vị trí đó. Khách các khu khác không xê dịch một ly. Cùng kỹ
-  // thuật với handleMindMapReorder bên dưới.
+  // Đang lọc (theo khu hoặc theo trạng thái): thứ tự mới chỉ nói về các khách ĐANG HIỆN, nhưng
+  // Thu_Tu là thứ tự dùng chung cho cả tab. Đánh số 1..n riêng cho tập đang hiện thì khách bị
+  // ẩn vẫn giữ số cũ, bỏ lọc ra sẽ thấy hai tập cài răng lược lẫn nhau.
+  // Cách xử lý: giữ nguyên các VỊ TRÍ mà tập đang hiện đang chiếm trong danh sách đầy đủ của
+  // tab, rồi rót thứ tự mới vào đúng những vị trí đó. Khách bị ẩn không xê dịch một ly.
+  // Không lọc gì thì slots = 0..n-1 và hàm trả lại đúng viewOrder, nên gọi vô điều kiện được.
   const spreadToTab = useCallback((viewOrder) => {
-    if (!(isHomestayTab && activeKhu)) return viewOrder;
     const full = [...tabRows];
     const inView = new Set(viewOrder.map(it => it._rowIndex));
     const slots = [];
@@ -888,7 +890,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     if (slots.length !== viewOrder.length) return null;
     slots.forEach((slotIdx, k) => { full[slotIdx] = viewOrder[k]; });
     return full;
-  }, [isHomestayTab, activeKhu, tabRows]);
+  }, [tabRows]);
 
   const handleDrop = useCallback((targetRowIndex) => {
     setDragOverIndex(null);
@@ -926,8 +928,12 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     if (slots.length !== newGroupOrder.length) return;
     const byRow = new Map(filtered.map((it) => [it._rowIndex, it]));
     slots.forEach((slotIdx, k) => { order[slotIdx] = byRow.get(newGroupOrder[k]); });
-    persistOrder(order);
-  }, [filtered, persistOrder]);
+    // Phải qua spreadToTab y như handleDrop: Mind Map luôn chạy kèm bộ lọc trạng thái, đánh
+    // số thẳng trên `filtered` là bỏ quên khách đang bị ẩn và làm hỏng thứ tự chung của tab.
+    const full = spreadToTab(order);
+    if (!full) return;
+    persistOrder(full);
+  }, [filtered, spreadToTab, persistOrder]);
 
   const stats = useMemo(() => {
     const total = items.length;
@@ -1519,7 +1525,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
             <table style={s.table}>
               <thead>
                 <tr>
-                  <th style={{ ...s.th, width: 30, minWidth: 30, padding: '10px 2px' }} title={canDrag ? 'Kéo để sắp xếp' : 'Bỏ lọc/tìm kiếm để kéo sắp xếp'}></th>
+                  <th style={{ ...s.th, width: 30, minWidth: 30, padding: '10px 2px' }} title={canDrag ? 'Kéo để sắp xếp' : 'Xoá ô tìm kiếm để kéo sắp xếp'}></th>
                   {[
                     { h: 'Ngày PS', w: 80 }, { h: 'Tên (Zalo)', w: 110 },
                     { h: 'SĐT', w: 100 }, { h: 'Nhu cầu', w: 80 }, { h: 'PN', w: 44 },
@@ -1563,7 +1569,7 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                         draggable={canDrag}
                         onDragStart={canDrag ? (e) => { setDragRowIndex(item._rowIndex); e.dataTransfer.effectAllowed = 'move'; } : undefined}
                         onDragEnd={() => { setDragRowIndex(null); setDragOverIndex(null); }}
-                        title={canDrag ? 'Kéo để đổi thứ tự' : 'Bỏ tìm kiếm/lọc để kéo sắp xếp'}
+                        title={canDrag ? 'Kéo để đổi thứ tự' : 'Xoá ô tìm kiếm để kéo sắp xếp'}
                       >
                         &#9776;
                       </td>
