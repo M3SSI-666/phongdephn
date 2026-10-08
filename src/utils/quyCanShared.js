@@ -130,38 +130,3 @@ export function khungConTrong(text) {
     return (i === -1 ? line : line.slice(i + 1)).trim() !== '';
   });
 }
-
-// ── Nhóm bảng hàng theo Thiết Kế ──
-// Bảng Thuê/Bán chia thành các dải 1N, 2N, 3N, 4N... thay cho dải theo tòa trước đây.
-
-export const NHOM_DAP_THONG = 'Đập thông';
-export const NHOM_CHUA_RO   = 'Chưa rõ';
-
-// Thiết Kế của một căn -> nhãn dải. "2PN"/"2N"/"2 pn" đều về "2N" (chữ user dùng khi nói
-// về nhóm), còn kiểu không đọc ra số phòng ngủ thì GIỮ NGUYÊN chữ đã nhập: "Duplex",
-// "2N1VS" là thiết kế thật, gom bừa vào 2N là nói sai căn đó có gì.
-export function nhanNhomThietKe(val) {
-  const s = (val || '').toString().trim();
-  if (!s) return NHOM_CHUA_RO;
-  const m = s.match(/^(\d+)\s*(?:pn|n)$/i);
-  return m ? `${m[1]}N` : s;
-}
-
-// Hạng của một nhãn dải: [bậc, giá trị so trong bậc].
-function hangNhom(nhan) {
-  if (nhan === NHOM_CHUA_RO) return [3, 0];
-  if (nhan === NHOM_DAP_THONG) return [1, 0];
-  const m = nhan.match(/^(\d+)N$/);
-  if (m) return [0, Number(m[1])];
-  return [2, nhan];
-}
-
-// Thứ tự dải: số phòng ngủ tăng dần (1N, 2N, 3N, 4N...), rồi Đập thông, rồi các thiết kế
-// khác xếp theo chữ cái, cuối cùng là căn chưa ghi thiết kế.
-export function soSanhNhomThietKe(a, b) {
-  const [ba, va] = hangNhom(a);
-  const [bb, vb] = hangNhom(b);
-  if (ba !== bb) return ba - bb;
-  if (typeof va === 'number' && typeof vb === 'number') return va - vb;
-  return String(va).localeCompare(String(vb), 'vi');
-}

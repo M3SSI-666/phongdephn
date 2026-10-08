@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
 import { fetchQuyCanThue, postQuyCanThue, fetchQuyCanThueCon, postQuyCanThueCon, parseThue, uploadToCloudinary, parseSearchQuery } from '../utils/api';
-import { normalizeThietKe, conKey, expectOf, STATUS_GRAY, STATUS_PAUSED, KHUNG_THUE, khungConTrong, nhanNhomThietKe, soSanhNhomThietKe } from '../utils/quyCanShared';
+import { normalizeThietKe, conKey, expectOf, STATUS_GRAY, STATUS_PAUSED, KHUNG_THUE, khungConTrong } from '../utils/quyCanShared';
 import { parseBangCon, validateTagName } from '../utils/conTagState';
 import { maCanTrucMatch, maCanTangInRange, normalizeTruc, tangToNumber, numberToTang } from '../utils/maCan';
 import { resolveKhu } from '../utils/khuToa';
@@ -497,10 +497,19 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
   });
   canApplyRemoteRef.current = canApplyRemote;
 
-  // Dải phân cách trong bảng gom theo THIẾT KẾ (1N, 2N, 3N, 4N...) chứ không theo tòa nữa.
-  // Tòa vẫn đọc được ngay trên Mã Căn của từng hàng, còn số phòng ngủ mới là thứ khách hỏi
-  // đầu tiên, nên gom theo nó thì lướt bảng nhanh hơn.
+  // Thứ tự tòa cố định: T01-T11, P01-P03, T18(=P04), P05-P12
+  const TOA_ORDER = [
+    'T01','T02','T03','T04','T05','T06','T07','T08','T09','T10','T11',
+    'P01','P02','P03','T18','P05','P06','P07','P08',
+    'P09','P10','P11','P12',
+  ];
+  const TOA_LABEL = { T18: 'T18 (P04)' }; // T18 hiển thị là P04
+
   const grouped = useMemo(() => {
+    function parsePN(thietKe) {
+      const m = (thietKe || '').match(/(\d+)\s*[Pp][Nn]/);
+      return m ? parseInt(m[1]) : 99;
+    }
     // Dùng chung bộ đọc với bộ lọc diện tích, nếu không thì sắp xếp và lọc bất đồng:
     // cách cũ biến "75 + 25" thành 7525 và "106m2" thành 108.
     const parseDT = dt => parseDienTich(dt) ?? 0;
@@ -508,9 +517,9 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     // XẾP HẠNG top N — hai việc khác nhau, xem chú thích ở khối top bên dưới.
     const giaSort = item => effGia(item) ?? 99999;
 
-    // Chế độ "top N giá tốt": bỏ nhóm theo thiết kế, trả về MỘT khối xếp hạng chung.
-    // Nhóm ở đây là sai ý — top 15 rẻ nhất là so toàn bộ kết quả với nhau,
-    // chứ không phải rẻ nhất trong từng nhóm.
+    // Chế độ "top N giá tốt": bỏ nhóm theo tòa, trả về MỘT khối xếp hạng chung.
+    // Nhóm theo tòa ở đây là sai ý — top 15 rẻ nhất là so toàn bộ kết quả với nhau,
+    // chứ không phải rẻ nhất trong từng tòa.
     //
     // Bên Thuê xếp theo GIÁ THUÊ/THÁNG chứ không phải giá chia diện tích: khách thuê
     // hỏi theo ngân sách hàng tháng ("tôi có 15tr"), không hỏi theo đơn giá m².
@@ -524,20 +533,29 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
 
     const map = new Map();
     for (const item of filtered) {
-      const key = nhanNhomThietKe(item.Thiet_Ke);
+      const m = (item.Ma_Can||'').toUpperCase().match(/^([A-Z]+\d{1,2})/);
+      const key = m ? m[1] : '—';
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(item);
     }
     const entries = Array.from(map.entries());
     entries.forEach(([, arr]) => {
-      // Trong một dải thì số phòng ngủ đã như nhau, nên bỏ luôn vế so theo PN của bản cũ.
       arr.sort((a, b) => {
+        const pn = parsePN(a.Thiet_Ke) - parsePN(b.Thiet_Ke);
+        if (pn !== 0) return pn;
         const gia = giaSort(a) - giaSort(b);
         if (gia !== 0) return gia;
         return parseDT(b.Dien_Tich) - parseDT(a.Dien_Tich);
       });
     });
-    return entries.sort(([a], [b]) => soSanhNhomThietKe(a, b));
+    return entries.sort(([a],[b]) => {
+      const ia = TOA_ORDER.indexOf(a);
+      const ib = TOA_ORDER.indexOf(b);
+      if (ia === -1 && ib === -1) return a.localeCompare(b);
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
   }, [filtered, aiFilter]);
 
   // ── AI Search ──
@@ -986,16 +1004,16 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                     ? 'Bảng con này chưa có căn. Vào tab "Tất cả", bấm 🏷 ở căn muốn lưu để chuyển vào đây.'
                     : (items.length === 0 ? 'Chưa có căn nào. Bấm "+ Thêm Căn" để bắt đầu.' : 'Không tìm thấy')}
                 </td></tr>
-              ) : grouped.map(([nhom, nhomItems]) => (
+              ) : grouped.map(([toa, toaItems]) => (
                 <>
-                  {/* Dải phân cách theo thiết kế */}
-                  <tr key={`header-${nhom}`}>
-                    <td colSpan={headers.length} style={st.nhomHeader}>
-                      <span style={st.nhomLabel}>{nhom}</span>
+                  {/* Header tòa */}
+                  <tr key={`header-${toa}`}>
+                    <td colSpan={headers.length} style={st.toaHeader}>
+                      <span style={st.toaLabel}>{toa}</span>
                     </td>
                   </tr>
-                  {/* Các căn trong dải */}
-                  {nhomItems.map((item, rank) => {
+                  {/* Các căn trong tòa */}
+                  {toaItems.map((item, rank) => {
                     const rawMau = cleanMauMaCan(item.Mau_Ma_Can); // bỏ màu trạng thái đã loại (đỏ cũ)
                     // Tab "Tất cả": chỉ giữ màu trạng thái công ty (xám/vàng); bỏ màu user tự tô.
                     const mau = viewingCon ? rawMau : (STATUS_COLORS.has(rawMau) ? rawMau : '');
@@ -1582,8 +1600,8 @@ const st = {
   tr:          { borderBottom:'1.5px solid rgba(255,255,255,0.22)', transition:'background 0.12s' },
   td:          { padding:'8px 8px', verticalAlign:'middle', fontSize:13, borderRight:D, color:'#e2e8f0' },
   emptyTd:     { textAlign:'center', padding:40, color:'#8a9bb8', fontSize:14 },
-  nhomHeader:  { background:'#EF4444', padding:'7px 0', textAlign:'center', borderTop:'1px solid rgba(255,255,255,0.18)', borderBottom:'1px solid rgba(255,255,255,0.18)' },
-  nhomLabel:   { fontWeight:700, fontSize:13, color:'#fff', letterSpacing:3, textTransform:'uppercase' },
+  toaHeader:   { background:'#EF4444', padding:'7px 0', textAlign:'center', borderTop:'1px solid rgba(255,255,255,0.18)', borderBottom:'1px solid rgba(255,255,255,0.18)' },
+  toaLabel:    { fontWeight:700, fontSize:13, color:'#fff', letterSpacing:3, textTransform:'uppercase' },
   actionBtn:   { background:'none', border:'none', cursor:'pointer', fontSize:16, padding:'4px 6px', borderRadius:6, color:C.textMuted },
   overlay:     { position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 },
   modal:       { background:'#fff', borderRadius:16, width:620, maxWidth:'100%', maxHeight:'92vh', display:'flex', flexDirection:'column', boxShadow:C.shadowLg, animation:'ctSlideUp 0.25s ease', overflow:'hidden' },
