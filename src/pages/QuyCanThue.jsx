@@ -416,12 +416,20 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
   const canEditMain = role === 'admin';
   const canEdit = viewingCon || canEditMain;
 
-  const filtered = useMemo(() => {
-    // Tab con → lấy dữ liệu từ sheet con, lọc theo tag đang chọn.
-    // Tab Tất cả → phản chiếu bảng hàng chính công ty.
-    let list = viewingCon
+  // Danh sách gốc của tab đang mở, TRƯỚC mọi bộ lọc.
+  // Tab con → lấy dữ liệu từ sheet con, lọc theo tag đang chọn.
+  // Tab Tất cả → phản chiếu bảng hàng chính công ty.
+  // Tách ra để ô tìm mã căn soi đúng danh sách này: bảng con giữ được căn mà bảng chính
+  // công ty đã bỏ đi, nên soi nhầm vào `items` là báo "không tìm thấy" đúng cái căn đang
+  // nằm ngay trên màn hình.
+  const baseList = useMemo(() => (
+    viewingCon
       ? conItems.filter(it => parseBangCon(it.Bang_Con).includes(activeTag))
-      : [...items];
+      : items
+  ), [viewingCon, conItems, activeTag, items]);
+
+  const filtered = useMemo(() => {
+    let list = [...baseList];
     if (aiFilter) {
       // Tìm exact mã căn — không fallback sang lọc tòa
       if (aiFilter._exactMaCan) {
@@ -447,7 +455,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     if (hideRented) list = list.filter(it => cleanMauMaCan(it.Mau_Ma_Can) !== STATUS_RENTED);
     if (hidePaused) list = list.filter(it => cleanMauMaCan(it.Mau_Ma_Can) !== STATUS_PAUSED);
     return list;
-  }, [items, conItems, viewingCon, activeTag, aiFilter, hideRented, hidePaused]);
+  }, [baseList, aiFilter, hideRented, hidePaused]);
 
   // Danh sách tag: mặc định + tuỳ chỉnh + tag đang có trong dữ liệu. Kèm số lượng căn mỗi tag.
   const { allTags, tagCounts } = useMemo(() => {
@@ -609,7 +617,9 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     const q = aiQuery.trim().toUpperCase().replace(/\s+/g, '');
     const looksLikeFullCode = /^[A-Z]{1,2}\d{1,2}[\dA-Z\-]{2,}/.test(q);
     if (looksLikeFullCode) {
-      const exactMatch = items.some(it => (it.Ma_Can||'').toUpperCase().replace(/\s+/g,'') === q);
+      // Soi baseList chứ không phải items: đang ở tab con thì bảng đang hiện là bảng con,
+      // và bảng con giữ được căn mà bảng chính đã bỏ.
+      const exactMatch = baseList.some(it => (it.Ma_Can||'').toUpperCase().replace(/\s+/g,'') === q);
       if (exactMatch) {
         setAiFilter({ _exactMaCan: q });
       } else {
