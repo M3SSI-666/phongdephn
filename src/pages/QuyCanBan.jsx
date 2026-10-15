@@ -153,7 +153,13 @@ function buildCustomerMessage(item) {
   const tk = thietKeText(item.Thiet_Ke);
   if (tk) lines.push(`- Thiết kế: ${tk}`);
   const dt = (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim();
-  if (dt) lines.push(`- Diện tích: ${dt} m²`);
+  // Slot xe bám vào dòng Diện tích thay vì có dòng riêng — tin bán chỉ còn 4 dòng, thêm
+  // một dòng cho mỗi thứ lẻ là dài ra vô ích.
+  // Không slot thì IM LẶNG: đây là tin chào hàng, kể ra thứ căn không có là tự dìm hàng.
+  // Điều kiện lấy đúng luật của cột Slot Xe trong bảng — "2" (căn đập thông) cũng là có,
+  // chỉ "Không"/rỗng mới là không.
+  const coSlot = item.Slot_Xe && item.Slot_Xe !== 'Không';
+  if (dt) lines.push(`- Diện tích: ${dt} m²${coSlot ? ' (có slot xe)' : ''}`);
   // Bán thì GIỮ hướng ban công, khác tin cho thuê đã bỏ: người mua ở lâu dài nên hướng
   // là thứ họ cân nhắc ngay, nói trước đỡ mất một vòng hỏi lại.
   const hbc = huongText(item.Huong_BC);
