@@ -133,16 +133,15 @@ function huongText(val) {
   return s;
 }
 
-// Ghép Nội Thất + Slot Xe thành câu "Hiện trạng".
-function hienTrangText(item) {
-  const nt = normalizeNoiThat(item.Noi_That);
-  const parts = [];
-  if (nt) parts.push(nt);
-  // Không slot thì IM LẶNG, không viết "không có slot xe". Đây là tin đi chào hàng: kể ra
-  // thứ căn không có là tự dìm hàng, mà khách cần slot thì kiểu gì cũng hỏi.
-  // Hệ quả: căn không nội thất và không slot sẽ không có dòng "Hiện trạng" nào cả — đúng ý.
-  if (item.Slot_Xe === 'Có') parts.push('có slot xe');
-  return parts.join(', ');
+// Slot xe bám vào dòng Diện tích, không nằm ở "Hiện trạng" nữa — giống hệt tin bán.
+// Không slot thì IM LẶNG: đây là tin chào hàng, kể ra thứ căn không có là tự dìm hàng,
+// mà khách cần slot thì kiểu gì cũng hỏi.
+// Điều kiện lấy đúng luật của cột Slot Xe trong bảng: chỉ "Không"/rỗng mới là không có.
+function dienTichText(item) {
+  const dt = (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim();
+  if (!dt) return '';
+  const coSlot = item.Slot_Xe && item.Slot_Xe !== 'Không';
+  return `${dt} m²${coSlot ? ' (có slot xe)' : ''}`;
 }
 
 // Viết đầy đủ giá cho tin nhắn: "15tr" -> "15 triệu/tháng"; "17,5 tr" -> "17,5 triệu/tháng";
@@ -177,9 +176,10 @@ function buildCustomerMessage(item) {
   const lines = [header];
   const tk = thietKeText(item.Thiet_Ke);
   if (tk) lines.push(`- Thiết kế: ${tk}`);
-  const dt = (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim();
-  if (dt) lines.push(`- Diện tích: ${dt} m²`);
-  const ht = hienTrangText(item);
+  const dt = dienTichText(item);
+  if (dt) lines.push(`- Diện tích: ${dt}`);
+  // "Hiện trạng" giờ chỉ còn nói về nội thất, slot đã chuyển lên dòng Diện tích.
+  const ht = normalizeNoiThat(item.Noi_That);
   if (ht) lines.push(`- Hiện trạng: ${ht}`);
   const gia = giaText(item.Gia_Net || item.Gia); // ưu tiên giá nét (giá đã làm với chủ) nếu có
   if (gia) lines.push(`- Giá: ${gia}`);
@@ -199,9 +199,10 @@ function buildSalesMessage(item) {
   const lines = [header];
   const tk = thietKeText(item.Thiet_Ke);
   if (tk) lines.push(`- Thiết kế: ${tk}`);
-  const dt = (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim();
-  if (dt) lines.push(`- Diện tích: ${dt} m²`);
-  const ht = hienTrangText(item);
+  const dt = dienTichText(item);
+  if (dt) lines.push(`- Diện tích: ${dt}`);
+  // "Hiện trạng" giờ chỉ còn nói về nội thất, slot đã chuyển lên dòng Diện tích.
+  const ht = normalizeNoiThat(item.Noi_That);
   if (ht) lines.push(`- Hiện trạng: ${ht}`);
   const gia = giaText(item.Gia_Net || item.Gia); // ưu tiên giá nét (giá đã làm với chủ) nếu có
   if (gia) lines.push(`- Giá: ${gia}`);
