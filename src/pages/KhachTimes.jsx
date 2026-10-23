@@ -642,7 +642,9 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   // thấy" lấy được số cột THẬT — trước đây colSpan là số viết tay, thêm bớt cột là lệch.
   // Cộng 1 cho cột tay cầm kéo-thả nằm ngoài mảng này.
   const cols = useMemo(() => [
-    { h: 'Ngày PS', w: 80 }, { h: 'Tên (Zalo)', w: 110 },
+    // Tên (Zalo) rộng hơn ở Khách thuê/Khách bán, lấy lại đúng chỗ của hai cột Cọc và
+    // Thu về vừa bỏ bên dưới — tên Zalo hay dài và đang bị xuống dòng.
+    { h: 'Ngày PS', w: 80 }, { h: 'Tên (Zalo)', w: isHomestayTab ? 110 : 280 },
     { h: 'SĐT', w: 100 }, { h: 'Nhu cầu', w: 80 }, { h: 'PN', w: 44 },
     ...(isHomestayTab ? [] : [{ h: 'Diện tích', w: 80 }]),
     ...(isBanTab ? [{ h: 'Tầng', w: 60 }, { h: 'Ban công', w: 70 }, { h: 'Cửa', w: 70 }] : []),
@@ -653,10 +655,12 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
     ...(isHomestayTab
       ? [{ h: 'Căn Lock', w: 130 }, { h: 'Trạng thái', w: 120 }, { h: 'Tổng tiền', w: 120 }]
       : [{ h: 'Tài chính', w: 90 }, { h: 'Căn tư vấn', w: 160 }, { h: 'Trạng thái', w: 120 }]),
+    // Nhóm tiền chỉ còn ở Homestay. Khách thuê/Khách bán bỏ hẳn Cọc và Thu về.
     ...(isHomestayTab
-      ? [{ h: 'Khách cọc', w: 80 }, { h: 'Cọc Host', w: 80 }, { h: 'Host', w: 100 }, { h: 'Khu vực', w: 90 }]
-      : [{ h: 'Cọc', w: 80 }]),
-    { h: 'Thu về', w: 90 }, { h: 'Ghi chú', w: 220 }, { h: '', w: 64 },
+      ? [{ h: 'Khách cọc', w: 80 }, { h: 'Cọc Host', w: 80 }, { h: 'Host', w: 100 },
+         { h: 'Khu vực', w: 90 }, { h: 'Thu về', w: 90 }]
+      : []),
+    { h: 'Ghi chú', w: 220 }, { h: '', w: 64 },
   ], [isHomestayTab, isBanTab]);
   const soCot = cols.length + 1;
 
@@ -1672,10 +1676,13 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                           </td>
                         </>
                       )}
-                      {/* Cọc (khách) */}
-                      <td style={{ ...s.td, textAlign: 'center', fontSize: 12 }}>{item.Coc}</td>
+                      {/* Cọc / Thu về chỉ còn ở Homestay — hai tab kia theo dõi tiền ở chỗ
+                          khác, để lại hai cột rỗng chỉ tốn bề ngang của cột Tên. Dữ liệu
+                          vẫn còn nguyên, vẫn sửa được trong form. */}
                       {isHomestayTab && (
                         <>
+                          {/* Cọc (khách) */}
+                          <td style={{ ...s.td, textAlign: 'center', fontSize: 12 }}>{item.Coc}</td>
                           {/* Cọc Host */}
                           <td style={{ ...s.td, textAlign: 'center', fontSize: 12 }}>{item.Coc_Host}</td>
                           {/* Host */}
@@ -1683,10 +1690,10 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
                           {/* Khu vực — qua khuOf chứ không đọc thẳng item.Khu_Vuc, để khách cũ
                               (ô rỗng) hiện "Times" giống số đếm trên chip lọc phía trên. */}
                           <td style={{ ...s.td, textAlign: 'center', fontSize: 12, fontWeight: 700, color: khuMau[khuOf(item)] || KHU_MAU[0] }}>{khuOf(item)}</td>
+                          {/* Thu về */}
+                          <td style={{ ...s.td, textAlign: 'center', fontWeight: 700, color: '#38b274', fontSize: 12 }}>{item.Thu_Ve}</td>
                         </>
                       )}
-                      {/* Thu về */}
-                      <td style={{ ...s.td, textAlign: 'center', fontWeight: 700, color: '#38b274', fontSize: 12 }}>{item.Thu_Ve}</td>
                       <td style={{ ...s.td, whiteSpace: 'pre-line', color: '#a3e635', fontSize: 12 }}>{item.Ghi_Chu}</td>
                       <td style={{ ...s.td, whiteSpace: 'nowrap', borderRight: 'none' }}>
                         <button onClick={() => openEdit(item)} style={s.actionBtn} title="Sửa">&#9998;</button>
