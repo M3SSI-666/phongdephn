@@ -463,3 +463,14 @@ export async function postTelegramCauHinh(payload) {
   }
   return res.json();
 }
+
+// Dò nhóm bot đang ở trong. Chỉ thấy nhóm có hoạt động trong 24h qua — giới hạn của
+// Telegram, không phải của mình (xem ghi chú trong api/telegram.js).
+export async function quetTelegramNhom() {
+  const res = await fetch(`/api/telegram?sheet=quet&t=${Date.now()}`, { cache: 'no-store' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Quét nhóm thất bại (${res.status})`);
+  }
+  return res.json();
+}

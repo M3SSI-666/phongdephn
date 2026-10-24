@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { C } from '../utils/theme';
 import {
-  fetchTelegramNhom, postTelegramNhom,
+  fetchTelegramNhom, postTelegramNhom, quetTelegramNhom,
   fetchTelegramCauHinh, postTelegramCauHinh,
 } from '../utils/api';
 
@@ -27,6 +27,10 @@ export default function TelegramSettingsModal({ onClose, showToast }) {
   const [tenMoi, setTenMoi] = useState('');
   const [idMoi, setIdMoi] = useState('');
   const [luuNhom, setLuuNhom] = useState(false);
+
+  const [timThay, setTimThay] = useState([]);   // nhóm quét ra được
+  const [daQuet, setDaQuet] = useState(false);  // để phân biệt "chưa quét" với "quét ra 0 nhóm"
+  const [dangQuet, setDangQuet] = useState(false);
 
   const tai = useCallback(async () => {
     setDangTai(true);
@@ -63,6 +67,25 @@ export default function TelegramSettingsModal({ onClose, showToast }) {
       await postTelegramCauHinh({ action: 'delete-token' });
       await tai();
       showToast('Đã xoá token bot');
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  async function quet() {
+    setDangQuet(true);
+    try {
+      const ds = await quetTelegramNhom();
+      setTimThay(Array.isArray(ds) ? ds : []);
+      setDaQuet(true);
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { setDangQuet(false); }
+  }
+
+  // Thêm thẳng từ kết quả quét, lấy luôn tên nhóm Telegram đang đặt.
+  async function themTuQuet(t) {
+    try {
+      await postTelegramNhom({ action: 'add', Ten_Nhom: t.Ten_Nhom, Chat_Id: t.Chat_Id });
+      await tai();
+      showToast(`Đã thêm nhóm ${t.Ten_Nhom}`);
     } catch (e) { showToast(e.message, 'error'); }
   }
 
@@ -149,7 +172,33 @@ export default function TelegramSettingsModal({ onClose, showToast }) {
                 </div>
               ))}
 
+              {/* Quét trước, gõ tay sau: gõ chat ID bằng tay vừa lâu vừa dễ sai một chữ số. */}
+              <button onClick={quet} disabled={dangQuet} style={s.quetBtn}>
+                {dangQuet ? 'Đang quét...' : '🔍 Quét nhóm bot đang ở trong'}
+              </button>
+
+              {daQuet && timThay.length === 0 && (
+                <div style={s.hint}>
+                  Không thấy nhóm nào. Telegram chỉ giữ dữ liệu 24 giờ — hãy thêm bot vào
+                  nhóm, nhắn một tin bất kỳ trong nhóm đó, rồi quét lại.
+                </div>
+              )}
+
+              {timThay.map(t => {
+                const daCo = nhom.some(n => n.Chat_Id === t.Chat_Id);
+                return (
+                  <div key={t.Chat_Id} style={s.nhomRow}>
+                    <span style={{ flex: 1, fontSize: 13 }}>{t.Ten_Nhom}</span>
+                    <span style={{ fontSize: 11, color: '#6b7a94' }}>{t.Chat_Id}</span>
+                    {daCo
+                      ? <span style={{ fontSize: 11, color: '#38b274', fontWeight: 700 }}>đã có</span>
+                      : <button onClick={() => themTuQuet(t)} style={s.themNhanhBtn}>+ Thêm</button>}
+                  </div>
+                );
+              })}
+
               <div style={s.themBox}>
+                <div style={s.hint}>Hoặc nhập tay:</div>
                 <input value={tenMoi} onChange={e => setTenMoi(e.target.value)}
                   placeholder="Tên nhóm (VD: B - 1PN)" style={s.input} />
                 <input value={idMoi} onChange={e => setIdMoi(e.target.value)}
@@ -184,6 +233,8 @@ const s = {
   nhomRow:      { display:'flex', alignItems:'center', gap:8, padding:'7px 0', borderBottom:'1px solid #2a2f45' },
   themBox:      { display:'flex', flexDirection:'column', gap:8, marginTop:12 },
   input:        { padding:'9px 12px', border:'1.5px solid #3a3f52', borderRadius:8, background:'#1e2130', color:'#e2e8f0', fontSize:13, fontFamily:F, outline:'none' },
+  quetBtn:      { width:'100%', marginBottom:10, padding:'9px 14px', borderRadius:9, border:'1.5px solid #38bdf8', background:'transparent', color:'#38bdf8', fontSize:12.5, fontWeight:700, cursor:'pointer', fontFamily:F },
+  themNhanhBtn: { padding:'5px 11px', borderRadius:7, border:'none', background:'linear-gradient(135deg,#38b274,#2a8a5a)', color:'#fff', fontSize:11.5, fontWeight:700, cursor:'pointer', fontFamily:F },
   luuBtn:       { marginTop:8, padding:'9px 18px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#38b274,#2a8a5a)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F },
   xoaBtn:       { padding:'5px 9px', borderRadius:7, border:'1.5px solid #3a3f52', background:'none', color:C.error, fontSize:12, cursor:'pointer', fontFamily:F },
   hint:         { fontSize:11, color:'#6b7a94', lineHeight:1.7, marginTop:10 },

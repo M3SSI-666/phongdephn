@@ -52,11 +52,13 @@ export default async function handler(req, res) {
     const sheet = req.query?.sheet || req.body?.sheet;
     const laNhom = sheet === 'nhom';
     const laCauHinh = sheet === 'cauhinh';
+    const laQuet = sheet === 'quet';
 
     if (req.method === 'GET') {
       if (laNhom)    return nhomGet(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
       if (laCauHinh) return cauHinhGet(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
-      return res.status(400).json({ error: 'GET chỉ dùng cho ?sheet=nhom hoặc ?sheet=cauhinh' });
+      if (laQuet)    return quetNhom(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
+      return res.status(400).json({ error: 'GET chỉ dùng cho ?sheet=nhom, cauhinh hoặc quet' });
     }
     if (req.method === 'POST') {
       if (laNhom)    return nhomPost(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
@@ -235,6 +237,50 @@ async function taoSheet(sheetId, token, ten, headers, oTieuDe) {
 }
 
 const taoNhomSheet = (sheetId, token) => taoSheet(sheetId, token, NHOM_SHEET, NHOM_HEADERS, 'A1:B1');
+
+// ============ Quét nhóm (?sheet=quet) ============
+
+// Dò các nhóm bot đang ở trong, để khỏi phải đi lấy chat ID bằng tay.
+//
+// Bot API KHÔNG có hàm liệt kê nhóm ("The Bot API does not provide a method to list all
+// chats or groups a bot is a member of") — cách duy nhất là đọc getUpdates rồi nhặt chat
+// ra từ các sự kiện. Kéo theo hai giới hạn phải nói rõ cho người dùng:
+//   - Telegram chỉ giữ update trong 24 GIỜ, nên nhóm im lặng quá một ngày sẽ không hiện.
+//   - getUpdates không chạy được khi bot đã cài webhook.
+async function quetNhom(req, res, sheetId, email, key) {
+  const TOKEN = (await docToken(sheetId, email, key)) || process.env.TELEGRAM_BOT_TOKEN;
+  if (!TOKEN) return res.status(400).json({ error: 'Chưa có token bot — điền token trước đã.' });
+
+  // KHÔNG truyền offset: có offset là báo Telegram "đã nhận xong", nó xoá update khỏi
+  // hàng đợi. Quét là việc chỉ đọc, không được phép làm mất dữ liệu của lần quét sau.
+  // timeout 0 = trả về ngay, hợp với serverless (không ngồi chờ long-poll).
+  const r = await goiTelegram(TOKEN, 'getUpdates', { limit: 100, timeout: 0 });
+  if (!r.ok) {
+    if (/webhook/i.test(r.detail)) {
+      return res.status(400).json({
+        error: 'Bot đang cài webhook nên không quét được. Gỡ webhook rồi quét lại, hoặc nhập chat ID tay.',
+      });
+    }
+    return res.status(502).json({ error: `Telegram từ chối: ${r.detail}` });
+  }
+
+  const thay = new Map();
+  for (const up of r.data?.result || []) {
+    // my_chat_member là sự kiện bot được thêm/gỡ khỏi nhóm — đúng thứ cần nhất.
+    // Mấy cái còn lại để bắt cả nhóm chỉ có tin nhắn thường trong 24h qua.
+    const chat = up.my_chat_member?.chat || up.message?.chat || up.channel_post?.chat
+      || up.edited_message?.chat || up.chat_member?.chat;
+    if (!chat) continue;
+    // Bỏ chat 1-1 với người: đây là tính năng đẩy hàng vào nhóm, không phải nhắn riêng.
+    if (!['group', 'supergroup', 'channel'].includes(chat.type)) continue;
+    thay.set(String(chat.id), {
+      Chat_Id:  String(chat.id),
+      Ten_Nhom: (chat.title || '').trim() || String(chat.id),
+      Loai:     chat.type,
+    });
+  }
+  return res.status(200).json([...thay.values()]);
+}
 
 // ============ Cấu hình (?sheet=cauhinh) ============
 
