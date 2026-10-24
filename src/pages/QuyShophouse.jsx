@@ -2,8 +2,27 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
 import { fetchQuyShophouse, postQuyShophouse, parseSearchQuery } from '../utils/api';
+import TelegramModal from '../components/TelegramModal';
+import TelegramSettingsModal from '../components/TelegramSettingsModal';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
+
+// Tin gửi khách cho 1 shophouse. Ô nào trống thì bỏ hẳn dòng đó, giống các bảng quỹ căn khác:
+// để lại nhãn cụt trong tin đi chào hàng trông như tin soạn dở.
+function buildCustomerMessage(item) {
+  const lines = [`Thông tin shophouse ${item.Ma_Can || ''}:`];
+  const add = (nhan, v) => { const s = (v || '').toString().trim(); if (s) lines.push(`- ${nhan}: ${s}`); };
+  add('Vị trí', item.Vi_Tri);
+  const dt = (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim();
+  if (dt) lines.push(`- Diện tích: ${dt} m²`);
+  const mt = (item.Mat_Tien || '').replace(/\s*m$/i, '').trim();
+  if (mt) lines.push(`- Mặt tiền: ${mt} m`);
+  add('Tầng', item.Tang);
+  add('Hiện trạng', item.TT);
+  add('Giá', item.Gia);
+  return lines.join('\n');
+}
+
 
 function getTodayStr() {
   const d = new Date();
@@ -69,6 +88,8 @@ function QuyShophouseInner({ overrideUserId, overrideRole, isViewAs = false } = 
   const [form, setForm]             = useState({ ...EMPTY_FORM });
   const [toast, setToast]           = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [telegramFor, setTelegramFor] = useState(null);   // căn đang chọn nhóm Telegram
+  const [showTelegram, setShowTelegram] = useState(false); // hộp cấu hình Telegram
   const toastTimer = useRef(null);
 
   useEffect(() => {
@@ -273,6 +294,7 @@ function QuyShophouseInner({ overrideUserId, overrideRole, isViewAs = false } = 
           <button onClick={loadData} disabled={loading} style={st.reloadBtn} className="sh-btn" title="Tải lại">
             {loading ? '...' : '↻'}
           </button>
+          {role === 'admin' && <button onClick={() => setShowTelegram(true)} style={st.telegramBtn} className="sh-btn" title="Cấu hình Telegram">✈ Telegram</button>}
         </div>
         {/* Import Log — bên phải header */}
         <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', flex:1, justifyContent:'flex-end' }}>
@@ -371,6 +393,7 @@ function QuyShophouseInner({ overrideUserId, overrideRole, isViewAs = false } = 
                   <td style={{ ...st.td, fontSize: 12 }}>{item.Pass}</td>
                   <td style={{ ...st.td, maxWidth: 180, fontSize: 12, color: C.textMuted, whiteSpace: 'pre-line' }}>{item.Ghi_Chu}</td>
                   <td style={{ ...st.td, whiteSpace: 'nowrap', borderRight: 'none' }}>
+                    <button onClick={() => setTelegramFor(item)} style={{ ...st.actionBtn, color: '#38bdf8' }} title="Gửi sang nhóm Telegram">&#9992;</button>
                     <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>
                     <button onClick={() => setDeleteTarget(item)} style={{ ...st.actionBtn, color: C.error }} title="Xoá">&#128465;</button>
                   </td>
@@ -457,7 +480,25 @@ function QuyShophouseInner({ overrideUserId, overrideRole, isViewAs = false } = 
         </div>
       )}
 
-      {/* Delete confirm */}
+      {/* Sheet Shophouse không có cột Hình Ảnh (19 cột, xem api/quyshophouse.js), nên ép
+          Hinh_Anh rỗng để hộp gửi nói thẳng "chỉ gửi phần chữ", thay vì im lặng gửi
+          thiếu ảnh rồi để người gửi tưởng nhóm đã nhận đủ. */}
+      {telegramFor && (
+        <TelegramModal
+          item={{ ...telegramFor, Hinh_Anh: '' }}
+          message={buildCustomerMessage(telegramFor)}
+          onClose={() => setTelegramFor(null)}
+          showToast={showToast}
+        />
+      )}
+
+      {showTelegram && (
+        <TelegramSettingsModal
+          onClose={() => setShowTelegram(false)}
+          showToast={showToast}
+        />
+      )}
+
       {deleteTarget && (
         <div style={st.overlay} onClick={(e) => { if (e.target === e.currentTarget) setDeleteTarget(null); }}>
           <div style={st.confirmBox}>
@@ -517,6 +558,7 @@ const colDivider = '1.5px solid #2d3240';
 
 const st = {
   addBtn: { background: C.gradient, color: '#fff', border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: F, boxShadow: C.shadowGreen, transition: 'all 0.15s', whiteSpace: 'nowrap' },
+  telegramBtn: { padding: '9px 16px', border: '1.5px solid #38bdf8', borderRadius: 10, background: 'transparent', color: '#38bdf8', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: F, whiteSpace: 'nowrap' },
   reloadBtn: { background: '#22263a', border: '1.5px solid #3a3f52', borderRadius: 10, width: 40, height: 40, fontSize: 20, color: C.primary, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontFamily: F },
   searchInput: { width: '100%', padding: '10px 36px', border: '1.5px solid #3a3f52', borderRadius: 10, fontSize: 13, fontFamily: F, outline: 'none', background: '#1e2130', color: '#e2e8f0', boxSizing: 'border-box' },
   clearBtn: { position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', fontSize: 18, color: '#8a9bb8', cursor: 'pointer', padding: '0 4px' },

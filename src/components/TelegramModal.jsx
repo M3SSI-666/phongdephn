@@ -14,10 +14,9 @@ const MEDIA_MOI_ALBUM = 10;
  * không ai lỡ tay đụng vào cấu hình dùng chung của cả công ty.
  *
  * item    — căn đang gửi
- * bang    — 'ban' | 'thue', mỗi bảng một danh sách nhóm riêng
  * message — tin gửi khách, dựng sẵn ở trang gọi (mỗi bảng một cách dựng khác nhau)
  */
-export default function TelegramModal({ item, bang, message, onClose, showToast }) {
+export default function TelegramModal({ item, message, onClose, showToast }) {
   const [nhom, setNhom] = useState([]);
   const [dangTai, setDangTai] = useState(true);
   const [dangGui, setDangGui] = useState(false);
@@ -30,14 +29,14 @@ export default function TelegramModal({ item, bang, message, onClose, showToast 
     setDangTai(true);
     try {
       const data = await fetchTelegramNhom();
-      setNhom((Array.isArray(data) ? data : []).filter(n => n.Bang === bang));
+      setNhom(Array.isArray(data) ? data : []);
       setLoi('');
     } catch (e) {
       setLoi(e.message);
     } finally {
       setDangTai(false);
     }
-  }, [bang]);
+  }, []);
 
   useEffect(() => { taiNhom(); }, [taiNhom]);
 
@@ -88,7 +87,7 @@ export default function TelegramModal({ item, bang, message, onClose, showToast 
 
         {!dangTai && !loi && nhom.length === 0 && (
           <div style={s.info}>
-            Chưa có nhóm nào cho bảng này. Thêm ở nút <b>✈ Telegram</b> trên thanh công cụ.
+            Chưa khai báo nhóm nào. Thêm ở nút <b>✈ Telegram</b> trên thanh công cụ.
           </div>
         )}
 

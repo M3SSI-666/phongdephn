@@ -1322,7 +1322,6 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       {telegramFor && (
         <TelegramModal
           item={telegramFor}
-          bang="thue"
           message={buildCustomerMessage(telegramFor)}
           onClose={() => setTelegramFor(null)}
           showToast={showToast}

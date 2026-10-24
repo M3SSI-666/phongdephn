@@ -10,9 +10,15 @@ import crypto from 'crypto';
 // nhắn được vào mọi nhóm bot đang ở trong. Chat ID thì không phải bí mật — không có
 // token thì biết chat ID cũng không làm được gì.
 
+// MỘT danh sách nhóm dùng chung cho mọi bảng quỹ căn, không chia theo bảng.
+// Bản đầu có cột Bang để mỗi bảng một danh sách riêng, nhưng mô hình đó vỡ ngay:
+// Quỹ Đập Thông vẽ bằng chính file QuyCanBan.jsx nên thừa hưởng luôn danh sách của
+// Bán — 3 bảng mà chỉ có 2 danh sách. Mà tên nhóm ("B - 1PN") đã tự nói nó thuộc dòng
+// nào rồi, nên bắt khai thêm "nhóm này của bảng nào" chỉ là một câu hỏi thừa.
+// Sheet cũ có cột C thì cứ để đó, không ai đọc tới nữa.
 const NHOM_SHEET   = 'Telegram_Nhom';
-const NHOM_COLUMNS = 'A:C';
-const NHOM_HEADERS = ['Ten_Nhom', 'Chat_Id', 'Bang'];
+const NHOM_COLUMNS = 'A:B';
+const NHOM_HEADERS = ['Ten_Nhom', 'Chat_Id'];
 
 // Token bot để SHEET RIÊNG, không nhét chung một dòng vào Telegram_Nhom: GET danh sách
 // nhóm trả cả sheet đó về cho trình duyệt, token nằm lẫn trong đó là lộ ngay.
@@ -160,16 +166,14 @@ async function nhomGet(req, res, sheetId, email, key) {
     .map(row => ({
       Ten_Nhom: (row[0] || '').trim(),
       Chat_Id:  (row[1] || '').trim(),
-      Bang:     (row[2] || '').trim(),
     }));
   return res.status(200).json(items);
 }
 
 async function nhomPost(req, res, sheetId, email, key) {
-  const { action, Ten_Nhom, Chat_Id, Bang } = req.body || {};
+  const { action, Ten_Nhom, Chat_Id } = req.body || {};
   const ten = (Ten_Nhom || '').trim();
-  const bang = (Bang || '').trim();
-  if (!ten || !bang) return res.status(400).json({ error: 'Thiếu Ten_Nhom/Bang' });
+  if (!ten) return res.status(400).json({ error: 'Thiếu Ten_Nhom' });
 
   const token = await getAccessToken(email, key, true);
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${NHOM_SHEET}!${NHOM_COLUMNS}`;
@@ -181,14 +185,13 @@ async function nhomPost(req, res, sheetId, email, key) {
   }
   const rows = r.ok ? ((await r.json()).values || []) : [];
 
-  // Tìm theo CẶP tên + bảng, không theo số dòng client gửi lên: hai người cùng sửa thì
-  // số dòng đã lệch, ghi theo số dòng là đè nhầm nhóm khác.
-  const idx = rows.findIndex((row, i) =>
-    i > 0 && (row[0] || '').trim() === ten && (row[2] || '').trim() === bang);
+  // Tìm theo TÊN nhóm, không theo số dòng client gửi lên: hai người cùng sửa thì số
+  // dòng đã lệch, ghi theo số dòng là đè nhầm nhóm khác.
+  const idx = rows.findIndex((row, i) => i > 0 && (row[0] || '').trim() === ten);
 
   if (action === 'delete') {
     if (idx === -1) return res.status(404).json({ error: 'Không tìm thấy nhóm' });
-    await ghiDong(sheetId, token, idx + 1, ['', '', '']);
+    await ghiDong(sheetId, token, idx + 1, ['', '']);
     return res.status(200).json({ ok: true });
   }
 
@@ -196,20 +199,20 @@ async function nhomPost(req, res, sheetId, email, key) {
   if (!chatId) return res.status(400).json({ error: 'Thiếu Chat_Id' });
 
   if (idx !== -1) {
-    await ghiDong(sheetId, token, idx + 1, [ten, chatId, bang]);
+    await ghiDong(sheetId, token, idx + 1, [ten, chatId]);
     return res.status(200).json({ ok: true, updated: true });
   }
 
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${NHOM_SHEET}!${NHOM_COLUMNS}:append?valueInputOption=${WRITE_MODE}&insertDataOption=INSERT_ROWS`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ values: [[ten, chatId, bang]] }),
+    body: JSON.stringify({ values: [[ten, chatId]] }),
   });
   return res.status(200).json({ ok: true, added: true });
 }
 
 async function ghiDong(sheetId, token, rowNumber, values) {
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${NHOM_SHEET}!A${rowNumber}:C${rowNumber}?valueInputOption=${WRITE_MODE}`, {
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${NHOM_SHEET}!A${rowNumber}:B${rowNumber}?valueInputOption=${WRITE_MODE}`, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ values: [values] }),
@@ -231,7 +234,7 @@ async function taoSheet(sheetId, token, ten, headers, oTieuDe) {
   });
 }
 
-const taoNhomSheet = (sheetId, token) => taoSheet(sheetId, token, NHOM_SHEET, NHOM_HEADERS, 'A1:C1');
+const taoNhomSheet = (sheetId, token) => taoSheet(sheetId, token, NHOM_SHEET, NHOM_HEADERS, 'A1:B1');
 
 // ============ Cấu hình (?sheet=cauhinh) ============
 

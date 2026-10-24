@@ -7,11 +7,6 @@ import {
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
-const BANG = [
-  { key: 'thue', label: 'Quỹ Căn Thuê' },
-  { key: 'ban',  label: 'Quỹ Căn Bán' },
-];
-
 /**
  * Cấu hình Telegram: token bot + danh sách nhóm của từng bảng.
  * Tách hẳn khỏi hộp gửi hàng, vì đây là cấu hình dùng chung cho cả công ty — sửa nhầm
@@ -29,7 +24,6 @@ export default function TelegramSettingsModal({ onClose, showToast }) {
   const [tokenMoi, setTokenMoi] = useState('');
   const [luuToken, setLuuToken] = useState(false);
 
-  const [bang, setBang] = useState('thue');
   const [tenMoi, setTenMoi] = useState('');
   const [idMoi, setIdMoi] = useState('');
   const [luuNhom, setLuuNhom] = useState(false);
@@ -77,7 +71,7 @@ export default function TelegramSettingsModal({ onClose, showToast }) {
     if (!ten || !id) return showToast('Điền cả tên nhóm và Chat ID', 'error');
     setLuuNhom(true);
     try {
-      await postTelegramNhom({ action: 'add', Ten_Nhom: ten, Chat_Id: id, Bang: bang });
+      await postTelegramNhom({ action: 'add', Ten_Nhom: ten, Chat_Id: id });
       setTenMoi(''); setIdMoi('');
       await tai();
       showToast(`Đã thêm nhóm ${ten}`);
@@ -88,13 +82,11 @@ export default function TelegramSettingsModal({ onClose, showToast }) {
   async function xoaNhom(n) {
     if (!window.confirm(`Xoá nhóm "${n.Ten_Nhom}" khỏi danh sách?\n\nChỉ xoá ở đây, nhóm trên Telegram không bị gì.`)) return;
     try {
-      await postTelegramNhom({ action: 'delete', Ten_Nhom: n.Ten_Nhom, Bang: n.Bang });
+      await postTelegramNhom({ action: 'delete', Ten_Nhom: n.Ten_Nhom });
       await tai();
       showToast(`Đã xoá nhóm ${n.Ten_Nhom}`);
     } catch (e) { showToast(e.message, 'error'); }
   }
-
-  const nhomCuaBang = nhom.filter(n => n.Bang === bang);
 
   return (
     <div style={s.overlay} onClick={onClose}>
@@ -144,21 +136,12 @@ export default function TelegramSettingsModal({ onClose, showToast }) {
             </div>
 
             {/* ── Nhóm ── */}
-            <div style={s.sectionLabel}>Nhóm nhận tin</div>
-            <div style={s.tabRow}>
-              {BANG.map(b => (
-                <button key={b.key} onClick={() => setBang(b.key)}
-                  style={{ ...s.tab, ...(bang === b.key ? s.tabActive : {}) }}>
-                  {b.label} ({nhom.filter(n => n.Bang === b.key).length})
-                </button>
-              ))}
-            </div>
-
+            <div style={s.sectionLabel}>Nhóm nhận tin ({nhom.length})</div>
             <div style={s.card}>
-              {nhomCuaBang.length === 0 && (
-                <div style={{ ...s.info, padding: '0 0 10px' }}>Chưa có nhóm nào cho bảng này.</div>
+              {nhom.length === 0 && (
+                <div style={{ ...s.info, padding: '0 0 10px' }}>Chưa khai báo nhóm nào.</div>
               )}
-              {nhomCuaBang.map(n => (
+              {nhom.map(n => (
                 <div key={n.Ten_Nhom} style={s.nhomRow}>
                   <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>{n.Ten_Nhom}</span>
                   <span style={{ fontSize: 11, color: '#6b7a94' }}>{n.Chat_Id}</span>
@@ -198,9 +181,6 @@ const s = {
   card:         { background:'#141726', border:'1px solid #2a2f45', borderRadius:10, padding:12 },
   info:         { fontSize:12.5, color:'#8a9bb8', padding:'8px 0', lineHeight:1.6 },
   tokenRow:     { display:'flex', alignItems:'center', gap:8, lineHeight:1.6 },
-  tabRow:       { display:'flex', gap:6, marginBottom:8 },
-  tab:          { padding:'7px 14px', borderRadius:9, border:'1.5px solid #3a3f52', background:'transparent', color:'#8a9bb8', fontSize:12.5, fontWeight:700, cursor:'pointer', fontFamily:F },
-  tabActive:    { background:C.primary, borderColor:C.primary, color:'#fff' },
   nhomRow:      { display:'flex', alignItems:'center', gap:8, padding:'7px 0', borderBottom:'1px solid #2a2f45' },
   themBox:      { display:'flex', flexDirection:'column', gap:8, marginTop:12 },
   input:        { padding:'9px 12px', border:'1.5px solid #3a3f52', borderRadius:8, background:'#1e2130', color:'#e2e8f0', fontSize:13, fontFamily:F, outline:'none' },

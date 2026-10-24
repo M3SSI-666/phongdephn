@@ -1379,7 +1379,6 @@ function QuyCanBanInner({
       {telegramFor && (
         <TelegramModal
           item={telegramFor}
-          bang="ban"
           message={buildCustomerMessage(telegramFor)}
           onClose={() => setTelegramFor(null)}
           showToast={showToast}
