@@ -10,6 +10,8 @@ import {
   normalizeThietKe, mapPhi, phiBaoPhi, isDateSerialGia, conKey, expectOf,
   STATUS_GRAY, STATUS_PAUSED, INVEST_COLOR, KHUNG_BAN, khungConTrong,
 } from '../utils/quyCanShared';
+import XuatCanModal from '../components/XuatCanModal';
+import { dongXuatCan, xuatDanhSach } from '../utils/xuatCan';
 import TelegramModal from '../components/TelegramModal';
 import TelegramSettingsModal from '../components/TelegramSettingsModal';
 import { parseBangCon, validateTagName } from '../utils/conTagState';
@@ -278,7 +280,10 @@ function QuyCanBanInner({
   const [activeTag, setActiveTag]   = useState(null);
   const [customTags, setCustomTags] = useState(() => { try { return JSON.parse(localStorage.getItem(tagStorageKey) || '[]'); } catch { return []; } });
   const [tagMenuFor, setTagMenuFor] = useState(null);
-  const [telegramFor, setTelegramFor] = useState(null); // căn đang chọn nhóm Telegram để gửi
+  const [telegramFor, setTelegramFor] = useState(null);
+  const [chonMode, setChonMode] = useState(false);       // bật cột tích chọn
+  const [daChon, setDaChon] = useState(() => new Set()); // _rowIndex các căn đang chọn
+  const [xuatText, setXuatText] = useState(null);        // chuỗi đã dựng -> mở hộp Xuất căn // căn đang chọn nhóm Telegram để gửi
   const [showTelegram, setShowTelegram] = useState(false); // hộp cấu hình Telegram
   const toastTimer                  = useRef(null);
 
@@ -432,8 +437,12 @@ function QuyCanBanInner({
   // Đang xem 1 tab con (bảng con) hay tab "Tất cả" (bảng chính công ty)?
   const viewingCon = activeTag !== null;
   // Cột "Giá Nét" (index 7) chỉ hiện ở tab con.
-  const headers   = viewingCon ? TABLE_HEADERS : TABLE_HEADERS.filter((_, i) => i !== 7);
-  const colWidths = viewingCon ? COL_WIDTHS    : COL_WIDTHS.filter((_, i) => i !== 7);
+  const headersGoc   = viewingCon ? TABLE_HEADERS : TABLE_HEADERS.filter((_, i) => i !== 7);
+  const colWidthsGoc = viewingCon ? COL_WIDTHS    : COL_WIDTHS.filter((_, i) => i !== 7);
+  // Bật chọn căn -> chèn thêm một cột tích ở đầu bảng. Dựng từ headersGoc chứ không sửa
+  // mảng hằng TABLE_HEADERS: mảng đó dùng chung cho nhiều bảng.
+  const headers   = chonMode ? ['', ...headersGoc]   : headersGoc;
+  const colWidths = chonMode ? [38, ...colWidthsGoc] : colWidthsGoc;
   // Bảng hàng công ty dùng chung: chỉ admin được sửa. Bảng con là kho riêng nên ai cũng sửa được.
   const canEditMain = role === 'admin';
   const canEdit = viewingCon || canEditMain;
@@ -591,6 +600,11 @@ function QuyCanBanInner({
       return ia - ib;
     });
   }, [filtered, aiFilter]);
+
+  // Đúng những căn đang hiện trên bảng, theo đúng thứ tự đó. Không dùng `filtered`:
+  // bảng vẽ theo `grouped` (đã gom theo tòa và sắp lại), và chế độ Top N còn cắt bớt
+  // danh sách — lấy `filtered` thì "chọn tất cả" vến cả căn không nằm trên màn hình.
+  const hienThi = useMemo(() => grouped.flatMap(([, arr]) => arr), [grouped]);
 
   function normalizeFilter(f, originalQuery = '') {
     const r = { ...f };
@@ -833,6 +847,39 @@ function QuyCanBanInner({
     finally { setSaving(false); }
   }
 
+  function doiChon(rowIndex) {
+    setDaChon(prev => {
+      const s = new Set(prev);
+      if (s.has(rowIndex)) s.delete(rowIndex); else s.add(rowIndex);
+      return s;
+    });
+  }
+
+  // Chọn/bỏ theo ĐÚNG danh sách đang hiển thị (filtered), không phải toàn bộ bảng:
+  // đang lọc mà bấm "chọn tất cả" lại vến cả căn không nhìn thấy thì xuất ra thứ không ai ngờ.
+  function chonTatCa() {
+    setDaChon(prev => prev.size === hienThi.length ? new Set() : new Set(hienThi.map(it => it._rowIndex)));
+  }
+
+  function xuatThongTin() {
+    // Lọc trên hienThi để danh sách xuất ra giữ đúng thứ tự đang nhìn thấy trên bảng.
+    const chon = hienThi.filter(it => daChon.has(it._rowIndex));
+    if (!chon.length) return;
+    const dong = chon.map(it => {
+      const gia = giaTextBan(it.Gia_Net || it.Gia);
+      const phi = mapPhi(it.Phi);
+      return dongXuatCan({
+        maCan: it.Ma_Can,
+        dienTich: it.Dien_Tich,
+        huong: huongText(it.Huong_BC),
+        gia: gia ? `${gia}${phi ? ` ${phi.toLowerCase()}` : ''}` : '',
+        lienHe: [it.Ten_Chu, it.SDT].map(v => (v || '').toString().trim()).filter(Boolean).join(' '),
+      });
+    });
+    const ten = viewingCon ? `Danh sách căn ${activeTag}` : 'Danh sách căn';
+    setXuatText(xuatDanhSach(ten, dong));
+  }
+
   async function copyCustomerInfo(item) {
     const msg = buildCustomerMessage(item);
     try {
@@ -910,6 +957,19 @@ function QuyCanBanInner({
           {/* Cấu hình Telegram — token bot + danh sách nhóm. Chỉ admin: đây là cấu hình
               dùng chung của cả công ty, không phải tùy chỉnh của từng người. */}
           {canEditMain && <button onClick={() => setShowTelegram(true)} style={st.telegramBtn} className="cb-btn" title="Cấu hình Telegram">✈ Telegram</button>}
+          <button onClick={() => { setChonMode(v => !v); setDaChon(new Set()); }}
+            style={chonMode ? st.chonBtnOn : st.chonBtn} className="cb-btn"
+            title="Chọn căn để xuất danh sách">☑ Chọn căn</button>
+          {chonMode && (
+            <>
+              <button onClick={chonTatCa} style={st.chonPhuBtn} className="cb-btn">
+                {daChon.size === hienThi.length && hienThi.length > 0 ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+              </button>
+              <button onClick={xuatThongTin} disabled={daChon.size === 0}
+                style={{ ...st.xuatBtn, ...(daChon.size === 0 ? { opacity:0.45, cursor:'default' } : {}) }}
+                className="cb-btn">📄 Xuất thông tin ({daChon.size})</button>
+            </>
+          )}
         </div>
         {/* Import Log — bên phải header */}
         <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', flex:1, justifyContent:'flex-end' }}>
@@ -1043,6 +1103,13 @@ function QuyCanBanInner({
                     const isPaused = !!cellOnlyBg;
                     return (
                     <tr key={item._rowIndex} id={`cb-row-${item.Ma_Can}`} className="cb-row" style={st.tr}>
+                      {chonMode && (
+                        <td style={{...st.td, textAlign:'center', background: rowBg}}>
+                          <input type="checkbox" checked={daChon.has(item._rowIndex)}
+                            onChange={() => doiChon(item._rowIndex)}
+                            style={{ width:15, height:15, accentColor:'#38b274', cursor:'pointer' }} />
+                        </td>
+                      )}
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', fontSize:12, background: isRecentUpdate(item.Ngay_Update) ? 'rgba(250, 204, 21, 0.22)' : rowBg}}>{item.Ngay_Update}</td>
                       <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', background: maCanBg, color: (maCanWhiteText || isPaused) ? '#fff' : undefined, borderRadius: (isPaused || maCanWhiteText) ? 6 : 0}}>
                         {aiFilter?.Top_N && (
@@ -1376,6 +1443,15 @@ function QuyCanBanInner({
         />
       )}
 
+      {xuatText != null && (
+        <XuatCanModal
+          text={xuatText}
+          soCan={daChon.size}
+          onClose={() => setXuatText(null)}
+          showToast={showToast}
+        />
+      )}
+
       {telegramFor && (
         <TelegramModal
           item={telegramFor}
@@ -1625,6 +1701,10 @@ const lb = {
 const D = '1.5px solid rgba(255,255,255,0.22)';
 const st = {
   addBtn:      { background:C.gradient, color:'#fff', border:'none', borderRadius:10, padding:'10px 20px', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:F, boxShadow:C.shadowGreen, whiteSpace:'nowrap' },
+  chonBtn:    { padding:'9px 16px', border:'1.5px solid #3a3f52', borderRadius:10, background:'transparent', color:'#8a9bb8', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
+  chonBtnOn:  { padding:'9px 16px', border:'1.5px solid #38b274', borderRadius:10, background:'rgba(56,178,116,0.15)', color:'#38b274', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
+  chonPhuBtn: { padding:'9px 14px', border:'1.5px solid #3a3f52', borderRadius:10, background:'transparent', color:'#cbd5e1', fontSize:12.5, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
+  xuatBtn:    { padding:'9px 16px', border:'none', borderRadius:10, background:C.gradient, color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
   telegramBtn: { padding:'9px 16px', border:'1.5px solid #38bdf8', borderRadius:10, background:'transparent', color:'#38bdf8', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
   importBtn:   { background:'#22263a', color:C.primaryLight, border:'1.5px solid #3a3f52', borderRadius:10, padding:'10px 16px', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
   reloadBtn:   { background:'#22263a', border:'1.5px solid #3a3f52', borderRadius:10, width:40, height:40, fontSize:20, color:C.primary, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontFamily:F },
