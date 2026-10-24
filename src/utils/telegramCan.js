@@ -6,13 +6,11 @@ import { anhCloudinary } from './anhCloudinary.js';
 // để xem trên điện thoại.
 export const RONG_ANH_TELEGRAM = 1600;
 
-// "T081903" -> "T08-1903". Đúng kiểu mã căn vẫn gõ tay vào nhóm từ trước tới giờ, để
-// tìm trong Telegram vẫn ra cả tin cũ lẫn tin mới.
-// Mã không khớp dạng (tòa + số) thì GIỮ NGUYÊN, không chèn gạch bừa.
+// Mã căn gửi vào nhóm: ghi một mạch, không gạch nối — "T081903", đúng như trong sheet.
+// Bản trước chèn gạch thành "T08-1903"; bỏ đi để mã trên Telegram trùng khít mã trong
+// app, tìm kiếm bằng mã nào cũng ra.
 export function maCanTelegram(maCan) {
-  const s = (maCan || '').toString().toUpperCase().trim();
-  const m = s.match(/^([A-Z]+\d{2})(.+)$/);
-  return m ? `${m[1]}-${m[2]}` : s;
+  return (maCan || '').toString().toUpperCase().trim();
 }
 
 // Ô Hình Ảnh (các URL nối nhau bằng dấu phẩy) -> danh sách media gửi Telegram.
