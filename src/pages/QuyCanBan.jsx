@@ -542,12 +542,16 @@ function QuyCanBanInner({
   ];
 
   const grouped = useMemo(() => {
-    function parsePN(thietKe) {
-      const m = (thietKe || '').match(/(\d+)\s*[Pp][Nn]/);
-      return m ? parseInt(m[1]) : 99;
-    }
     // Không đọc được thì xếp xuống đáy, chứ không để null lọt vào phép trừ.
     const parseDT = dt => parseDienTich(dt) ?? 0;
+
+    // Hai khoá sắp xếp của bảng Bán. Ô không đọc ra số thì về Infinity để nằm cuối —
+    // KHÔNG dùng 0 như parseDT ở trên: giờ sắp tăng dần nên 0 sẽ nhảy lên đầu bảng.
+    const dtSort = it => parseDienTich(it.Dien_Tich) ?? Infinity;
+    const trSort = it => trPerM2(it) ?? Infinity;
+    // Infinity - Infinity ra NaN, mà sort gặp NaN thì thứ tự thành không xác định.
+    // So bằng toán tử thay vì phép trừ để hai ô cùng "không đọc được" vẫn hoà nhau.
+    const cmp = (x, y) => (x === y ? 0 : x < y ? -1 : 1);
 
     // Chế độ "top N giá tốt": bỏ nhóm theo tòa, trả về MỘT khối xếp hạng chung.
     // Nhóm theo tòa ở đây là sai ý — top 10 rẻ nhất là so toàn bộ kết quả với nhau,
@@ -569,16 +573,10 @@ function QuyCanBanInner({
     }
     const entries = Array.from(map.entries());
     entries.forEach(([, arr]) => {
-      arr.sort((a, b) => {
-        // sắp xếp CHÍNH theo đơn giá Tr/m² từ thấp -> cao (bất kể số PN)
-        const ta = trPerM2(a), tb = trPerM2(b);
-        const va = ta == null ? Infinity : ta;
-        const vb = tb == null ? Infinity : tb;
-        if (va !== vb) return va - vb;
-        const pn = parsePN(a.Thiet_Ke) - parsePN(b.Thiet_Ke);
-        if (pn !== 0) return pn;
-        return parseDT(b.Dien_Tich) - parseDT(a.Dien_Tich); // diện tích lớn hơn lên trên
-      });
+      // DIỆN TÍCH bé -> lớn trước; cùng diện tích thì căn rẻ hơn (Tr/m² thấp) lên trên.
+      // Số phòng ngủ không còn là khoá sắp xếp: cùng diện tích thì thiết kế gần như
+      // giống nhau, mà xét nó trước giá là đẩy căn đắt lên trên căn rẻ.
+      arr.sort((a, b) => cmp(dtSort(a), dtSort(b)) || cmp(trSort(a), trSort(b)));
     });
     return entries.sort(([a],[b]) => {
       const ia = TOA_ORDER.indexOf(a);
