@@ -10,6 +10,7 @@ import {
   normalizeThietKe, mapPhi, phiBaoPhi, isDateSerialGia, conKey, expectOf,
   STATUS_GRAY, STATUS_PAUSED, INVEST_COLOR, KHUNG_BAN, khungConTrong,
 } from '../utils/quyCanShared';
+import TelegramModal from '../components/TelegramModal';
 import { parseBangCon, validateTagName } from '../utils/conTagState';
 import { maCanTrucMatch, maCanTangInRange, normalizeTruc, tangToNumber, numberToTang } from '../utils/maCan';
 import { resolveKhu } from '../utils/khuToa';
@@ -276,6 +277,7 @@ function QuyCanBanInner({
   const [activeTag, setActiveTag]   = useState(null);
   const [customTags, setCustomTags] = useState(() => { try { return JSON.parse(localStorage.getItem(tagStorageKey) || '[]'); } catch { return []; } });
   const [tagMenuFor, setTagMenuFor] = useState(null);
+  const [telegramFor, setTelegramFor] = useState(null); // căn đang chọn nhóm Telegram để gửi
   const toastTimer                  = useRef(null);
 
   useEffect(() => {
@@ -1087,6 +1089,7 @@ function QuyCanBanInner({
                       <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8', background: rowBg}}>{item.Ghi_Chu}</td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none', background: rowBg}}>
                         <button onClick={() => copyCustomerInfo(item)} style={{...st.actionBtn, color:C.primary}} title="Copy thông tin gửi khách">&#128203;</button>
+                        <button onClick={() => setTelegramFor(item)} style={{...st.actionBtn, color:'#38bdf8'}} title="Gửi sang nhóm Telegram">&#9992;</button>
                         <button onClick={() => setTagMenuFor({ ...item, _fromCon: viewingCon })} style={{...st.actionBtn, color: (viewingCon ? parseBangCon(item.Bang_Con).length : conItems.some(c => conKey(c.Ma_Can) === conKey(item.Ma_Can))) ? '#38b274' : undefined}} title={viewingCon ? 'Sửa bảng con' : 'Chuyển vào bảng con'}>&#127991;</button>
                         {canEdit && <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>}
                         {canEdit && <button onClick={() => setDeleteTarget({ ...item, _fromCon: viewingCon })} style={{...st.actionBtn, color:C.error}} title="Xoá">&#128465;</button>}
@@ -1365,6 +1368,17 @@ function QuyCanBanInner({
           maCan={lightbox.maCan}
           defaultTab={lightbox.defaultTab}
           onClose={() => setLightbox(null)}
+        />
+      )}
+
+      {telegramFor && (
+        <TelegramModal
+          item={telegramFor}
+          bang="ban"
+          message={buildCustomerMessage(telegramFor)}
+          role={role}
+          onClose={() => setTelegramFor(null)}
+          showToast={showToast}
         />
       )}
 

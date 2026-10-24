@@ -3,6 +3,7 @@ import { useUser } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
 import { fetchQuyCanThue, postQuyCanThue, fetchQuyCanThueCon, postQuyCanThueCon, parseThue, uploadToCloudinary, parseSearchQuery } from '../utils/api';
 import { normalizeThietKe, conKey, expectOf, STATUS_GRAY, STATUS_PAUSED, KHUNG_THUE, khungConTrong } from '../utils/quyCanShared';
+import TelegramModal from '../components/TelegramModal';
 import { parseBangCon, validateTagName } from '../utils/conTagState';
 import { maCanTrucMatch, maCanTangInRange, normalizeTruc, tangToNumber, numberToTang } from '../utils/maCan';
 import { resolveKhu } from '../utils/khuToa';
@@ -304,6 +305,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
   const [activeTag, setActiveTag]   = useState(null); // tag đang lọc; null = tất cả
   const [customTags, setCustomTags] = useState(() => { try { return JSON.parse(localStorage.getItem('bangConTags_thue') || '[]'); } catch { return []; } });
   const [tagMenuFor, setTagMenuFor] = useState(null); // item đang mở popover gắn tag
+  const [telegramFor, setTelegramFor] = useState(null); // căn đang chọn nhóm Telegram để gửi
   const toastTimer                  = useRef(null);
 
   useEffect(() => {
@@ -1074,6 +1076,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none', background: rowBg}}>
                         <button onClick={() => copySalesInfo(item)} style={{...st.actionBtn, color:'#F59E0B'}} title="Copy thông tin gửi Sales">&#128188;</button>
                         <button onClick={() => copyCustomerInfo(item)} style={{...st.actionBtn, color:C.primary}} title="Copy thông tin gửi khách">&#128203;</button>
+                        <button onClick={() => setTelegramFor(item)} style={{...st.actionBtn, color:'#38bdf8'}} title="Gửi sang nhóm Telegram">&#9992;</button>
                         <button onClick={() => setTagMenuFor({ ...item, _fromCon: viewingCon })} style={{...st.actionBtn, color: (viewingCon ? parseBangCon(item.Bang_Con).length : conItems.some(c => conKey(c.Ma_Can) === conKey(item.Ma_Can))) ? '#38b274' : undefined}} title={viewingCon ? 'Sửa bảng con' : 'Chuyển vào bảng con'}>&#127991;</button>
                         {canEdit && <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>}
                         {canEdit && <button onClick={() => setDeleteTarget({ ...item, _fromCon: viewingCon })} style={{...st.actionBtn, color:C.error}} title="Xoá">&#128465;</button>}
@@ -1309,6 +1312,17 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
             </div>
           </div>
         </div>
+      )}
+
+      {telegramFor && (
+        <TelegramModal
+          item={telegramFor}
+          bang="thue"
+          message={buildCustomerMessage(telegramFor)}
+          role={role}
+          onClose={() => setTelegramFor(null)}
+          showToast={showToast}
+        />
       )}
 
       {/* Gắn căn vào bảng hàng con (tag) */}

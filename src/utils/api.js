@@ -408,3 +408,39 @@ export async function postTask(payload) {
   }
   return res.json();
 }
+
+// ============ Telegram ============
+// Đẩy một căn sang nhóm Telegram, và quản lý danh sách nhóm (sheet Telegram_Nhom).
+// Token của bot nằm ở server, client chỉ gửi chat ID — xem ghi chú trong api/telegram.js.
+
+export async function fetchTelegramNhom() {
+  const res = await fetch(`/api/telegram?sheet=nhom&t=${Date.now()}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Không đọc được danh sách nhóm Telegram');
+  return res.json();
+}
+
+export async function postTelegramNhom(payload) {
+  const res = await fetch('/api/telegram?sheet=nhom', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...payload, sheet: 'nhom' }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Lưu nhóm thất bại (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function guiTelegram(payload) {
+  const res = await fetch('/api/telegram', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Gửi Telegram thất bại (${res.status})`);
+  }
+  return res.json();
+}
