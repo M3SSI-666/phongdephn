@@ -247,7 +247,10 @@ const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
   'Hướng BC', 'Giá', 'Giá Nét', 'Phí MG', 'Nội Thất', 'Thời Gian Vào', 'Tên Chủ', 'Liên Hệ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
 ];
-const COL_WIDTHS = [92, 100, 72, 66, 76, 85, 70, 70, 90, 110, 100, 100, 100, 80, 100, 270, 140];
+// Cột cuối là 6 nút thao tác (sales / copy / Telegram / tag / sửa / xoá), mỗi nút ~28px
+// nên cần ~176. Trước là 140 — đủ cho 5 nút, thêm nút Telegram thì nút xoá bị cắt.
+// Phần thêm vào lấy đúng từ cột Ghi Chú để bảng không rộng thêm.
+const COL_WIDTHS = [92, 100, 72, 66, 76, 85, 70, 70, 90, 110, 100, 100, 100, 80, 100, 234, 176];
 
 export function QuyCanThueContent({ overrideUserId, overrideRole, isViewAs } = {}) {
   return <QuyCanThueInner overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
