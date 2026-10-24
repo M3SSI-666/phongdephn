@@ -287,6 +287,7 @@ function QuyCanBanInner({
   const [chonMode, setChonMode] = useState(false);       // bật cột tích chọn
   const [daChon, setDaChon] = useState(() => new Set()); // _rowIndex các căn đang chọn
   const [xuatText, setXuatText] = useState(null);        // chuỗi đã dựng -> mở hộp Xuất căn // căn đang chọn nhóm Telegram để gửi
+  const [xoaNhieu, setXoaNhieu] = useState(false);       // mở hộp xác nhận xoá hàng loạt
   const [showTelegram, setShowTelegram] = useState(false); // hộp cấu hình Telegram
   const toastTimer                  = useRef(null);
 
@@ -864,6 +865,43 @@ function QuyCanBanInner({
     setDaChon(prev => prev.size === hienThi.length ? new Set() : new Set(hienThi.map(it => it._rowIndex)));
   }
 
+  // Xoá hàng loạt. Đường `bulk` của server xoá THEO SỐ DÒNG, mà số dòng trên máy chỉ là
+  // ảnh chụp lúc tải trang. Người khác chèn hay xoá một dòng phía trên là mọi số dòng bên
+  // dưới lệch đi, xoá theo số cũ sẽ trúng căn khác — mà xoá thì không lấy lại được.
+  // Nên: tải lại ngay trước khi xoá, dò lại số dòng theo MÃ CĂN; lệch dù một căn là huỷ cả mẻ
+  // chứ không xoá phần còn lại.
+  async function confirmXoaNhieu() {
+    const chon = hienThi.filter(it => daChon.has(it._rowIndex));
+    if (!chon.length) return;
+    const fromCon = viewingCon;
+    try {
+      setSaving(true);
+      const moi = await (fromCon ? fetchConFn : fetchFn)(userId, role, isViewAs);
+      const ds = Array.isArray(moi) ? moi : [];
+      const rows = [], lech = [];
+      for (const it of chon) {
+        // Bảng con có thể có hai dòng trùng mã (khác chủ), nên so thêm Owner_Id.
+        // Không tìm thấy, hoặc tìm ra nhiều hơn một, đều là không chắc được xoá dòng nào.
+        const khop = ds.filter(r =>
+          conKey(r.Ma_Can) === conKey(it.Ma_Can) &&
+          (!fromCon || (r.Owner_Id || '') === (it.Owner_Id || '')));
+        if (khop.length === 1) rows.push(khop[0]._rowIndex);
+        else lech.push(it.Ma_Can);
+      }
+      if (lech.length) {
+        showToast(`Chưa xoá gì cả: ${lech.length} căn (${lech.slice(0, 3).join(', ')}${lech.length > 3 ? '...' : ''}) đã đổi trên sheet. Bấm ↻ rồi chọn lại.`, 'error');
+        return;
+      }
+      await (fromCon ? postConFn : postFn)({ action: 'bulk', deletes: rows });
+      showToast(`Đã xoá ${rows.length} căn`);
+      setXoaNhieu(false);
+      setDaChon(new Set());
+      setChonMode(false);
+      await (fromCon ? loadConData() : loadData());
+    } catch (e) { onWriteError(e); }
+    finally { setSaving(false); }
+  }
+
   function xuatThongTin() {
     // Lọc trên hienThi để danh sách xuất ra giữ đúng thứ tự đang nhìn thấy trên bảng.
     const chon = hienThi.filter(it => daChon.has(it._rowIndex));
@@ -971,6 +1009,11 @@ function QuyCanBanInner({
               <button onClick={xuatThongTin} disabled={daChon.size === 0}
                 style={{ ...st.xuatBtn, ...(daChon.size === 0 ? { opacity:0.45, cursor:'default' } : {}) }}
                 className="cb-btn">📄 Xuất thông tin ({daChon.size})</button>
+              {canEdit && (
+                <button onClick={() => setXoaNhieu(true)} disabled={daChon.size === 0}
+                  style={{ ...st.xoaNhieuBtn, ...(daChon.size === 0 ? { opacity:0.45, cursor:'default' } : {}) }}
+                  className="cb-btn">🗑 Xoá đã chọn ({daChon.size})</button>
+              )}
             </>
           )}
         </div>
@@ -1393,6 +1436,31 @@ function QuyCanBanInner({
       )}
 
       {/* Delete confirm */}
+      {xoaNhieu && (
+        <div style={st.overlay} onClick={e => e.target===e.currentTarget && setXoaNhieu(false)}>
+          <div style={st.confirmBox}>
+            <div style={{ fontSize:16, fontWeight:600, marginBottom:12, color:C.text }}>Xoá {daChon.size} căn đã chọn</div>
+            {/* Liệt kê từng mã căn chứ không chỉ đưa con số: xoá nhầm một mẻ là
+                không lấy lại được, phải cho người dùng đọc lại trước khi bấm. */}
+            <div style={{ fontSize:12.5, color:C.textMuted, marginBottom:14, lineHeight:1.7, maxHeight:180, overflowY:'auto', background:'#141726', border:'1px solid #2a2f45', borderRadius:8, padding:10 }}>
+              {hienThi.filter(it => daChon.has(it._rowIndex)).map(it => it.Ma_Can).join(', ')}
+            </div>
+            <div style={{ fontSize:13.5, color:C.error, marginBottom:18, lineHeight:1.5 }}>
+              {viewingCon
+                ? 'Xoá khỏi bảng con này. Bảng hàng chính không bị ảnh hưởng.'
+                : 'Xoá khỏi BẢNG HÀNG CHÍNH — mọi người đều mất các căn này.'}
+              {' '}Hành động này không thể hoàn tác.
+            </div>
+            <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
+              <button onClick={() => setXoaNhieu(false)} style={st.cancelBtn} className="cb-btn">Huỷ</button>
+              <button onClick={confirmXoaNhieu} disabled={saving} style={{ ...st.saveBtn, background:C.error }} className="cb-btn">
+                {saving ? 'Đang xoá...' : `Xoá ${daChon.size} căn`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {deleteTarget && (
         <div style={st.overlay} onClick={e => e.target===e.currentTarget && setDeleteTarget(null)}>
           <div style={st.confirmBox}>
@@ -1704,7 +1772,8 @@ const lb = {
 const D = '1.5px solid rgba(255,255,255,0.22)';
 const st = {
   addBtn:      { background:C.gradient, color:'#fff', border:'none', borderRadius:10, padding:'10px 20px', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:F, boxShadow:C.shadowGreen, whiteSpace:'nowrap' },
-  chonBtn:    { padding:'9px 16px', border:'1.5px solid #3a3f52', borderRadius:10, background:'transparent', color:'#8a9bb8', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
+  xoaNhieuBtn:{ padding:'9px 16px', border:'1.5px solid #E53E3E', borderRadius:10, background:'rgba(229,62,62,0.12)', color:'#E53E3E', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
+    chonBtn:    { padding:'9px 16px', border:'1.5px solid #3a3f52', borderRadius:10, background:'transparent', color:'#8a9bb8', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
   chonBtnOn:  { padding:'9px 16px', border:'1.5px solid #38b274', borderRadius:10, background:'rgba(56,178,116,0.15)', color:'#38b274', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
   chonPhuBtn: { padding:'9px 14px', border:'1.5px solid #3a3f52', borderRadius:10, background:'transparent', color:'#cbd5e1', fontSize:12.5, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
   xuatBtn:    { padding:'9px 16px', border:'none', borderRadius:10, background:C.gradient, color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
