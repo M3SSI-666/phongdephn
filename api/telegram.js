@@ -14,6 +14,13 @@ const NHOM_SHEET   = 'Telegram_Nhom';
 const NHOM_COLUMNS = 'A:C';
 const NHOM_HEADERS = ['Ten_Nhom', 'Chat_Id', 'Bang'];
 
+// Token bot để SHEET RIÊNG, không nhét chung một dòng vào Telegram_Nhom: GET danh sách
+// nhóm trả cả sheet đó về cho trình duyệt, token nằm lẫn trong đó là lộ ngay.
+const CH_SHEET   = 'Telegram_Cau_Hinh';
+const CH_COLUMNS = 'A:B';
+const CH_HEADERS = ['Khoa', 'Gia_Tri'];
+const CH_TOKEN   = 'BOT_TOKEN';
+
 // RAW chứ không USER_ENTERED: chat ID nhóm là số âm rất dài (-1001234567890), để
 // Sheets tự đoán kiểu là nó biến thành số rồi làm tròn mất mấy chữ số cuối.
 const WRITE_MODE = 'RAW';
@@ -36,15 +43,19 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Google Sheets not configured' });
     }
 
-    const laNhom = (req.query?.sheet || req.body?.sheet) === 'nhom';
+    const sheet = req.query?.sheet || req.body?.sheet;
+    const laNhom = sheet === 'nhom';
+    const laCauHinh = sheet === 'cauhinh';
 
     if (req.method === 'GET') {
-      if (laNhom) return nhomGet(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
-      return res.status(400).json({ error: 'GET chỉ dùng cho ?sheet=nhom' });
+      if (laNhom)    return nhomGet(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
+      if (laCauHinh) return cauHinhGet(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
+      return res.status(400).json({ error: 'GET chỉ dùng cho ?sheet=nhom hoặc ?sheet=cauhinh' });
     }
     if (req.method === 'POST') {
-      if (laNhom) return nhomPost(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
-      return guiCan(req, res);
+      if (laNhom)    return nhomPost(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
+      if (laCauHinh) return cauHinhPost(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
+      return guiCan(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
     }
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
@@ -55,11 +66,14 @@ export default async function handler(req, res) {
 
 // ============ Gửi một căn sang nhóm ============
 
-async function guiCan(req, res) {
-  const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+async function guiCan(req, res, sheetId, email, key) {
+  // Token lưu trong app được ưu tiên, biến môi trường Vercel là phương án dự phòng.
+  // Thứ tự này để sửa token không phải deploy lại; ai đã đặt sẵn biến trên Vercel thì
+  // vẫn chạy nguyên như cũ, không cần làm gì thêm.
+  const TOKEN = (await docToken(sheetId, email, key)) || process.env.TELEGRAM_BOT_TOKEN;
   if (!TOKEN) {
     return res.status(500).json({
-      error: 'Chưa cấu hình TELEGRAM_BOT_TOKEN trên Vercel — xem README phần Telegram.',
+      error: 'Chưa có token bot. Vào nút "Telegram" trên thanh công cụ để điền.',
     });
   }
 
@@ -202,16 +216,106 @@ async function ghiDong(sheetId, token, rowNumber, values) {
   });
 }
 
-async function taoNhomSheet(sheetId, token) {
+// Tự tạo sheet + dòng tiêu đề ở lần chạy đầu, để không ai phải vào Google Sheet gõ tay
+// trước khi dùng được tính năng.
+async function taoSheet(sheetId, token, ten, headers, oTieuDe) {
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ requests: [{ addSheet: { properties: { title: NHOM_SHEET } } }] }),
+    body: JSON.stringify({ requests: [{ addSheet: { properties: { title: ten } } }] }),
   });
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${NHOM_SHEET}!A1:C1?valueInputOption=${WRITE_MODE}`, {
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${ten}!${oTieuDe}?valueInputOption=${WRITE_MODE}`, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ values: [NHOM_HEADERS] }),
+    body: JSON.stringify({ values: [headers] }),
+  });
+}
+
+const taoNhomSheet = (sheetId, token) => taoSheet(sheetId, token, NHOM_SHEET, NHOM_HEADERS, 'A1:C1');
+
+// ============ Cấu hình (?sheet=cauhinh) ============
+
+// Đọc token để dùng nội bộ. KHÔNG có đường nào trả giá trị này ra client.
+async function docToken(sheetId, email, key) {
+  try {
+    const token = await getAccessToken(email, key, true);
+    const r = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${CH_SHEET}!${CH_COLUMNS}`,
+      { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) return '';          // chưa có sheet -> coi như chưa đặt token
+    const rows = (await r.json()).values || [];
+    const dong = rows.find((row, i) => i > 0 && (row[0] || '').trim() === CH_TOKEN);
+    return (dong?.[1] || '').trim();
+  } catch {
+    // Đọc cấu hình hỏng thì coi như chưa đặt, để còn rơi xuống biến môi trường —
+    // chứ không làm sập luôn đường gửi tin.
+    return '';
+  }
+}
+
+// Chỉ trả về CÓ hay KHÔNG và 4 ký tự cuối. Token đầy đủ không bao giờ rời khỏi server:
+// ai cầm nó là nhắn được vào mọi nhóm bot đang ở trong, kể cả nhóm không liên quan.
+async function cauHinhGet(req, res, sheetId, email, key) {
+  const tokenSheet = await docToken(sheetId, email, key);
+  const tokenEnv = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
+  const dung = tokenSheet || tokenEnv;
+  return res.status(200).json({
+    coToken: !!dung,
+    nguon: tokenSheet ? 'app' : (tokenEnv ? 'vercel' : ''),
+    duoi: dung ? dung.slice(-4) : '',
+  });
+}
+
+async function cauHinhPost(req, res, sheetId, email, key) {
+  const { action } = req.body || {};
+  const token = await getAccessToken(email, key, true);
+
+  if (action === 'delete-token') {
+    await ghiCauHinh(sheetId, token, '');
+    return res.status(200).json({ ok: true });
+  }
+
+  const giaTri = (req.body?.token || '').trim();
+  if (!giaTri) return res.status(400).json({ error: 'Thiếu token' });
+  // Dạng chuẩn của BotFather: "<số bot>:<chuỗi chữ>". Chặn ở đây để người dùng biết
+  // ngay là dán nhầm, thay vì phải gửi thử một căn rồi nhận lỗi khó hiểu từ Telegram.
+  if (!/^\d{6,}:[A-Za-z0-9_-]{20,}$/.test(giaTri)) {
+    return res.status(400).json({ error: 'Token không đúng dạng (phải là 1234567890:AAH...).' });
+  }
+
+  // Hỏi Telegram xem token có thật không trước khi lưu. Lưu token sai rồi để người
+  // dùng phát hiện lúc đang cần gửi gấp là tệ nhất.
+  const kt = await goiTelegram(giaTri, 'getMe', {});
+  if (!kt.ok) return res.status(400).json({ error: `Telegram từ chối token: ${kt.detail}` });
+
+  await ghiCauHinh(sheetId, token, giaTri);
+  return res.status(200).json({ ok: true, botName: kt.data?.result?.username || '' });
+}
+
+async function ghiCauHinh(sheetId, token, giaTri) {
+  const r = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${CH_SHEET}!${CH_COLUMNS}`,
+    { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) {
+    const errText = await r.text();
+    if (errText.includes('Unable to parse range')) await taoSheet(sheetId, token, CH_SHEET, CH_HEADERS, 'A1:B1');
+    else throw new Error(errText);
+  }
+  const rows = r.ok ? ((await r.json()).values || []) : [];
+  const idx = rows.findIndex((row, i) => i > 0 && (row[0] || '').trim() === CH_TOKEN);
+
+  if (idx !== -1) {
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${CH_SHEET}!A${idx + 1}:B${idx + 1}?valueInputOption=${WRITE_MODE}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [[CH_TOKEN, giaTri]] }),
+    });
+    return;
+  }
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${CH_SHEET}!${CH_COLUMNS}:append?valueInputOption=${WRITE_MODE}&insertDataOption=INSERT_ROWS`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: [[CH_TOKEN, giaTri]] }),
   });
 }
 

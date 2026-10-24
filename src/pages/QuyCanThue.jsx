@@ -4,6 +4,7 @@ import { C } from '../utils/theme';
 import { fetchQuyCanThue, postQuyCanThue, fetchQuyCanThueCon, postQuyCanThueCon, parseThue, uploadToCloudinary, parseSearchQuery } from '../utils/api';
 import { normalizeThietKe, conKey, expectOf, STATUS_GRAY, STATUS_PAUSED, KHUNG_THUE, khungConTrong } from '../utils/quyCanShared';
 import TelegramModal from '../components/TelegramModal';
+import TelegramSettingsModal from '../components/TelegramSettingsModal';
 import { parseBangCon, validateTagName } from '../utils/conTagState';
 import { maCanTrucMatch, maCanTangInRange, normalizeTruc, tangToNumber, numberToTang } from '../utils/maCan';
 import { resolveKhu } from '../utils/khuToa';
@@ -306,6 +307,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
   const [customTags, setCustomTags] = useState(() => { try { return JSON.parse(localStorage.getItem('bangConTags_thue') || '[]'); } catch { return []; } });
   const [tagMenuFor, setTagMenuFor] = useState(null); // item đang mở popover gắn tag
   const [telegramFor, setTelegramFor] = useState(null); // căn đang chọn nhóm Telegram để gửi
+  const [showTelegram, setShowTelegram] = useState(false); // hộp cấu hình Telegram
   const toastTimer                  = useRef(null);
 
   useEffect(() => {
@@ -904,6 +906,9 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
           <button onClick={loadData} disabled={loading} style={st.reloadBtn} className="ct-btn" title="Tải lại">
             {loading ? '...' : '↻'}
           </button>
+          {/* Cấu hình Telegram — token bot + danh sách nhóm. Chỉ admin: đây là cấu hình
+              dùng chung của cả công ty, không phải tùy chỉnh của từng người. */}
+          {canEditMain && <button onClick={() => setShowTelegram(true)} style={st.telegramBtn} className="ct-btn" title="Cấu hình Telegram">✈ Telegram</button>}
         </div>
         {/* Import Log — bên phải header */}
         <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', flex:1, justifyContent:'flex-end' }}>
@@ -1319,8 +1324,14 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
           item={telegramFor}
           bang="thue"
           message={buildCustomerMessage(telegramFor)}
-          role={role}
           onClose={() => setTelegramFor(null)}
+          showToast={showToast}
+        />
+      )}
+
+      {showTelegram && (
+        <TelegramSettingsModal
+          onClose={() => setShowTelegram(false)}
           showToast={showToast}
         />
       )}
@@ -1610,6 +1621,7 @@ const lb = {
 const D = '1.5px solid rgba(255,255,255,0.22)';
 const st = {
   addBtn:      { background:C.gradient, color:'#fff', border:'none', borderRadius:10, padding:'10px 20px', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:F, boxShadow:C.shadowGreen, whiteSpace:'nowrap' },
+  telegramBtn: { padding:'9px 16px', border:'1.5px solid #38bdf8', borderRadius:10, background:'transparent', color:'#38bdf8', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
   importBtn:   { background:'#22263a', color:C.primaryLight, border:'1.5px solid #3a3f52', borderRadius:10, padding:'10px 16px', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
   reloadBtn:   { background:'#22263a', border:'1.5px solid #3a3f52', borderRadius:10, width:40, height:40, fontSize:20, color:C.primary, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontFamily:F },
   searchInput: { width:'100%', padding:'10px 36px', border:'1.5px solid #3a3f52', borderRadius:10, fontSize:13, fontFamily:F, outline:'none', background:'#1e2130', color:'#e2e8f0', boxSizing:'border-box' },

@@ -444,3 +444,22 @@ export async function guiTelegram(payload) {
   }
   return res.json();
 }
+
+export async function fetchTelegramCauHinh() {
+  const res = await fetch(`/api/telegram?sheet=cauhinh&t=${Date.now()}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Không đọc được cấu hình Telegram');
+  return res.json();
+}
+
+export async function postTelegramCauHinh(payload) {
+  const res = await fetch('/api/telegram?sheet=cauhinh', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...payload, sheet: 'cauhinh' }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Lưu cấu hình thất bại (${res.status})`);
+  }
+  return res.json();
+}
