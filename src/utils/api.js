@@ -474,3 +474,25 @@ export async function quetTelegramNhom() {
   }
   return res.json();
 }
+
+// Các nhóm mà một căn đã được đăng, kèm message_id để sửa đè.
+export async function fetchTelegramLog(maCan) {
+  const res = await fetch(`/api/telegram?sheet=log&maCan=${encodeURIComponent(maCan)}&t=${Date.now()}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Không đọc được nhật ký Telegram');
+  return res.json();
+}
+
+// Sửa đè tin đã đăng (giá đổi, nội thất đổi...). Chỉ sửa được phần chữ — ảnh đã gửi
+// theo album thì Telegram không cho đổi.
+export async function suaTelegram(payload) {
+  const res = await fetch('/api/telegram?sheet=log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...payload, sheet: 'log' }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Cập nhật thất bại (${res.status})`);
+  }
+  return res.json();
+}

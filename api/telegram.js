@@ -20,6 +20,15 @@ const NHOM_SHEET   = 'Telegram_Nhom';
 const NHOM_COLUMNS = 'A:B';
 const NHOM_HEADERS = ['Ten_Nhom', 'Chat_Id'];
 
+// Nhật ký tin đã đăng: nhớ message_id để sau này SỬA ĐÈ đúng tin cũ khi giá thay đổi.
+// Chỉ bot mới sửa được tin của chính nó (người thật, kể cả admin, không sửa được), nhưng
+// bù lại tin của chính bot thì không bị giới hạn thời gian — tin tháng trước vẫn sửa được.
+// Khoá là cặp (Chat_Id, Ma_Can): đẩy lại cùng một căn vào cùng một nhóm thì đè message_id
+// mới lên, không đẻ thêm dòng.
+const LOG_SHEET   = 'Telegram_Log';
+const LOG_COLUMNS = 'A:D';
+const LOG_HEADERS = ['Chat_Id', 'Ma_Can', 'Message_Id', 'Ngay'];
+
 // Token bot để SHEET RIÊNG, không nhét chung một dòng vào Telegram_Nhom: GET danh sách
 // nhóm trả cả sheet đó về cho trình duyệt, token nằm lẫn trong đó là lộ ngay.
 const CH_SHEET   = 'Telegram_Cau_Hinh';
@@ -53,16 +62,19 @@ export default async function handler(req, res) {
     const laNhom = sheet === 'nhom';
     const laCauHinh = sheet === 'cauhinh';
     const laQuet = sheet === 'quet';
+    const laLog = sheet === 'log';
 
     if (req.method === 'GET') {
       if (laNhom)    return nhomGet(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
       if (laCauHinh) return cauHinhGet(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
       if (laQuet)    return quetNhom(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
-      return res.status(400).json({ error: 'GET chỉ dùng cho ?sheet=nhom, cauhinh hoặc quet' });
+      if (laLog)     return logGet(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
+      return res.status(400).json({ error: 'GET chỉ dùng cho ?sheet=nhom, cauhinh, quet hoặc log' });
     }
     if (req.method === 'POST') {
       if (laNhom)    return nhomPost(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
       if (laCauHinh) return cauHinhPost(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
+      if (laLog)     return suaTin(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
       return guiCan(req, res, SHEET_ID, SERVICE_EMAIL, PRIVATE_KEY);
     }
     return res.status(405).json({ error: 'Method not allowed' });
@@ -85,7 +97,9 @@ async function guiCan(req, res, sheetId, email, key) {
     });
   }
 
-  const { chatId, maCan, message, images } = req.body || {};
+  // maCan = chuỗi gửi đi (có trái tim). maCanLog = mã trần, dùng làm khoá nhật ký —
+  // khoá phải là mã thuần, không thì đổi biểu tượng một cái là mất dấu hết tin cũ.
+  const { chatId, maCan, maCanLog, message, images } = req.body || {};
   if (!chatId)  return res.status(400).json({ error: 'Thiếu chatId' });
   if (!message) return res.status(400).json({ error: 'Thiếu nội dung tin' });
 
@@ -113,6 +127,18 @@ async function guiCan(req, res, sheetId, email, key) {
 
   const r = await api('sendMessage', { chat_id: chatId, text: message });
   if (!r.ok) return res.status(502).json({ error: `Gửi thông tin thất bại: ${r.detail}` });
+
+  // Nhớ message_id của TIN THÔNG TIN (tin chứa giá) — đây là tin sẽ phải sửa khi giá đổi.
+  // Ghi nhật ký hỏng thì KHÔNG báo lỗi: tin đã lên nhóm rồi, bắt người dùng gửi lại chỉ
+  // tạo ra tin trùng. Chỉ mất khả năng sửa đè sau này, và log server nói rõ vì sao.
+  const messageId = r.data?.result?.message_id;
+  if (messageId && maCanLog) {
+    try {
+      await ghiLog(sheetId, email, key, String(chatId), maCanLog, String(messageId));
+    } catch (e) {
+      console.error(`[telegram] ghi nhat ky that bai: ${e.message}`);
+    }
+  }
 
   return res.status(200).json({ ok: true, anhLoi: loi });
 }
@@ -237,6 +263,108 @@ async function taoSheet(sheetId, token, ten, headers, oTieuDe) {
 }
 
 const taoNhomSheet = (sheetId, token) => taoSheet(sheetId, token, NHOM_SHEET, NHOM_HEADERS, 'A1:B1');
+
+// ============ Nhật ký tin đã đăng (?sheet=log) ============
+
+async function docLog(sheetId, token) {
+  const r = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${LOG_SHEET}!${LOG_COLUMNS}`,
+    { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) {
+    const errText = await r.text();
+    if (errText.includes('Unable to parse range')) {
+      await taoSheet(sheetId, token, LOG_SHEET, LOG_HEADERS, 'A1:D1');
+      return [];
+    }
+    throw new Error(errText);
+  }
+  return (await r.json()).values || [];
+}
+
+async function ghiLog(sheetId, email, key, chatId, maCan, messageId) {
+  const token = await getAccessToken(email, key, true);
+  const rows = await docLog(sheetId, token);
+  const ma = maCan.toUpperCase().trim();
+  const idx = rows.findIndex((row, i) =>
+    i > 0 && (row[0] || '').trim() === chatId && (row[1] || '').trim().toUpperCase() === ma);
+  const dong = [chatId, ma, messageId, new Date().toISOString().slice(0, 10)];
+
+  if (idx !== -1) {
+    // Đẩy lại cùng căn vào cùng nhóm -> đè message_id mới. Tin cũ vẫn nằm trên nhóm,
+    // nhưng từ giờ "cập nhật" sẽ sửa tin mới nhất, đúng cái người ta đang nhìn.
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${LOG_SHEET}!A${idx + 1}:D${idx + 1}?valueInputOption=${WRITE_MODE}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [dong] }),
+    });
+    return;
+  }
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${LOG_SHEET}!${LOG_COLUMNS}:append?valueInputOption=${WRITE_MODE}&insertDataOption=INSERT_ROWS`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: [dong] }),
+  });
+}
+
+// Các nhóm mà MỘT căn đã được đăng, kèm tên nhóm để hiển thị cho người dùng.
+async function logGet(req, res, sheetId, email, key) {
+  const ma = (req.query?.maCan || '').toString().toUpperCase().trim();
+  if (!ma) return res.status(400).json({ error: 'Thiếu maCan' });
+
+  const token = await getAccessToken(email, key, true);
+  const [rows, nhomRows] = await Promise.all([
+    docLog(sheetId, token),
+    fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${NHOM_SHEET}!${NHOM_COLUMNS}`,
+      { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : { values: [] }).then(d => d.values || []).catch(() => []),
+  ]);
+
+  const tenTheoId = new Map(nhomRows.slice(1)
+    .filter(r => (r[0] || '').trim())
+    .map(r => [(r[1] || '').trim(), (r[0] || '').trim()]));
+
+  const items = rows.slice(1)
+    .filter(row => (row[1] || '').trim().toUpperCase() === ma && (row[2] || '').trim())
+    .map(row => {
+      const chatId = (row[0] || '').trim();
+      return {
+        Chat_Id:    chatId,
+        // Nhóm đã bị xoá khỏi danh sách thì vẫn hiện, lấy chat id làm tên — tin vẫn
+        // nằm trên Telegram và vẫn sửa được, giấu đi mới là sai.
+        Ten_Nhom:   tenTheoId.get(chatId) || chatId,
+        Message_Id: (row[2] || '').trim(),
+        Ngay:       (row[3] || '').trim(),
+      };
+    });
+  return res.status(200).json(items);
+}
+
+// Sửa đè tin đã đăng. Chỉ bot sửa được tin của chính nó — nhưng tin của chính bot thì
+// KHÔNG bị hạn 48 giờ, nên tin đăng từ lâu vẫn sửa được.
+async function suaTin(req, res, sheetId, email, key) {
+  const TOKEN = (await docToken(sheetId, email, key)) || process.env.TELEGRAM_BOT_TOKEN;
+  if (!TOKEN) return res.status(500).json({ error: 'Chưa có token bot.' });
+
+  const { chatId, messageId, message } = req.body || {};
+  if (!chatId || !messageId) return res.status(400).json({ error: 'Thiếu chatId/messageId' });
+  if (!message) return res.status(400).json({ error: 'Thiếu nội dung tin' });
+
+  const r = await goiTelegram(TOKEN, 'editMessageText', {
+    chat_id: chatId, message_id: Number(messageId), text: message,
+  });
+  if (!r.ok) {
+    // Telegram trả đúng câu này khi nội dung mới y hệt nội dung cũ. Không phải lỗi —
+    // nói thẳng là chưa có gì đổi, đừng bắt người dùng đoán.
+    if (/message is not modified/i.test(r.detail)) {
+      return res.status(200).json({ ok: true, khongDoi: true });
+    }
+    if (/message to edit not found/i.test(r.detail)) {
+      return res.status(404).json({ error: 'Tin đó không còn trên nhóm (đã bị xoá tay). Hãy đẩy lại căn này.' });
+    }
+    return res.status(502).json({ error: `Telegram từ chối: ${r.detail}` });
+  }
+  return res.status(200).json({ ok: true });
+}
 
 // ============ Quét nhóm (?sheet=quet) ============
 

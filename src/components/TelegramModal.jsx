@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { C } from '../utils/theme';
 import { maCanTelegram, tinMaCan, mediaTelegram } from '../utils/telegramCan';
-import { fetchTelegramNhom, guiTelegram } from '../utils/api';
+import { fetchTelegramNhom, guiTelegram, fetchTelegramLog, suaTelegram } from '../utils/api';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -21,6 +21,8 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
   const [dangTai, setDangTai] = useState(true);
   const [dangGui, setDangGui] = useState(false);
   const [loi, setLoi] = useState('');
+  const [daDang, setDaDang] = useState([]);   // các nhóm căn này đã được đăng
+  const [dangSua, setDangSua] = useState('');  // Chat_Id đang cập nhật
 
   const media = mediaTelegram(item?.Hinh_Anh);
   const maCan = maCanTelegram(item?.Ma_Can);   // mã trần, dùng cho chữ trong app
@@ -29,15 +31,20 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
   const taiNhom = useCallback(async () => {
     setDangTai(true);
     try {
-      const data = await fetchTelegramNhom();
+      const [data, log] = await Promise.all([
+        fetchTelegramNhom(),
+        // Nhật ký hỏng thì vẫn phải gửi được: mất phần "cập nhật" còn hơn không đẩy được căn nào.
+        fetchTelegramLog(maCan).catch(() => []),
+      ]);
       setNhom(Array.isArray(data) ? data : []);
+      setDaDang(Array.isArray(log) ? log : []);
       setLoi('');
     } catch (e) {
       setLoi(e.message);
     } finally {
       setDangTai(false);
     }
-  }, []);
+  }, [maCan]);
 
   useEffect(() => { taiNhom(); }, [taiNhom]);
 
@@ -45,7 +52,7 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
     if (dangGui) return;
     setDangGui(true);
     try {
-      const kq = await guiTelegram({ chatId: n.Chat_Id, maCan: maCanGui, message, images: media });
+      const kq = await guiTelegram({ chatId: n.Chat_Id, maCan: maCanGui, maCanLog: maCan, message, images: media });
       // Ảnh hỏng mà chữ đã gửi được thì KHÔNG báo "thành công" trơn: người gửi phải
       // biết để còn đăng bù ảnh, không thì nhóm nhận được tin cụt mà không ai hay.
       if (kq.anhLoi?.length) {
@@ -58,6 +65,20 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
       showToast(e.message, 'error');
     } finally {
       setDangGui(false);
+    }
+  }
+
+  async function capNhat(d) {
+    if (dangSua) return;
+    setDangSua(d.Chat_Id);
+    try {
+      const kq = await suaTelegram({ chatId: d.Chat_Id, messageId: d.Message_Id, message });
+      if (kq.khongDoi) showToast(`Tin ở ${d.Ten_Nhom} vốn đã đúng, không có gì để sửa`);
+      else showToast(`Đã cập nhật tin ở ${d.Ten_Nhom}`);
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      setDangSua('');
     }
   }
 
@@ -80,6 +101,30 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
           <div style={s.previewLabel}>3. Thông tin gửi khách:</div>
           <pre style={s.msg}>{message}</pre>
         </div>
+
+        {/* Đã đăng ở đâu — sửa đè được tin cũ khi giá đổi. Chỉ bot sửa được tin của chính
+            nó, nên đây là đường duy nhất để chữa tin đã lên nhóm. */}
+        {daDang.length > 0 && (
+          <>
+            <div style={s.nhomLabel}>Đã đăng ở ({daDang.length}):</div>
+            <div style={s.daDangList}>
+              {daDang.map(d => (
+                <div key={d.Chat_Id} style={s.daDangRow}>
+                  <span style={{ flex: 1, fontSize: 12.5, fontWeight: 700 }}>{d.Ten_Nhom}</span>
+                  {d.Ngay && <span style={{ fontSize: 11, color: '#6b7a94' }}>{d.Ngay}</span>}
+                  <button onClick={() => capNhat(d)} disabled={!!dangSua} style={s.capNhatBtn}
+                    title="Sửa đè tin cũ bằng thông tin mới nhất">
+                    {dangSua === d.Chat_Id ? 'Đang sửa...' : '↻ Cập nhật'}
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div style={s.ghiChu}>
+              Cập nhật chỉ sửa được PHẦN CHỮ. Ảnh đã gửi theo album thì Telegram không cho đổi —
+              muốn thay ảnh thì xoá tay trên nhóm rồi đẩy lại.
+            </div>
+          </>
+        )}
 
         <div style={s.nhomLabel}>Chọn nhóm để gửi vào:</div>
 
@@ -114,6 +159,10 @@ const s = {
   msg:          { margin:'6px 0 0', padding:10, background:'#1e2130', borderRadius:8, fontSize:12.5, lineHeight:1.6, color:'#cbd5e1', whiteSpace:'pre-wrap', fontFamily:F },
   nhomLabel:    { fontSize:12, color:'#8a9bb8', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:8 },
   info:         { fontSize:12.5, color:'#8a9bb8', padding:'8px 0', lineHeight:1.6 },
+  daDangList:   { display:'flex', flexDirection:'column', gap:6, marginBottom:8 },
+  daDangRow:    { display:'flex', alignItems:'center', gap:8, padding:'8px 10px', background:'#141726', border:'1px solid #2a2f45', borderRadius:9 },
+  capNhatBtn:   { padding:'5px 11px', borderRadius:7, border:'1.5px solid #38bdf8', background:'transparent', color:'#38bdf8', fontSize:11.5, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
+  ghiChu:       { fontSize:11, color:'#6b7a94', lineHeight:1.7, marginBottom:14 },
   nhomList:     { display:'flex', flexDirection:'column', gap:6 },
   nhomBtn:      { padding:'10px 14px', borderRadius:10, border:'1.5px solid #3a3f52', background:'#22263a', color:'#e2e8f0', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, textAlign:'left' },
 };
