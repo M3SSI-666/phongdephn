@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { maCanTelegram, mediaTelegram, RONG_ANH_TELEGRAM } from '../src/utils/telegramCan.js';
+import { maCanTelegram, tinMaCan, mediaTelegram, RONG_ANH_TELEGRAM } from '../src/utils/telegramCan.js';
 
 // Mã gửi lên Telegram phải trùng khít mã trong sheet: ghi liền, không gạch nối.
 test('maCanTelegram: giữ nguyên mã, không chèn gạch', () => {
@@ -32,4 +32,19 @@ test('mediaTelegram: video giữ nguyên', () => {
 test('mediaTelegram: ô rỗng trả mảng rỗng', () => {
   ['', null, undefined, '  ,  ,'].forEach(v =>
     assert.deepEqual(mediaTelegram(v), [], `phải rỗng với "${v}"`));
+});
+
+// Trái tim chỉ gắn vào chuỗi GỬI ĐI, không gắn vào mã trần dùng trong app.
+test('tinMaCan: trái tim đứng trước mã căn', () => {
+  assert.equal(tinMaCan('T081903'), '❤️ T081903');
+  assert.equal(tinMaCan('t092612a'), '❤️ T092612A');
+});
+
+test('tinMaCan: không có mã thì không trả về mỗi trái tim', () => {
+  ['', '   ', null, undefined].forEach(v =>
+    assert.equal(tinMaCan(v), '', `phải rỗng với "${v}"`));
+});
+
+test('maCanTelegram vẫn trả mã trần, không dính trái tim', () => {
+  assert.equal(maCanTelegram('T081903'), 'T081903');
 });

@@ -13,6 +13,16 @@ export function maCanTelegram(maCan) {
   return (maCan || '').toString().toUpperCase().trim();
 }
 
+// Trái tim đứng trước mã căn cho dễ nhìn khi cuộn trong nhóm. Để riêng khỏi
+// maCanTelegram vì chỉ TIN GỬI ĐI mới cần nó — tiêu đề hộp thoại và câu thông báo
+// trong app vẫn dùng mã trần, thêm tim vào đó chỉ tổ rối.
+export const TIM = '❤️';
+
+export function tinMaCan(maCan) {
+  const ma = maCanTelegram(maCan);
+  return ma ? `${TIM} ${ma}` : '';
+}
+
 // Ô Hình Ảnh (các URL nối nhau bằng dấu phẩy) -> danh sách media gửi Telegram.
 // anhCloudinary không đụng vào /video/upload/ nên video đi qua nguyên vẹn.
 export function mediaTelegram(hinhAnh) {

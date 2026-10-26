@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { C } from '../utils/theme';
-import { maCanTelegram, mediaTelegram } from '../utils/telegramCan';
+import { maCanTelegram, tinMaCan, mediaTelegram } from '../utils/telegramCan';
 import { fetchTelegramNhom, guiTelegram } from '../utils/api';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
@@ -23,7 +23,8 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
   const [loi, setLoi] = useState('');
 
   const media = mediaTelegram(item?.Hinh_Anh);
-  const maCan = maCanTelegram(item?.Ma_Can);
+  const maCan = maCanTelegram(item?.Ma_Can);   // mã trần, dùng cho chữ trong app
+  const maCanGui = tinMaCan(item?.Ma_Can);     // có trái tim, đúng chuỗi gửi sang Telegram
 
   const taiNhom = useCallback(async () => {
     setDangTai(true);
@@ -44,7 +45,7 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
     if (dangGui) return;
     setDangGui(true);
     try {
-      const kq = await guiTelegram({ chatId: n.Chat_Id, maCan, message, images: media });
+      const kq = await guiTelegram({ chatId: n.Chat_Id, maCan: maCanGui, message, images: media });
       // Ảnh hỏng mà chữ đã gửi được thì KHÔNG báo "thành công" trơn: người gửi phải
       // biết để còn đăng bù ảnh, không thì nhóm nhận được tin cụt mà không ai hay.
       if (kq.anhLoi?.length) {
@@ -75,7 +76,7 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
               ? `1. ${media.length} ảnh/video${media.length > MEDIA_MOI_ALBUM ? ` (chia ${Math.ceil(media.length / MEDIA_MOI_ALBUM)} album)` : ''}`
               : '1. Không có ảnh — chỉ gửi phần chữ'}
           </div>
-          <div style={s.previewLabel}>2. {maCan}</div>
+          <div style={s.previewLabel}>2. {maCanGui}</div>
           <div style={s.previewLabel}>3. Thông tin gửi khách:</div>
           <pre style={s.msg}>{message}</pre>
         </div>
