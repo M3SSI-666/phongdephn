@@ -5,6 +5,10 @@
 
 const bo = v => (v || '').toString().trim();
 
+// Icon mở đầu mỗi căn. Dán sang Zalo/Telegram thì dòng dài tự xuống hàng, không có mốc
+// này thì nhìn vào là một khối chữ liền, không biết căn nào hết căn nào bắt đầu.
+export const CO = '☘️';
+
 // Một dòng tóm tắt 1 căn:
 // "T081903 - 53m - Hướng: Nam - Giá: 4.55 tỷ thu về - Liên hệ: A Hoan 0962862895"
 //
@@ -30,7 +34,10 @@ export function dongXuatCan({ maCan, dienTich, huong, gia, lienHe, ghiChu }) {
   // dòng — nên gộp mọi xuống dòng và khoảng trắng thừa thành một dấu cách.
   const gc = bo(ghiChu).replace(/\s+/g, ' ');
   if (gc) phan.push(`Ghi chú: ${gc}`);
-  return phan.join(' - ');
+  // Căn không có nổi một thông tin nào thì trả rỗng hẳn, không trả về mỗi cái icon —
+  // xuatDanhSach lọc dòng rỗng, còn dòng chỉ có icon thì nó giữ lại.
+  if (!phan.length) return '';
+  return `${CO} ${phan.join(' - ')}`;
 }
 
 // Ghép tiêu đề + các dòng. Dòng rỗng (căn không có nổi mã căn) bị loại, không để lại
