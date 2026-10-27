@@ -285,7 +285,8 @@ function QuyCanBanInner({
   const [tagMenuFor, setTagMenuFor] = useState(null);
   const [telegramFor, setTelegramFor] = useState(null);
   const [chonMode, setChonMode] = useState(false);       // bật cột tích chọn
-  const [daChon, setDaChon] = useState(() => new Set()); // _rowIndex các căn đang chọn
+  // MẢNG chứ không phải Set: thứ tự tick là thứ tự xuất ra, nên phải giữ được thứ tự.
+  const [daChon, setDaChon] = useState([]); // _rowIndex các căn đang chọn, theo thứ tự tick
   const [xuatText, setXuatText] = useState(null);        // chuỗi đã dựng -> mở hộp Xuất căn // căn đang chọn nhóm Telegram để gửi
   const [xoaNhieu, setXoaNhieu] = useState(false);       // mở hộp xác nhận xoá hàng loạt
   const [showTelegram, setShowTelegram] = useState(false); // hộp cấu hình Telegram
@@ -851,18 +852,22 @@ function QuyCanBanInner({
     finally { setSaving(false); }
   }
 
+  // Đổi tab con -> bỏ hết lựa chọn. daChon giữ _rowIndex, mà số dòng chỉ có nghĩa trong
+  // đúng một nguồn dữ liệu: tab "Tất cả" đọc sheet chính, tab con đọc sheet con. Giữ lại
+  // là số cũ trỏ sang căn hoàn toàn khác — xuất nhầm còn đỡ, xoá nhầm thì mất dữ liệu.
+  useEffect(() => { setDaChon([]); }, [activeTag]);
+
+  // Tick thêm thì NỐI VÀO CUỐI, bỏ tick thì rút ra và các căn sau tự dịch số lên.
   function doiChon(rowIndex) {
-    setDaChon(prev => {
-      const s = new Set(prev);
-      if (s.has(rowIndex)) s.delete(rowIndex); else s.add(rowIndex);
-      return s;
-    });
+    setDaChon(prev => prev.includes(rowIndex)
+      ? prev.filter(r => r !== rowIndex)
+      : [...prev, rowIndex]);
   }
 
   // Chọn/bỏ theo ĐÚNG danh sách đang hiển thị (filtered), không phải toàn bộ bảng:
   // đang lọc mà bấm "chọn tất cả" lại vến cả căn không nhìn thấy thì xuất ra thứ không ai ngờ.
   function chonTatCa() {
-    setDaChon(prev => prev.size === hienThi.length ? new Set() : new Set(hienThi.map(it => it._rowIndex)));
+    setDaChon(prev => prev.length === hienThi.length ? [] : hienThi.map(it => it._rowIndex));
   }
 
   // Xoá hàng loạt. Đường `bulk` của server xoá THEO SỐ DÒNG, mà số dòng trên máy chỉ là
@@ -871,7 +876,7 @@ function QuyCanBanInner({
   // Nên: tải lại ngay trước khi xoá, dò lại số dòng theo MÃ CĂN; lệch dù một căn là huỷ cả mẻ
   // chứ không xoá phần còn lại.
   async function confirmXoaNhieu() {
-    const chon = hienThi.filter(it => daChon.has(it._rowIndex));
+    const chon = daChon.map(ri => hienThi.find(it => it._rowIndex === ri)).filter(Boolean);
     if (!chon.length) return;
     const fromCon = viewingCon;
     try {
@@ -895,7 +900,7 @@ function QuyCanBanInner({
       await (fromCon ? postConFn : postFn)({ action: 'bulk', deletes: rows });
       showToast(`Đã xoá ${rows.length} căn`);
       setXoaNhieu(false);
-      setDaChon(new Set());
+      setDaChon([]);
       setChonMode(false);
       await (fromCon ? loadConData() : loadData());
     } catch (e) { onWriteError(e); }
@@ -903,8 +908,9 @@ function QuyCanBanInner({
   }
 
   function xuatThongTin() {
-    // Lọc trên hienThi để danh sách xuất ra giữ đúng thứ tự đang nhìn thấy trên bảng.
-    const chon = hienThi.filter(it => daChon.has(it._rowIndex));
+    // Duyệt theo daChon chứ không theo hienThi: danh sách xuất ra phải xếp đúng THỨ TỰ
+    // NGƯỜI DÙNG TICK, khớp với số 1, 2, 3... đang hiện trên từng dòng.
+    const chon = daChon.map(ri => hienThi.find(it => it._rowIndex === ri)).filter(Boolean);
     if (!chon.length) return;
     const dong = chon.map(it => {
       const gia = giaTextBan(it.Gia_Net || it.Gia);
@@ -999,21 +1005,21 @@ function QuyCanBanInner({
           {/* Cấu hình Telegram — token bot + danh sách nhóm. Chỉ admin: đây là cấu hình
               dùng chung của cả công ty, không phải tùy chỉnh của từng người. */}
           {canEditMain && <button onClick={() => setShowTelegram(true)} style={st.telegramBtn} className="cb-btn" title="Cấu hình Telegram">✈ Telegram</button>}
-          <button onClick={() => { setChonMode(v => !v); setDaChon(new Set()); }}
+          <button onClick={() => { setChonMode(v => !v); setDaChon([]); }}
             style={chonMode ? st.chonBtnOn : st.chonBtn} className="cb-btn"
             title="Chọn căn để xuất danh sách">☑ Chọn căn</button>
           {chonMode && (
             <>
               <button onClick={chonTatCa} style={st.chonPhuBtn} className="cb-btn">
-                {daChon.size === hienThi.length && hienThi.length > 0 ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                {daChon.length === hienThi.length && hienThi.length > 0 ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
               </button>
-              <button onClick={xuatThongTin} disabled={daChon.size === 0}
-                style={{ ...st.xuatBtn, ...(daChon.size === 0 ? { opacity:0.45, cursor:'default' } : {}) }}
-                className="cb-btn">📄 Xuất thông tin ({daChon.size})</button>
+              <button onClick={xuatThongTin} disabled={daChon.length === 0}
+                style={{ ...st.xuatBtn, ...(daChon.length === 0 ? { opacity:0.45, cursor:'default' } : {}) }}
+                className="cb-btn">📄 Xuất thông tin ({daChon.length})</button>
               {canEdit && (
-                <button onClick={() => setXoaNhieu(true)} disabled={daChon.size === 0}
-                  style={{ ...st.xoaNhieuBtn, ...(daChon.size === 0 ? { opacity:0.45, cursor:'default' } : {}) }}
-                  className="cb-btn">🗑 Xoá đã chọn ({daChon.size})</button>
+                <button onClick={() => setXoaNhieu(true)} disabled={daChon.length === 0}
+                  style={{ ...st.xoaNhieuBtn, ...(daChon.length === 0 ? { opacity:0.45, cursor:'default' } : {}) }}
+                  className="cb-btn">🗑 Xoá đã chọn ({daChon.length})</button>
               )}
             </>
           )}
@@ -1152,9 +1158,15 @@ function QuyCanBanInner({
                     <tr key={item._rowIndex} id={`cb-row-${item.Ma_Can}`} className="cb-row" style={st.tr}>
                       {chonMode && (
                         <td style={{...st.td, textAlign:'center', background: rowBg}}>
-                          <input type="checkbox" checked={daChon.has(item._rowIndex)}
-                            onChange={() => doiChon(item._rowIndex)}
-                            style={{ width:15, height:15, accentColor:'#38b274', cursor:'pointer' }} />
+                          {/* Hiện SỐ THỨ TỰ tick chứ không phải dấu tick: danh sách xuất ra
+                              xếp theo thứ tự này, nên phải nhìn thấy được trước khi xuất. */}
+                          <button onClick={() => doiChon(item._rowIndex)}
+                            style={daChon.indexOf(item._rowIndex) === -1 ? st.oChon : st.oChonSo}
+                            title={daChon.indexOf(item._rowIndex) === -1
+                              ? 'Chọn căn này'
+                              : `Thứ ${daChon.indexOf(item._rowIndex) + 1} — bấm để bỏ chọn`}>
+                            {daChon.indexOf(item._rowIndex) === -1 ? '' : daChon.indexOf(item._rowIndex) + 1}
+                          </button>
                         </td>
                       )}
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', fontSize:12, background: isRecentUpdate(item.Ngay_Update) ? 'rgba(250, 204, 21, 0.22)' : rowBg}}>{item.Ngay_Update}</td>
@@ -1440,11 +1452,11 @@ function QuyCanBanInner({
       {xoaNhieu && (
         <div style={st.overlay} onClick={e => e.target===e.currentTarget && setXoaNhieu(false)}>
           <div style={st.confirmBox}>
-            <div style={{ fontSize:16, fontWeight:600, marginBottom:12, color:C.text }}>Xoá {daChon.size} căn đã chọn</div>
+            <div style={{ fontSize:16, fontWeight:600, marginBottom:12, color:C.text }}>Xoá {daChon.length} căn đã chọn</div>
             {/* Liệt kê từng mã căn chứ không chỉ đưa con số: xoá nhầm một mẻ là
                 không lấy lại được, phải cho người dùng đọc lại trước khi bấm. */}
             <div style={{ fontSize:12.5, color:C.textMuted, marginBottom:14, lineHeight:1.7, maxHeight:180, overflowY:'auto', background:'#141726', border:'1px solid #2a2f45', borderRadius:8, padding:10 }}>
-              {hienThi.filter(it => daChon.has(it._rowIndex)).map(it => it.Ma_Can).join(', ')}
+              {daChon.map(ri => hienThi.find(it => it._rowIndex === ri)?.Ma_Can).filter(Boolean).join(', ')}
             </div>
             <div style={{ fontSize:13.5, color:C.error, marginBottom:18, lineHeight:1.5 }}>
               {viewingCon
@@ -1455,7 +1467,7 @@ function QuyCanBanInner({
             <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
               <button onClick={() => setXoaNhieu(false)} style={st.cancelBtn} className="cb-btn">Huỷ</button>
               <button onClick={confirmXoaNhieu} disabled={saving} style={{ ...st.saveBtn, background:C.error }} className="cb-btn">
-                {saving ? 'Đang xoá...' : `Xoá ${daChon.size} căn`}
+                {saving ? 'Đang xoá...' : `Xoá ${daChon.length} căn`}
               </button>
             </div>
           </div>
@@ -1518,7 +1530,7 @@ function QuyCanBanInner({
       {xuatText != null && (
         <XuatCanModal
           text={xuatText}
-          soCan={daChon.size}
+          soCan={daChon.length}
           onClose={() => setXuatText(null)}
           showToast={showToast}
         />
@@ -1774,6 +1786,8 @@ const D = '1.5px solid rgba(255,255,255,0.22)';
 const st = {
   addBtn:      { background:C.gradient, color:'#fff', border:'none', borderRadius:10, padding:'10px 20px', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:F, boxShadow:C.shadowGreen, whiteSpace:'nowrap' },
   xoaNhieuBtn:{ padding:'9px 16px', border:'1.5px solid #E53E3E', borderRadius:10, background:'rgba(229,62,62,0.12)', color:'#E53E3E', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
+    oChon:      { width:22, height:22, padding:0, borderRadius:6, border:'1.5px solid #3a3f52', background:'transparent', cursor:'pointer', fontFamily:F },
+  oChonSo:    { width:22, height:22, padding:0, borderRadius:6, border:'1.5px solid #38b274', background:'#38b274', color:'#fff', fontSize:11.5, fontWeight:800, cursor:'pointer', fontFamily:F },
     chonBtn:    { padding:'9px 16px', border:'1.5px solid #3a3f52', borderRadius:10, background:'transparent', color:'#8a9bb8', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
   chonBtnOn:  { padding:'9px 16px', border:'1.5px solid #38b274', borderRadius:10, background:'rgba(56,178,116,0.15)', color:'#38b274', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
   chonPhuBtn: { padding:'9px 14px', border:'1.5px solid #3a3f52', borderRadius:10, background:'transparent', color:'#cbd5e1', fontSize:12.5, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
