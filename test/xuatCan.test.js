@@ -48,3 +48,21 @@ test('xuatDanhSach: bỏ dòng rỗng, không để dòng trắng', () => {
 test('xuatDanhSach: không tiêu đề thì chỉ có các dòng', () => {
   assert.equal(xuatDanhSach('', ['x', 'y']), 'x\ny');
 });
+
+test('dongXuatCan: ghi chú nằm cuối dòng', () => {
+  assert.equal(
+    dongXuatCan({ maCan: 'T081903', dienTich: '53', gia: '5 tỷ',
+                  lienHe: 'A Hoan 0962862895', ghiChu: 'Có đồ, net 8 tỷ' }),
+    'T081903 - 53m - Giá: 5 tỷ - Liên hệ: A Hoan 0962862895 - Ghi chú: Có đồ, net 8 tỷ');
+});
+
+// Ô ghi chú gõ xuống dòng được, mà ở đây mỗi căn đúng một dòng.
+test('dongXuatCan: ghi chú nhiều dòng bị gộp thành một dòng', () => {
+  const d = dongXuatCan({ maCan: 'X', ghiChu: 'Dòng một\nDòng hai\n\n  thừa   cách ' });
+  assert.equal(d, 'X - Ghi chú: Dòng một Dòng hai thừa cách');
+  assert.ok(!d.includes('\n'));
+});
+
+test('dongXuatCan: ghi chú rỗng thì không có nhãn', () => {
+  assert.equal(dongXuatCan({ maCan: 'X', ghiChu: '   ' }), 'X');
+});

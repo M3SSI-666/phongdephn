@@ -915,6 +915,7 @@ function QuyCanBanInner({
         huong: huongText(it.Huong_BC),
         gia: gia ? `${gia}${phi ? ` ${phi.toLowerCase()}` : ''}` : '',
         lienHe: [it.Ten_Chu, it.SDT].map(v => (v || '').toString().trim()).filter(Boolean).join(' '),
+        ghiChu: it.Ghi_Chu,
       });
     });
     const ten = viewingCon ? `Danh sách căn ${activeTag}` : 'Danh sách căn';

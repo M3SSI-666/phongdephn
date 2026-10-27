@@ -919,6 +919,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
         huong: huongText(it.Huong_BC),
         gia: giaText(it.Gia_Net || it.Gia),
         lienHe: [it.Ten_Chu, it.Lien_He].map(v => (v || '').toString().trim()).filter(Boolean).join(' '),
+        ghiChu: it.Ghi_Chu,
       });
     });
     const ten = viewingCon ? `Danh sách căn ${activeTag}` : 'Danh sách căn';

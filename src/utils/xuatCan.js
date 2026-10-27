@@ -10,7 +10,7 @@ const bo = v => (v || '').toString().trim();
 //
 // Phần nào rỗng thì BỎ HẲN khỏi dòng, không để lại nhãn cụt kiểu "Hướng: -". Danh sách
 // này dán thẳng ra ngoài để làm việc, nhãn trống chỉ gây hiểu nhầm là mất dữ liệu.
-export function dongXuatCan({ maCan, dienTich, huong, gia, lienHe }) {
+export function dongXuatCan({ maCan, dienTich, huong, gia, lienHe, ghiChu }) {
   const phan = [];
   const ma = bo(maCan).toUpperCase();
   if (ma) phan.push(ma);
@@ -24,6 +24,12 @@ export function dongXuatCan({ maCan, dienTich, huong, gia, lienHe }) {
   if (g) phan.push(`Giá: ${g}`);
   const lh = bo(lienHe);
   if (lh) phan.push(`Liên hệ: ${lh}`);
+  // Ghi chú để CUỐI vì nó dài và không cố định độ dài — đặt giữa dòng là đẩy mấy trường
+  // sau nó lệch tứ tung, nhìn cả danh sách không còn thẳng cột.
+  // Ô ghi chú gõ xuống dòng được (bảng hiển thị pre-line), mà ở đây mỗi căn đúng một
+  // dòng — nên gộp mọi xuống dòng và khoảng trắng thừa thành một dấu cách.
+  const gc = bo(ghiChu).replace(/\s+/g, ' ');
+  if (gc) phan.push(`Ghi chú: ${gc}`);
   return phan.join(' - ');
 }
 
