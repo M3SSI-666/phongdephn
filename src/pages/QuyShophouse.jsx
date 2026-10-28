@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
 import { fetchQuyShophouse, postQuyShophouse, parseSearchQuery } from '../utils/api';
+import { useLamMoiDinhKy } from '../utils/useLamMoiDinhKy';
+import { giuNeuKhongDoi } from '../utils/lamMoi';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -108,12 +110,13 @@ function QuyShophouseInner({ overrideUserId, overrideRole, isViewAs = false } = 
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchQuyShophouse(userId, role).then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {});
-    }, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  // Làm mới 30s: dừng khi ẩn tab, dữ liệu không đổi thì KHÔNG vẽ lại bảng. Bản trước để
+  // deps [] nên vòng poll giữ mãi userId/role ban đầu và quên isViewAs ("xem như").
+  useLamMoiDinhKy(() => {
+    fetchQuyShophouse(userId, role, isViewAs)
+      .then(d => setItems(cu => giuNeuKhongDoi(cu, Array.isArray(d) ? d : [])))
+      .catch(() => {});
+  });
 
   function parseGiaValue(gia) {
     const s = (gia || '').toLowerCase().replace(/\s+/g, '');

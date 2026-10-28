@@ -38,3 +38,23 @@ export function anhCloudinary(url, rong) {
 
   return `${url.slice(0, dau)}f_auto,q_auto,w_${rong},c_limit/${con}`;
 }
+
+// ẢNH ĐẠI DIỆN (một khung hình, JPG nhỏ) của video Cloudinary — dùng cho ô thu nhỏ.
+//
+// Vì sao cần: ô video trong bảng là thẻ <video> trỏ thẳng file video gốc chỉ để hiện
+// một khung hình 32px — mỗi video trình duyệt kéo về cả MB dữ liệu mỗi lần mở tab, trên
+// điện thoại 4G là nặng thấy rõ. Cloudinary trả ảnh khung hình nếu đổi đuôi đường dẫn
+// video sang .jpg, kèm tham số thu nhỏ như ảnh thường.
+// Không phải video Cloudinary (hoặc đã có tham số sẵn) → null, để chỗ gọi dùng <video>.
+export function anhVideoCloudinary(url, rong) {
+  if (typeof url !== 'string' || !url.startsWith(TIEN_TO)) return null;
+  if (!Number.isInteger(rong) || rong <= 0) return null;
+  const moc = url.indexOf('/video/upload/');
+  if (moc === -1) return null;
+  const dau = moc + '/video/upload/'.length;
+  const [duong, hoi] = url.slice(dau).split('?');
+  if (laThamSo(duong.split('/')[0])) return null;
+  const cham = duong.lastIndexOf('.');
+  const goc = cham > duong.lastIndexOf('/') ? duong.slice(0, cham) : duong;
+  return `${url.slice(0, dau)}q_auto,w_${rong},c_limit/${goc}.jpg${hoi ? `?${hoi}` : ''}`;
+}

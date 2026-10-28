@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
 import {
@@ -19,9 +19,14 @@ import { maCanTrucMatch, maCanTangInRange, normalizeTruc, tangToNumber, numberTo
 import { resolveKhu } from '../utils/khuToa';
 import { parseDienTich, dienTichInRange, formatDienTich } from '../utils/dienTich';
 import { anhCloudinary } from '../utils/anhCloudinary';
+import VideoNho from '../components/VideoNho';
 import { resolveTopN, xepHangGiaTot } from '../utils/topGiaTot';
 import { useConTags } from '../utils/useConTags';
-import ImportSheetModal from '../components/ImportSheetModal';
+// Hộp nhập Excel kéo theo thư viện xlsx (~0,4 MB) — tách gói riêng, chỉ tải ở lần bấm
+// nhập đầu tiên. Bản trước luôn dựng sẵn nên xlsx nằm trong gói mở app của mọi người.
+const ImportSheetModal = lazy(() => import('../components/ImportSheetModal'));
+import { useLamMoiDinhKy } from '../utils/useLamMoiDinhKy';
+import { giuNeuKhongDoi } from '../utils/lamMoi';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -262,6 +267,7 @@ function QuyCanBanInner({
   const [editItem, setEditItem]     = useState(null);
   const [form, setForm]             = useState({ ...EMPTY_FORM });
   const [showImport, setShowImport] = useState(false);
+  const daMoImport = useRef(false);
 
   const [rawText, setRawText]       = useState('');
   const [parsing, setParsing]       = useState(false);
@@ -340,15 +346,13 @@ function QuyCanBanInner({
 
   useEffect(() => { loadData(); loadConData(); }, [loadData, loadConData]);
 
-  useEffect(() => {
-    const iv = setInterval(() => {
-      fetchFn(userId, role, isViewAs).then(d => setItems(Array.isArray(d)?d:[])).catch(()=>{});
-      fetchConFn(userId, role, isViewAs).then(d => {
-        if (canApplyRemoteRef.current()) setConItems(Array.isArray(d)?d:[]);
-      }).catch(()=>{});
-    }, 30000);
-    return () => clearInterval(iv);
-  }, [fetchFn, fetchConFn, userId, role, isViewAs]);
+  // Làm mới 30s: dừng khi ẩn tab, và dữ liệu không đổi thì KHÔNG vẽ lại bảng.
+  useLamMoiDinhKy(() => {
+    fetchFn(userId, role, isViewAs).then(d => setItems(cu => giuNeuKhongDoi(cu, Array.isArray(d)?d:[]))).catch(()=>{});
+    fetchConFn(userId, role, isViewAs).then(d => {
+      if (canApplyRemoteRef.current()) setConItems(cu => giuNeuKhongDoi(cu, Array.isArray(d)?d:[]));
+    }).catch(()=>{});
+  });
 
   function parseGiaValue(gia) {
     if (isDateSerialGia(gia)) return null; // ô Giá là serial ngày Excel (VD "45800", "45800 tỷ") -> không phải giá
@@ -450,6 +454,7 @@ function QuyCanBanInner({
   const colWidths = chonMode ? [38, ...colWidthsGoc] : colWidthsGoc;
   // Bảng hàng công ty dùng chung: chỉ admin được sửa. Bảng con là kho riêng nên ai cũng sửa được.
   const canEditMain = role === 'admin';
+  if (showImport && canEditMain) daMoImport.current = true;   // xem hộp nhập Excel lazy ở cuối
   const canEdit = viewingCon || canEditMain;
 
   // Danh sách gốc của tab đang mở, TRƯỚC mọi bộ lọc.
@@ -974,11 +979,11 @@ function QuyCanBanInner({
       <div style={{display:'flex',gap:3,justifyContent:'center'}}>
         {sorted.slice(0,2).map((u,i) => isVideo(u) ? (
           <div key={i} style={{position:'relative',width:32,height:32}}>
-            <video src={u} style={{width:32,height:32,objectFit:'cover',borderRadius:4}} muted />
+            <VideoNho src={u} rong={64} style={{width:32,height:32,objectFit:'cover',borderRadius:4}} />
             <span style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,background:'rgba(0,0,0,0.35)',borderRadius:4}}>▶</span>
           </div>
         ) : (
-          <img key={i} src={anhCloudinary(u, 64)} alt="" style={{width:32,height:32,objectFit:'cover',borderRadius:4}} />
+          <img key={i} src={anhCloudinary(u, 64)} alt="" loading="lazy" decoding="async" style={{width:32,height:32,objectFit:'cover',borderRadius:4}} />
         ))}
         {urls.length > 2 && <span style={{fontSize:11,color:'#8a9bb8',alignSelf:'center'}}>+{urls.length-2}</span>}
       </div>
@@ -1397,11 +1402,11 @@ function QuyCanBanInner({
                       <div key={i} style={{ position:'relative' }}>
                         {isVideo(url) ? (
                           <div style={{ position:'relative', width:72, height:72 }}>
-                            <video src={url} style={{ width:72, height:72, objectFit:'cover', borderRadius:8, border:'1px solid #3a3f52' }} muted />
+                            <VideoNho src={url} rong={144} style={{ width:72, height:72, objectFit:'cover', borderRadius:8, border:'1px solid #3a3f52' }} />
                             <span style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, background:'rgba(0,0,0,0.4)', borderRadius:8 }}>▶</span>
                           </div>
                         ) : (
-                          <img src={anhCloudinary(url, 144)} alt="" style={{ width:72, height:72, objectFit:'cover', borderRadius:8, border:'1px solid #3a3f52' }} />
+                          <img src={anhCloudinary(url, 144)} alt="" loading="lazy" decoding="async" style={{ width:72, height:72, objectFit:'cover', borderRadius:8, border:'1px solid #3a3f52' }} />
                         )}
                         <button
                           type="button" onClick={() => removeImage(url)}
@@ -1590,13 +1595,19 @@ function QuyCanBanInner({
         );
       })()}
 
-      <ImportSheetModal
-        open={showImport && canEditMain}
-        onClose={() => setShowImport(false)}
-        userId={userId}
-        role={role}
-        onDone={handleImportDone}
-      />
+      {/* Lazy: chỉ dựng (và tải gói xlsx) từ lần mở đầu tiên, rồi GIỮ luôn — hộp vẫn nhớ
+          trạng thái giữa các lần đóng/mở như trước. */}
+      {daMoImport.current && (
+        <Suspense fallback={null}>
+          <ImportSheetModal
+            open={showImport && canEditMain}
+            onClose={() => setShowImport(false)}
+            userId={userId}
+            role={role}
+            onDone={handleImportDone}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
@@ -1746,11 +1757,11 @@ function LightboxModal({ urls, startIndex, maCan = 'anh', defaultTab = 'anh', on
                 >
                   {isVideoUrl(u) ? (
                     <>
-                      <video src={u} style={{width:58,height:58,objectFit:'cover'}} muted />
+                      <VideoNho src={u} rong={116} style={{width:58,height:58,objectFit:'cover'}} />
                       <span style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,background:'rgba(0,0,0,0.4)'}}>▶</span>
                     </>
                   ) : (
-                    <img src={anhCloudinary(u, 116)} alt="" style={{width:58,height:58,objectFit:'cover'}} />
+                    <img src={anhCloudinary(u, 116)} alt="" loading="lazy" decoding="async" style={{width:58,height:58,objectFit:'cover'}} />
                   )}
                 </div>
               ))}

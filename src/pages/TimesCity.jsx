@@ -1,14 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
 import { setClientRole } from '../utils/api';
-import { KhachTimesContent } from './KhachTimes';
-import { QuyCanThueContent } from './QuyCanThue';
-import { QuyCanBanContent, QuyDapThongContent } from './QuyCanBan';
-import { QuyShophouseContent } from './QuyShophouse';
-import { QuyHomestayContent } from './QuyHomestay';
-import { DataCanContent } from './DataCan';
+
+// Mỗi tab tách thành một gói JS riêng, MỞ TAB NÀO MỚI TẢI TAB ĐÓ. Bản trước gói hết
+// vào một file 2,7 MB — trong đó 1,8 MB là dataCan.json (9.300 căn) chỉ tab "Data" của
+// admin dùng — nên ai mở app, kể cả trên điện thoại, cũng phải tải và đọc hết mỗi lần.
+// Đã tải một lần thì trình duyệt giữ lại, chuyển tab về sau không phải tải nữa.
+const theoTen = (nap, ten) => lazy(() => nap().then(m => ({ default: m[ten] })));
+const KhachTimesContent   = theoTen(() => import('./KhachTimes'),   'KhachTimesContent');
+const QuyCanThueContent   = theoTen(() => import('./QuyCanThue'),   'QuyCanThueContent');
+const QuyCanBanContent    = theoTen(() => import('./QuyCanBan'),    'QuyCanBanContent');
+const QuyDapThongContent  = theoTen(() => import('./QuyCanBan'),    'QuyDapThongContent');
+const QuyShophouseContent = theoTen(() => import('./QuyShophouse'), 'QuyShophouseContent');
+const QuyHomestayContent  = theoTen(() => import('./QuyHomestay'),  'QuyHomestayContent');
+const DataCanContent      = theoTen(() => import('./DataCan'),      'DataCanContent');
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -127,6 +134,7 @@ function TimesCityApp() {
 
       {/* Content */}
       <div style={s.content}>
+        <Suspense fallback={<div style={s.dangTaiTab}>Đang tải...</div>}>
         {activeTab === 'khach'     && <KhachTimesContent overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}
         {activeTab === 'thue'      && <QuyCanThueContent   overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}
         {activeTab === 'ban'       && <QuyCanBanContent    overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}
@@ -134,6 +142,7 @@ function TimesCityApp() {
         {activeTab === 'shophouse' && <QuyShophouseContent overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}
         {activeTab === 'homestay'  && <QuyHomestayContent  overrideUserId={effectiveUserId} overrideRole={role} isViewAs={!!viewAsId} />}
         {activeTab === 'data' && isAdmin && <DataCanContent />}
+        </Suspense>
       </div>
     </div>
   );
@@ -152,4 +161,5 @@ const s = {
   mainTab:       { padding:'12px 28px', borderRadius:'10px 10px 0 0', fontSize:15, fontWeight:700, background:'#1a1d27', color:'#8a9bb8', border:'1.5px solid #2d3240', borderBottom:'none', position:'relative', top:1 },
   mainTabActive: { background:C.gradient, color:'#fff', border:'1.5px solid transparent', borderBottom:'none', boxShadow:C.shadowGreen },
   content:       { padding:'16px 12px' },
+  dangTaiTab:    { padding:'40px 0', textAlign:'center', color:'#8a9bb8', fontSize:13, fontFamily:F },
 };

@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { C } from '../utils/theme';
 import { fetchQuyCanThue, postQuyCanThue, fetchQuyCanBan, postQuyCanBan } from '../utils/api';
+import { useLamMoiDinhKy } from '../utils/useLamMoiDinhKy';
+import { giuNeuKhongDoi } from '../utils/lamMoi';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -129,14 +131,12 @@ function NguonHangInner({ showHeader, fixedMode }) {
     setSearch('');
   }, [viewMode]);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchFn().then((data) => {
-        setItems(Array.isArray(data) ? data : []);
-      }).catch(() => {});
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [fetchFn]);
+  // Làm mới 30s: dừng khi ẩn tab, và dữ liệu không đổi thì KHÔNG vẽ lại bảng.
+  useLamMoiDinhKy(() => {
+    fetchFn().then((data) => {
+      setItems(cu => giuNeuKhongDoi(cu, Array.isArray(data) ? data : []));
+    }).catch(() => {});
+  });
 
   const filtered = useMemo(() => {
     let list = [...items];

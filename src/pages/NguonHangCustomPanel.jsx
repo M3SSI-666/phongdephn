@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { C } from '../utils/theme';
+import { anhCloudinary } from '../utils/anhCloudinary';
+import VideoNho from '../components/VideoNho';
 import { fetchNguonHangCustom, postNguonHangCustom, uploadImagesToCloudinary, uploadVideosToCloudinary } from '../utils/api';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
@@ -355,7 +357,7 @@ export default function NguonHangCustomPanel() {
                             title="Xem ảnh/video"
                           >
                             {firstImg ? (
-                              <img src={firstImg} alt="" style={{ width: 28, height: 28, borderRadius: 4, objectFit: 'cover' }} />
+                              <img src={anhCloudinary(firstImg, 56)} alt="" loading="lazy" decoding="async" style={{ width: 28, height: 28, borderRadius: 4, objectFit: 'cover' }} />
                             ) : (
                               <span style={{ fontSize: 14 }}>&#9658;</span>
                             )}
@@ -460,7 +462,7 @@ export default function NguonHangCustomPanel() {
                   <div style={s.thumbGrid}>
                     {existingImages.map((url) => (
                       <div key={url} style={s.thumbItem}>
-                        <img src={url} alt="" style={s.thumbImg} />
+                        <img src={anhCloudinary(url, 200)} alt="" loading="lazy" decoding="async" style={s.thumbImg} />
                         <button
                           style={s.thumbRemove}
                           onClick={(e) => { e.stopPropagation(); removeExistingImage(url); }}
@@ -505,7 +507,7 @@ export default function NguonHangCustomPanel() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
                     {existingVideos.map((url) => (
                       <div key={url} style={s.videoItem}>
-                        <video src={url} style={s.videoThumb} muted />
+                        <VideoNho src={url} rong={112} style={s.videoThumb} />
                         <div style={{ flex: 1, fontSize: 12, color: C.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {url.split('/').pop()}
                         </div>
@@ -589,7 +591,7 @@ export default function NguonHangCustomPanel() {
                 />
               ) : (
                 <img
-                  src={mediaViewer.media[mediaViewer.index]?.url}
+                  src={anhCloudinary(mediaViewer.media[mediaViewer.index]?.url, 1600)}
                   alt=""
                   style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                 />
@@ -629,9 +631,9 @@ export default function NguonHangCustomPanel() {
                     onClick={() => setMediaViewer(prev => ({ ...prev, index: i }))}
                   >
                     {m.type === 'video' ? (
-                      <video src={m.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
+                      <VideoNho src={m.url} rong={112} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
-                      <img src={m.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={anhCloudinary(m.url, 112)} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     )}
                   </div>
                 ))}

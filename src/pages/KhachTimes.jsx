@@ -22,6 +22,8 @@ import { validateTagName } from '../utils/conTagState';
 import { noteDateFlag, toDayKey, noteDayKey } from '../utils/khachDate';
 import { parseTienVnd, formatVnd } from '../utils/tien';
 import { nhanNhomPhongNgu, soSanhNhomPhongNgu } from '../utils/nhomPhongNgu';
+import { useLamMoiDinhKy } from '../utils/useLamMoiDinhKy';
+import { giuNeuKhongDoi } from '../utils/lamMoi';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -424,16 +426,14 @@ function KhachTimesInner({ showHeader, overrideUserId, overrideRole, isViewAs = 
   useEffect(() => { loadData(); }, [loadData]);
   useEffect(() => { loadKhuData(); }, [loadKhuData]);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchKhachTimes(userId, role, isViewAs).then((data) => {
-        const arr = Array.isArray(data) ? data : [];
-        setItems(arr);
-      }).catch(() => {});
-      loadKhuData();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [userId, role, isViewAs, loadKhuData]);
+  // Làm mới 30s: dừng khi ẩn tab, và dữ liệu không đổi thì KHÔNG vẽ lại bảng.
+  useLamMoiDinhKy(() => {
+    fetchKhachTimes(userId, role, isViewAs).then((data) => {
+      const arr = Array.isArray(data) ? data : [];
+      setItems(cu => giuNeuKhongDoi(cu, arr));
+    }).catch(() => {});
+    loadKhuData();
+  });
 
   // ── Task hàng ngày ──
   // Mọi vai trò đều dùng được, không riêng admin: sheet Task lọc thuần theo Owner_Id nên ai

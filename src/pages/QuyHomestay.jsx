@@ -3,6 +3,8 @@ import { useUser } from '@clerk/clerk-react';
 import { C } from '../utils/theme';
 import { fetchQuyHomestay, postQuyHomestay, uploadToCloudinary, parseSearchQuery } from '../utils/api';
 import { anhCloudinary } from '../utils/anhCloudinary';
+import { useLamMoiDinhKy } from '../utils/useLamMoiDinhKy';
+import { giuNeuKhongDoi } from '../utils/lamMoi';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -118,12 +120,13 @@ function QuyHomestayInner({ overrideUserId, overrideRole, isViewAs = false } = {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchQuyHomestay(userId, role).then((data) => setItems(Array.isArray(data) ? data : [])).catch(() => {});
-    }, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  // Làm mới 30s: dừng khi ẩn tab, dữ liệu không đổi thì KHÔNG vẽ lại bảng. Bản trước để
+  // deps [] nên vòng poll giữ mãi userId/role ban đầu và quên isViewAs ("xem như").
+  useLamMoiDinhKy(() => {
+    fetchQuyHomestay(userId, role, isViewAs)
+      .then((data) => setItems(cu => giuNeuKhongDoi(cu, Array.isArray(data) ? data : [])))
+      .catch(() => {});
+  });
 
   function parseGiaValue(gia) {
     const s = (gia || '').toLowerCase().replace(/\s+/g, '');
@@ -341,7 +344,7 @@ function QuyHomestayInner({ overrideUserId, overrideRole, isViewAs = false } = {
     return (
       <div style={{ display: 'flex', gap: 3 }}>
         {urls.slice(0, 2).map((u, i) => (
-          <img key={i} src={anhCloudinary(u, 64)} alt="" style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4 }} />
+          <img key={i} src={anhCloudinary(u, 64)} alt="" loading="lazy" decoding="async" style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4 }} />
         ))}
         {urls.length > 2 && <span style={{ fontSize: 11, color: C.textMuted, alignSelf: 'center' }}>+{urls.length - 2}</span>}
       </div>
@@ -561,7 +564,7 @@ function QuyHomestayInner({ overrideUserId, overrideRole, isViewAs = false } = {
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
                     {form.Hinh_Anh.split(',').map(u => u.trim()).filter(Boolean).map((url, i) => (
                       <div key={i} style={{ position: 'relative' }}>
-                        <img src={anhCloudinary(url, 128)} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: `1px solid ${C.border}` }} />
+                        <img src={anhCloudinary(url, 128)} alt="" loading="lazy" decoding="async" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: `1px solid ${C.border}` }} />
                         <button
                           type="button"
                           onClick={() => removeImage(url)}
