@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { C } from '../utils/theme';
-import { maCanTelegram, tinMaCan, mediaTelegram } from '../utils/telegramCan';
-import { fetchTelegramNhom, guiTelegram, fetchTelegramLog, suaTelegram } from '../utils/api';
+import { maCanTelegram, tinMaCan, mediaTelegram, doiViTriNhom } from '../utils/telegramCan';
+import { fetchTelegramNhom, guiTelegram, fetchTelegramLog, suaTelegram, sapXepTelegramNhom } from '../utils/api';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -23,6 +23,10 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
   const [loi, setLoi] = useState('');
   const [daDang, setDaDang] = useState([]);   // các nhóm căn này đã được đăng
   const [dangSua, setDangSua] = useState('');  // Chat_Id đang cập nhật
+  // Kéo thả đổi thứ tự nhóm — lưu vào sheet, dùng chung cả công ty.
+  const [keo, setKeo] = useState(null);        // chỉ số nhóm đang cầm
+  const [tha, setTha] = useState(null);        // { i, duoi } — chỗ sẽ thả (trên / dưới nhóm i)
+  const [dangXep, setDangXep] = useState(false);
 
   const media = mediaTelegram(item?.Hinh_Anh);
   const maCan = maCanTelegram(item?.Ma_Can);   // mã trần, dùng cho chữ trong app
@@ -65,6 +69,27 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
       showToast(e.message, 'error');
     } finally {
       setDangGui(false);
+    }
+  }
+
+  // Thả nhóm đang cầm vào trên/dưới nhóm `tha.i`: đổi ngay trên màn hình rồi lưu.
+  // Lưu hỏng thì tải lại danh sách từ sheet — không để màn hình nói một đằng, sheet
+  // một nẻo.
+  async function thaNhom() {
+    const tu = keo, d = tha;
+    setKeo(null); setTha(null);
+    if (tu === null || !d) return;
+    const moi = doiViTriNhom(nhom, tu, d.i, d.duoi);
+    if (!moi) return;                          // thả về đúng chỗ cũ
+    setNhom(moi);
+    setDangXep(true);
+    try {
+      await sapXepTelegramNhom(moi.map(x => x.Ten_Nhom));
+    } catch (e) {
+      showToast(`Không lưu được thứ tự nhóm: ${e.message}`, 'error');
+      taiNhom();
+    } finally {
+      setDangXep(false);
     }
   }
 
@@ -126,7 +151,14 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
           </>
         )}
 
-        <div style={s.nhomLabel}>Chọn nhóm để gửi vào:</div>
+        <div style={s.nhomLabel}>
+          Chọn nhóm để gửi vào:
+          {nhom.length > 1 && (
+            <span style={s.goiYKeo}>
+              {dangXep ? 'Đang lưu thứ tự...' : '⠿ rê để đổi thứ tự (dùng chung cả công ty)'}
+            </span>
+          )}
+        </div>
 
         {dangTai && <div style={s.info}>Đang tải danh sách nhóm...</div>}
         {loi && <div style={{ ...s.info, color: C.error }}>{loi}</div>}
@@ -138,11 +170,36 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
         )}
 
         <div style={s.nhomList}>
-          {nhom.map(n => (
-            <button key={n.Ten_Nhom} onClick={() => gui(n)} disabled={dangGui} style={s.nhomBtn}>
-              {dangGui ? 'Đang gửi...' : n.Ten_Nhom}
-            </button>
-          ))}
+          {nhom.map((n, i) => {
+            const vachTren = tha && keo !== null && tha.i === i && !tha.duoi;
+            const vachDuoi = tha && keo !== null && tha.i === i && tha.duoi;
+            return (
+              <button
+                key={n.Ten_Nhom}
+                onClick={() => gui(n)}
+                disabled={dangGui}
+                draggable={!dangGui && !dangXep && nhom.length > 1}
+                onDragStart={e => { setKeo(i); e.dataTransfer.effectAllowed = 'move'; }}
+                onDragOver={e => {
+                  if (keo === null) return;
+                  e.preventDefault();
+                  const r = e.currentTarget.getBoundingClientRect();
+                  const duoi = e.clientY > r.top + r.height / 2;
+                  if (!tha || tha.i !== i || tha.duoi !== duoi) setTha({ i, duoi });
+                }}
+                onDrop={e => { e.preventDefault(); thaNhom(); }}
+                onDragEnd={() => { setKeo(null); setTha(null); }}
+                style={{
+                  ...s.nhomBtn,
+                  opacity: keo === i ? 0.4 : 1,
+                  boxShadow: vachTren ? 'inset 0 3px 0 #38bdf8' : vachDuoi ? 'inset 0 -3px 0 #38bdf8' : 'none',
+                }}
+              >
+                {nhom.length > 1 && <span style={s.tayNam} aria-hidden="true">⠿</span>}
+                {dangGui ? 'Đang gửi...' : n.Ten_Nhom}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -164,5 +221,7 @@ const s = {
   capNhatBtn:   { padding:'5px 11px', borderRadius:7, border:'1.5px solid #38bdf8', background:'transparent', color:'#38bdf8', fontSize:11.5, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
   ghiChu:       { fontSize:11, color:'#6b7a94', lineHeight:1.7, marginBottom:14 },
   nhomList:     { display:'flex', flexDirection:'column', gap:6 },
-  nhomBtn:      { padding:'10px 14px', borderRadius:10, border:'1.5px solid #3a3f52', background:'#22263a', color:'#e2e8f0', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, textAlign:'left' },
+  nhomBtn:      { padding:'10px 14px', borderRadius:10, border:'1.5px solid #3a3f52', background:'#22263a', color:'#e2e8f0', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, textAlign:'left', display:'flex', alignItems:'center', gap:10 },
+  tayNam:       { color:'#6b7a94', fontSize:14, cursor:'grab', userSelect:'none', lineHeight:1 },
+  goiYKeo:      { marginLeft:8, fontSize:10.5, fontWeight:600, color:'#6b7a94', textTransform:'none', letterSpacing:0 },
 };

@@ -200,6 +200,7 @@ async function nhomGet(req, res, sheetId, email, key) {
 
 async function nhomPost(req, res, sheetId, email, key) {
   const { action, Ten_Nhom, Chat_Id } = req.body || {};
+  if (action === 'reorder') return nhomSapXep(req, res, sheetId, email, key);
   const ten = (Ten_Nhom || '').trim();
   if (!ten) return res.status(400).json({ error: 'Thiếu Ten_Nhom' });
 
@@ -237,6 +238,55 @@ async function nhomPost(req, res, sheetId, email, key) {
     body: JSON.stringify({ values: [[ten, chatId]] }),
   });
   return res.status(200).json({ ok: true, added: true });
+}
+
+// Đổi THỨ TỰ nhóm (kéo thả trong hộp "Gửi sang Telegram"). Thứ tự hiển thị chính là
+// thứ tự dòng trong sheet, nên ghi lại cả khối A2:B theo thứ tự mới — dùng chung cho
+// cả công ty. Đổi dòng không hỏng gì khác: nhật ký tin đã đăng nối theo Chat_Id, không
+// theo số dòng.
+//
+// `thuTu` là danh sách TÊN nhóm (khoá giống add/sửa/xoá — không tin số dòng client
+// gửi lên). Nhóm có trong sheet mà không có trong `thuTu` (người khác vừa thêm trong
+// lúc mình đang kéo) thì GIỮ, xếp xuống cuối — không bao giờ làm mất nhóm.
+async function nhomSapXep(req, res, sheetId, email, key) {
+  const thuTu = Array.isArray(req.body?.thuTu)
+    ? req.body.thuTu.map(t => String(t || '').trim()).filter(Boolean) : [];
+  if (!thuTu.length) return res.status(400).json({ error: 'Thiếu thứ tự nhóm' });
+
+  const token = await getAccessToken(email, key, true);
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${NHOM_SHEET}!${NHOM_COLUMNS}`;
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) return res.status(500).json({ error: 'sheets_read', detail: await r.text() });
+  const rows = ((await r.json()).values || []).slice(1);      // bỏ dòng tiêu đề
+
+  const { moi, values } = xepNhomTheoThuTu(rows, thuTu);
+  if (!values.length) return res.status(200).json({ ok: true });
+  const w = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${NHOM_SHEET}!A2:B${values.length + 1}?valueInputOption=${WRITE_MODE}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values }),
+  });
+  if (!w.ok) return res.status(500).json({ error: 'sheets_write', detail: await w.text() });
+  return res.status(200).json({ ok: true, items: moi.map(([Ten_Nhom, Chat_Id]) => ({ Ten_Nhom, Chat_Id })) });
+}
+
+// Phần thuần của nhomSapXep (tách ra để kiểm thử không cần Google Sheets).
+// `rows`: các dòng dữ liệu của sheet (KHÔNG có dòng tiêu đề), có thể lẫn dòng trống do
+// xoá nhóm. Trả { moi: [[ten, chatId]…] theo thứ tự mới, values: khối ghi A2:B — bằng
+// đúng số dòng cũ, phần dôi ra là dòng trống để không sót dòng thừa ở dưới }.
+export function xepNhomTheoThuTu(rows, thuTu) {
+  const conNhom = (rows || [])
+    .map(row => [String(row?.[0] || '').trim(), String(row?.[1] || '').trim()])
+    .filter(([ten]) => ten);
+  const theoTen = new Map(conNhom.map(n => [n[0], n]));
+  const moi = [];
+  for (const ten of thuTu || []) {
+    if (theoTen.has(ten)) { moi.push(theoTen.get(ten)); theoTen.delete(ten); }
+  }
+  for (const n of conNhom) if (theoTen.has(n[0])) moi.push(n);   // không có trong thuTu → giữ, xuống cuối
+  const values = [...moi];
+  while (values.length < (rows || []).length) values.push(['', '']);
+  return { moi, values };
 }
 
 async function ghiDong(sheetId, token, rowNumber, values) {

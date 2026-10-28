@@ -432,6 +432,12 @@ export async function postTelegramNhom(payload) {
   return res.json();
 }
 
+// Lưu THỨ TỰ nhóm sau khi kéo thả — dùng chung cả công ty (ghi lại thứ tự dòng trong
+// sheet Telegram_Nhom). `thuTu` là danh sách Ten_Nhom theo thứ tự mới.
+export async function sapXepTelegramNhom(thuTu) {
+  return postTelegramNhom({ action: 'reorder', thuTu });
+}
+
 export async function guiTelegram(payload) {
   const res = await fetch('/api/telegram', {
     method: 'POST',
