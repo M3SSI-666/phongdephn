@@ -107,7 +107,7 @@ export default function LoTrinhModal({ cans, toUnit, tenSales = '', onClose, sho
         <div style={s.lbSec}>Lộ trình ({cans.length} căn, theo thứ tự bạn đã tick)</div>
         {thieuLayout > 0 && (
           <div style={s.canh}>
-            ⚠ {thieuLayout} căn chưa có Layout — phần mặt bằng của những căn đó sẽ bỏ trống trong file.
+            ⓘ {thieuLayout} căn chưa có Layout riêng — file sẽ dùng mặt bằng chung của tòa cho những căn đó.
           </div>
         )}
         <div style={s.ds}>
@@ -158,7 +158,7 @@ const s = {
   lbSec:     { fontSize:12, color:'#8a9bb8', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.4px', margin:'16px 0 8px' },
   inp:       { width:'100%', boxSizing:'border-box', padding:'9px 12px', border:'1.5px solid #3a3f52', borderRadius:8, background:'#1e2130', color:'#e2e8f0', fontSize:13, fontFamily:F, outline:'none' },
   inpNho:    { width:'100%', boxSizing:'border-box', marginTop:4, padding:'6px 9px', border:'1px solid #2a2f45', borderRadius:6, background:'#1e2130', color:'#cbd5e1', fontSize:12, fontFamily:F, outline:'none' },
-  canh:      { fontSize:12, color:'#F6AD55', lineHeight:1.6, marginBottom:8 },
+  canh:      { fontSize:12, color:'#8a9bb8', lineHeight:1.6, marginBottom:8 },
   ds:        { display:'flex', flexDirection:'column', gap:8, maxHeight:260, overflowY:'auto' },
   row:       { display:'flex', alignItems:'center', gap:10, padding:'8px 10px', background:'#141726', border:'1px solid #2a2f45', borderRadius:9 },
   stt:       { width:22, height:22, flexShrink:0, borderRadius:6, background:'#38b274', color:'#fff', fontSize:11.5, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center' },

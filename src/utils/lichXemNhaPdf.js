@@ -164,11 +164,11 @@ function sitePlanFig(img, maxH) {
       })));
 }
 
-function layoutFig(img, maxH) {
+function layoutFig(img, maxH, nhan) {
   const inner = CW - 22, sc = Math.min(inner / img.w, maxH / img.h, 1.6);
   const w = Math.round(img.w * sc), h = Math.round(img.h * sc);
   return el('div', {},
-    el('span', { class: 'fig-label', text: 'Layout' }),
+    el('span', { class: 'fig-label', text: nhan || 'Mặt bằng' }),
     el('div', { class: 'fig' }, el('img', { src: img.src, crossorigin: 'anonymous', alt: '', style: `width:${w}px;height:${h}px` })));
 }
 
@@ -237,7 +237,7 @@ function buildPages(s) {
     if (u.ghiChu?.trim()) place(noteBlock('Ghi chú', u.ghiChu.trim(), true));
     if (u.layout) {
       const left = cur.contentH - used - GAP - 34;
-      place(layoutFig(u.layout, left >= 360 ? Math.min(left, 640) : 640));
+      place(layoutFig(u.layout, left >= 360 ? Math.min(left, 640) : 640, u.layoutNhan));
     }
     photoRows(u).forEach(r => place(r));
   });

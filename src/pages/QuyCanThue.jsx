@@ -944,17 +944,30 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     const urls = (item.Hinh_Anh || '').split(',').map(u => u.trim())
       .filter(u => u && !isVideo(u)).map(u => anhCloudinary(u, 1600));
     const photos = (await Promise.all(urls.map(napAnh))).filter(Boolean);
-    const layout = (item.Layout || '').trim()
-      ? await napAnh(anhCloudinary(item.Layout.trim(), 2000))
-      : null;
+    // Mặt bằng luôn có trước phần ảnh căn: ưu tiên Layout riêng đã import, không có thì
+    // dùng mặt bằng chung của tòa trong public/mat-bang. File tòa có cả .jpg lẫn .png
+    // nên thử lần lượt — napAnh trả null khi không tải được.
+    let layout = null, layoutNhan = 'Mặt bằng căn';
+    if ((item.Layout || '').trim()) {
+      layout = await napAnh(anhCloudinary(item.Layout.trim(), 2000));
+    }
+    if (!layout) {
+      const toa = extractBuilding(item.Ma_Can);
+      if (toa) {
+        layout = (await napAnh(`/mat-bang/${toa}.jpg`)) || (await napAnh(`/mat-bang/${toa}.png`));
+        if (layout) layoutNhan = `Mặt bằng tòa ${toa}`;
+      }
+    }
     return {
       ma: item.Ma_Can || '',
       gia: giaText(item.Gia_Net || item.Gia),
       dtTim: (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim(),
       huongBC: huongText(item.Huong_BC),
       hienTrang: normalizeNoiThat(item.Noi_That),
-      ghiChu: [item.Ghi_Chu, ghiChuThem].map(v => (v || '').trim()).filter(Boolean).join(' — '),
-      layout, photos,
+      // CHỈ lấy ghi chú gõ trong hộp Lộ trình. Cột Ghi Chú của bảng hàng là ghi chú nội bộ —
+      // chứa pass cửa, số điện thoại chủ nhà, giá chốt thật — không được lọt vào file gửi khách.
+      ghiChu: (ghiChuThem || '').trim(),
+      layout, layoutNhan, photos,
     };
   }, []);
 
