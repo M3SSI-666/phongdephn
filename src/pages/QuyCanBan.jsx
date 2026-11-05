@@ -1958,8 +1958,12 @@ const st = {
   tr:          { borderBottom:'1.5px solid rgba(255,255,255,0.22)', transition:'background 0.12s' },
   td:          { padding:'8px 8px', verticalAlign:'middle', fontSize:13, borderRight:D, color:'#e2e8f0' },
   emptyTd:     { textAlign:'center', padding:40, color:'#8a9bb8', fontSize:14 },
-  toaHeader:   { background:'#EF4444', padding:'7px 0', textAlign:'center', borderTop:'1px solid rgba(255,255,255,0.18)', borderBottom:'1px solid rgba(255,255,255,0.18)' },
-  toaLabel:    { fontWeight:700, fontSize:13, color:'#fff', letterSpacing:3, textTransform:'uppercase' },
+  // Dải tên tòa: aqua ở 50% thay cho đỏ đặc. Nằm suốt cả bảng nên màu đặc là chói mắt;
+  // 50% cho nền tối ánh qua, dải vẫn rõ mà không đập vào mắt.
+  toaHeader:   { background:'rgba(0,255,255,0.5)', padding:'7px 0', textAlign:'center', borderTop:'1px solid rgba(255,255,255,0.18)', borderBottom:'1px solid rgba(255,255,255,0.18)' },
+  // Chữ đậm thay cho trắng: dải aqua 50% pha với nền bảng ra màu ngọc khá sáng, chữ
+  // trắng trên đó chỉ đạt tương phản 3,9:1 — dưới ngưỡng đọc thoải mái. Màu này được 4,8:1.
+  toaLabel:    { fontWeight:700, fontSize:13, color:'#051214', letterSpacing:3, textTransform:'uppercase' },
   actionBtn:   { background:'none', border:'none', cursor:'pointer', fontSize:16, padding:'4px 6px', borderRadius:6, color:C.textMuted },
   overlay:     { position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 },
   tagChip:       { background:'#22263a', color:'#cbd5e1', border:'1.5px solid #3a3f52', borderRadius:16, padding:'5px 12px', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
