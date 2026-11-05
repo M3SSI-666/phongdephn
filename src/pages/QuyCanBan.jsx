@@ -618,6 +618,12 @@ function QuyCanBanInner({
   // Đúng những căn đang hiện trên bảng, theo đúng thứ tự đó. Không dùng `filtered`:
   // bảng vẽ theo `grouped` (đã gom theo tòa và sắp lại), và chế độ Top N còn cắt bớt
   // danh sách — lấy `filtered` thì "chọn tất cả" vến cả căn không nằm trên màn hình.
+  // TẬP mã căn đang nằm trong bảng con, dựng MỘT lần mỗi khi conItems đổi.
+  // Trước đây nút gắn thẻ của TỬhNG HÀNG quét lại cả conItems và gọi conKey hai lần mỗi
+  // vòng: 1465 hàng × 200 dòng con = ~586.000 phép chuẩn hoá chuỗi, đo được 37-83ms JS
+  // chỉ để tô màu một cái nút — và chạy lại mỗi lần gõ tìm kiếm, lọc, hay tick một căn.
+  const conKeySet = useMemo(() => new Set(conItems.map(c => conKey(c.Ma_Can))), [conItems]);
+
   const hienThi = useMemo(() => grouped.flatMap(([, arr]) => arr), [grouped]);
 
   function normalizeFilter(f, originalQuery = '') {
@@ -1305,7 +1311,7 @@ function QuyCanBanInner({
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none', background: rowBg}}>
                         <button onClick={() => copyCustomerInfo(item)} style={{...st.actionBtn, color:C.primary}} title="Copy thông tin gửi khách">&#128203;</button>
                         <button onClick={() => setTelegramFor(item)} style={{...st.actionBtn, color:'#38bdf8'}} title="Gửi sang nhóm Telegram">&#9992;</button>
-                        <button onClick={() => setTagMenuFor({ ...item, _fromCon: viewingCon })} style={{...st.actionBtn, color: (viewingCon ? parseBangCon(item.Bang_Con).length : conItems.some(c => conKey(c.Ma_Can) === conKey(item.Ma_Can))) ? '#38b274' : undefined}} title={viewingCon ? 'Sửa bảng con' : 'Chuyển vào bảng con'}>&#127991;</button>
+                        <button onClick={() => setTagMenuFor({ ...item, _fromCon: viewingCon })} style={{...st.actionBtn, color: (viewingCon ? parseBangCon(item.Bang_Con).length : conKeySet.has(conKey(item.Ma_Can))) ? '#38b274' : undefined}} title={viewingCon ? 'Sửa bảng con' : 'Chuyển vào bảng con'}>&#127991;</button>
                         {canEdit && <button onClick={() => openEdit(item)} style={st.actionBtn} title="Sửa">&#9998;</button>}
                         {canEdit && <button onClick={() => setDeleteTarget({ ...item, _fromCon: viewingCon })} style={{...st.actionBtn, color:C.error}} title="Xoá">&#128465;</button>}
                       </td>
