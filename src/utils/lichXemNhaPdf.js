@@ -116,17 +116,20 @@ function makePage(s, cover) {
 function introBlock(s) {
   const n = s.units.length;
   const codes = s.units.map((u, i) => u.ma || `Căn ${i + 1}`);
-  // "Hôm nay" chỉ đúng khi ngày xem ĐÚNG LÀ hôm nay. Bản trước ghi cứng, nên file làm
-  // lại sau vài hôm vẫn tự xưng "hôm nay" trong khi dòng ngày ngay trên đó ghi ngày khác.
-  // Không phải hôm nay thì bỏ hẳn cụm chỉ thời gian — ngày đã nằm ở tiêu đề phía trên,
-  // nhắc lại trong câu là thừa.
-  const moDau = (s.date || '') === todayISO()
-    ? (s.client ? `Kính gửi ${s.client}, hôm nay mình` : 'Hôm nay mình')
-    : (s.client ? `Kính gửi ${s.client}, mình` : 'Mình');
+  // Câu mở đầu không nhắc thời gian nữa ("hôm nay"/"ngày..."): ngày đã nằm ngay dòng
+  // tiêu đề phía trên, mà ghi cứng "hôm nay" thì file làm lại sau vài hôm là sai ngay.
+  //
+  // Xưng hô đứng TRƯỚC tên khách: "Kính gửi chị Linh Hoàng". Bản trước chỉ dùng xưng hô
+  // ở lời cảm ơn cuối file nên câu mở đầu gọi trống không ngay giữa tên người ta.
+  // Thiếu tên thì chào bằng mỗi xưng hô ("Kính gửi anh/chị,"), thiếu cả hai thì bỏ lời chào
+  // và viết hoa chữ đầu câu — không để lại dấu phẩy mồ côi.
+  const nguoiNhan = [s.xungHo, s.client].map(v => (v || '').trim()).filter(Boolean).join(' ');
+  const chao = nguoiNhan ? `Kính gửi ${nguoiNhan}, ` : '';
+  const than = (cau) => chao ? chao + cau : cau.charAt(0).toUpperCase() + cau.slice(1);
   const lead = n
-    ? [`${moDau} đã cùng xem ${n} căn hộ tại Times City, lần lượt là `,
+    ? [than(`em tóm tắt lại lộ trình buổi xem nhà gồm ${n} căn: `),
        codes.map((c, i) => [i ? ', ' : '', el('span', { class: 'nw', text: c })]), '.']
-    : [`${s.client ? `Kính gửi ${s.client}. ` : ''}Chưa có căn nào trong lịch trình.`];
+    : [than('chưa có căn nào trong lịch trình.')];
   const route = n ? el('div', { class: 'route' }, s.units.map((u, i) =>
     el('div', { class: 'route-row' },
       el('span', { class: 'n', text: pad2(i + 1) }),

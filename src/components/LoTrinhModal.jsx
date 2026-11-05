@@ -64,7 +64,7 @@ export default function LoTrinhModal({ cans, toUnit, giaCuaCan, donViGia, tenSal
 
       const state = {
         name: name.trim(), phone: phone.trim(), title: title.trim(),
-        client: client.trim(), date: date || mod.todayISO(),
+        client: client.trim(), xungHo: xungHo.trim(), date: date || mod.todayISO(),
         thanks: mod.thanksMacDinh(xungHo), units,
       };
 
