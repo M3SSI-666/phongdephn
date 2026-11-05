@@ -11,6 +11,9 @@ import './../styles/lichXemNha.css';
 
 const PW = 794, PH = 1123, CW = PW - 104, HERO_H = 300, GAP = 18;
 
+// Mặt bằng tổng khu, file tĩnh trong public/ nên cùng domain — không vướng CORS.
+const SITE_PLAN = '/mat-bang/times-city.jpg';
+
 const pad2 = n => String(n).padStart(2, '0');
 const WEEKDAYS = ['Chủ nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 
@@ -33,7 +36,10 @@ function el(tag, attrs, ...kids) {
     else if (k === 'text') e.textContent = v;
     else e.setAttribute(k, v === true ? '' : v);
   }
-  for (const k of kids.flat()) {
+  // flat(Infinity), KHÔNG phải flat(): danh sách mã căn ở introBlock lồng hai tầng
+  // (mảng các cặp [dấu phẩy, <span>]). Duỗi một tầng thì mảng con lọt xuống nhánh
+  // String(k) và in ra "[object HTMLSpanElement]" ngay giữa câu mở đầu.
+  for (const k of kids.flat(Infinity)) {
     if (k == null || k === false) continue;
     e.append(k.nodeType ? k : document.createTextNode(String(k)));
   }
@@ -138,6 +144,20 @@ function specsBlock(u) {
 const noteBlock = (label, text, plain) =>
   el('div', { class: 'note' + (plain ? ' plain' : '') }, el('small', { text: label }), el('p', { text }));
 
+// Mặt bằng tổng khu. Co theo chiều NGANG trước rồi mới kẹp theo chiều cao còn lại —
+// ảnh này rất rộng, ép theo chiều cao sẽ thừa hai bên và nhìn lạc lõng giữa trang.
+function sitePlanFig(img, maxH) {
+  const inner = CW - 22;
+  const sc = Math.min(inner / img.w, maxH / img.h);
+  return el('div', {},
+    el('span', { class: 'fig-label', text: 'Mặt bằng tổng thể Times City' }),
+    el('div', { class: 'fig' },
+      el('img', {
+        src: img.src, crossorigin: 'anonymous', alt: '',
+        style: `width:${Math.round(img.w * sc)}px;height:${Math.round(img.h * sc)}px`,
+      })));
+}
+
 function layoutFig(img, maxH) {
   const inner = CW - 22, sc = Math.min(inner / img.w, maxH / img.h, 1.6);
   const w = Math.round(img.w * sc), h = Math.round(img.h * sc);
@@ -191,6 +211,16 @@ function buildPages(s) {
 
   newPage(true);
   place(introBlock(s));
+
+  // Mặt bằng tổng Times City lấp chỗ trống còn lại của trang bìa. Đặt sau phần danh
+  // sách căn chứ không nhét vào trong introBlock: nó là ảnh trang trí, không được phép
+  // đẩy nội dung sang trang mới. Thiếu chỗ thì BỎ HẲN, thà trang bìa trống một khoảng
+  // còn hơn đẻ thêm một trang chỉ để chứa cái bản đồ.
+  if (s.sitePlan) {
+    const con = cur.contentH - used - GAP - 30;
+    if (con >= 200) place(sitePlanFig(s.sitePlan, con));
+  }
+
   const n = s.units.length;
   s.units.forEach((u, i) => {
     place(unitHead(u, i, n), true);
@@ -243,6 +273,12 @@ export async function xuatPdf(state, onTienDo) {
 
   // Chụp trước khi font tải xong thì chữ ra font dự phòng, lệch hẳn bố cục đã đo.
   if (document.fonts?.ready) await document.fonts.ready;
+
+  // Mặt bằng tổng là file tĩnh cùng domain nên nạp ở đây, không bắt chỗ gọi lo.
+  // Nạp hỏng (ai đó xoá file) thì trang bìa chỉ thiếu ảnh, không làm hỏng cả PDF.
+  if (state.sitePlan === undefined) {
+    state = { ...state, sitePlan: await napAnh(SITE_PLAN) };
+  }
 
   const host = el('div', { style: 'position:fixed;left:-10000px;top:0;' });
   document.body.append(host);
