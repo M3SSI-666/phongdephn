@@ -16,6 +16,8 @@
   --paper-brass-light: #e2c48a;
   --paper-on-pine: #f4f7f5;
   --paper-on-pine-muted: #b9cdc6;
+  /* Đỏ cho phần Ghi chú: đủ đậm để đập vào mắt trên nền giấy trắng và in ra vẫn đọc được. */
+  --paper-red: #c0392b;
   --f-display: "Playfair Display", Georgia, "Times New Roman", serif;
   --f-body: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
@@ -77,6 +79,11 @@
 .note.plain { background: none; border: 1px solid var(--paper-line); }
 .note small, .fig-label { display: block; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--paper-muted); font-weight: 700; margin-bottom: 5px; }
 .note p { margin: 0; white-space: pre-wrap; font-size: 15px; }
+/* Chỉ khối Ghi chú (.plain) để chữ đỏ — đây là lời sales dặn riêng cho căn này, cần
+   bật ra khỏi phần thông số chung. Khối Hiện trạng giữ nguyên màu chữ thường. */
+.note.plain { border-color: var(--paper-red); }
+.note.plain small { color: var(--paper-red); }
+.note.plain p { color: var(--paper-red); font-weight: 600; }
 
 .fig { border: 1px solid var(--paper-line); border-radius: 6px; padding: 10px; display: flex; justify-content: center; background: #ffffff; }
 .fig img { display: block; max-width: none; }
