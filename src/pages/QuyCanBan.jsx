@@ -11,6 +11,7 @@ import {
   STATUS_GRAY, STATUS_PAUSED, INVEST_COLOR, KHUNG_BAN, khungConTrong,
 } from '../utils/quyCanShared';
 import XuatCanModal from '../components/XuatCanModal';
+import LoTrinhModal from '../components/LoTrinhModal';
 import { dongXuatCan, xuatDanhSach } from '../utils/xuatCan';
 import TelegramModal from '../components/TelegramModal';
 import TelegramSettingsModal from '../components/TelegramSettingsModal';
@@ -295,6 +296,7 @@ function QuyCanBanInner({
   // MẢNG chứ không phải Set: thứ tự tick là thứ tự xuất ra, nên phải giữ được thứ tự.
   const [daChon, setDaChon] = useState([]); // _rowIndex các căn đang chọn, theo thứ tự tick
   const [xuatText, setXuatText] = useState(null);        // chuỗi đã dựng -> mở hộp Xuất căn // căn đang chọn nhóm Telegram để gửi
+  const [loTrinh, setLoTrinh] = useState(null);          // các căn mở hộp Lộ trình xem nhà
   const [xoaNhieu, setXoaNhieu] = useState(false);       // mở hộp xác nhận xoá hàng loạt
   const [showTelegram, setShowTelegram] = useState(false); // hộp cấu hình Telegram
   const toastTimer                  = useRef(null);
@@ -929,6 +931,37 @@ function QuyCanBanInner({
     finally { setSaving(false); }
   }
 
+  // Đổi 1 căn PhongdepHN -> cấu trúc `unit` của module PDF.
+  // Ảnh phải nạp trước để biết kích thước thật; ảnh hỏng trả null và bị loại.
+  // Bỏ video: file PDF không phát được, chèn vào chỉ ra ô đen.
+  const toUnitPdf = useCallback(async (item, ghiChuThem, napAnh) => {
+    const urls = (item.Hinh_Anh || '').split(',').map(u => u.trim())
+      .filter(u => u && !isVideo(u)).map(u => anhCloudinary(u, 1600));
+    const photos = (await Promise.all(urls.map(napAnh))).filter(Boolean);
+    const layout = (item.Layout || '').trim()
+      ? await napAnh(anhCloudinary(item.Layout.trim(), 2000))
+      : null;
+    const gia = giaTextBan(item.Gia_Net || item.Gia);
+    const phi = mapPhi(item.Phi);
+    return {
+      ma: item.Ma_Can || '',
+      gia: gia ? `${gia}${phi ? ` ${phi.toLowerCase()}` : ''}` : '',
+      dtTim: (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim(),
+      dtThong: '',                       // bảng hàng không có DT thông thủy
+      huongBC: huongText(item.Huong_BC),
+      huongCua: huongText(item.Huong_Cua),
+      hienTrang: normalizeNoiThat(item.Noi_That),
+      ghiChu: [item.Ghi_Chu, ghiChuThem].map(v => (v || '').trim()).filter(Boolean).join(' — '),
+      layout, photos,
+    };
+  }, []);
+
+  function moLoTrinh() {
+    const chon = daChon.map(ri => hienThi.find(it => it._rowIndex === ri)).filter(Boolean);
+    if (!chon.length) return;
+    setLoTrinh(chon);
+  }
+
   function xuatThongTin() {
     // Duyệt theo daChon chứ không theo hienThi: danh sách xuất ra phải xếp đúng THỨ TỰ
     // NGƯỜI DÙNG TICK, khớp với số 1, 2, 3... đang hiện trên từng dòng.
@@ -1051,6 +1084,9 @@ function QuyCanBanInner({
                   style={{ ...st.xoaNhieuBtn, ...(daChon.length === 0 ? { opacity:0.45, cursor:'default' } : {}) }}
                   className="cb-btn">🗑 Xoá đã chọn ({daChon.length})</button>
               )}
+              <button onClick={moLoTrinh} disabled={daChon.length === 0}
+                style={{ ...st.loTrinhBtn, ...(daChon.length === 0 ? { opacity:0.45, cursor:'default' } : {}) }}
+                className="cb-btn" title="Tạo file PDF lộ trình dẫn khách">🗺 Lộ trình xem nhà ({daChon.length})</button>
             </>
           )}
         </div>
@@ -1589,6 +1625,16 @@ function QuyCanBanInner({
         />
       )}
 
+      {loTrinh && (
+        <LoTrinhModal
+          cans={loTrinh}
+          toUnit={toUnitPdf}
+          tenSales={user?.fullName || ''}
+          onClose={() => setLoTrinh(null)}
+          showToast={showToast}
+        />
+      )}
+
       {xuatText != null && (
         <XuatCanModal
           text={xuatText}
@@ -1863,7 +1909,8 @@ const lb = {
 const D = '1.5px solid rgba(255,255,255,0.22)';
 const st = {
   addBtn:      { background:C.gradient, color:'#fff', border:'none', borderRadius:10, padding:'10px 20px', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:F, boxShadow:C.shadowGreen, whiteSpace:'nowrap' },
-  xoaNhieuBtn:{ padding:'9px 16px', border:'1.5px solid #E53E3E', borderRadius:10, background:'rgba(229,62,62,0.12)', color:'#E53E3E', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
+  loTrinhBtn: { padding:'9px 16px', border:'1.5px solid #c084fc', borderRadius:10, background:'rgba(192,132,252,0.12)', color:'#c084fc', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
+    xoaNhieuBtn:{ padding:'9px 16px', border:'1.5px solid #E53E3E', borderRadius:10, background:'rgba(229,62,62,0.12)', color:'#E53E3E', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },
     oChon:      { width:22, height:22, padding:0, borderRadius:6, border:'1.5px solid #3a3f52', background:'transparent', cursor:'pointer', fontFamily:F },
   oChonSo:    { width:22, height:22, padding:0, borderRadius:6, border:'1.5px solid #38b274', background:'#38b274', color:'#fff', fontSize:11.5, fontWeight:800, cursor:'pointer', fontFamily:F },
     chonBtn:    { padding:'9px 16px', border:'1.5px solid #3a3f52', borderRadius:10, background:'transparent', color:'#8a9bb8', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F, whiteSpace:'nowrap' },

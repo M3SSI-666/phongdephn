@@ -1,0 +1,93 @@
+/* Trang PDF "Lộ trình xem nhà" — bê nguyên từ module lich-xem-nha.
+   Giữ px cứng là CỐ Ý: trang A4 ở 96dpi đúng 794x1123px, html2canvas chụp theo
+   kích thước thật nên đổi sang đơn vị co giãn là vỡ bố cục trang in.
+
+   Bảng màu giấy để RIÊNG, không dùng biến theme của app: trang in luôn nền trắng
+   chữ đậm, dù app đang ở chế độ tối. */
+:root {
+  --paper: #ffffff;
+  --paper-ink: #18221f;
+  --paper-muted: #66746f;
+  --paper-line: #dde4e1;
+  --paper-tint: #f1f5f3;
+  --paper-pine: #163d35;
+  --paper-pine-2: #1f5246;
+  --paper-brass: #b48834;
+  --paper-brass-light: #e2c48a;
+  --paper-on-pine: #f4f7f5;
+  --paper-on-pine-muted: #b9cdc6;
+  --f-display: "Playfair Display", Georgia, "Times New Roman", serif;
+  --f-body: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+.page {
+  width: 794px; height: 1123px; background: var(--paper); color: var(--paper-ink);
+  font-family: var(--f-body); font-size: 14px; line-height: 1.55; overflow: hidden; position: relative;
+}
+.page-content { position: absolute; left: 52px; right: 52px; display: flex; flex-direction: column; gap: 18px; }
+.page-foot {
+  position: absolute; left: 52px; right: 52px; bottom: 28px; border-top: 1px solid var(--paper-line);
+  padding-top: 10px; display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 11px; color: var(--paper-muted); font-variant-numeric: tabular-nums;
+}
+.page-foot b { color: var(--paper-ink); font-weight: 600; }
+.page-foot .tc { letter-spacing: .14em; text-transform: uppercase; font-size: 10px; font-weight: 600; color: var(--paper-brass); }
+
+.hero {
+  position: absolute; left: 0; right: 0; top: 0; height: 300px; background: var(--paper-pine); color: var(--paper-on-pine);
+  padding: 46px 52px 0; display: flex; justify-content: space-between; gap: 32px;
+}
+.hero::after { content: ""; position: absolute; left: 52px; right: 52px; bottom: 0; height: 3px; background: var(--paper-brass); }
+.hero-l { display: flex; flex-direction: column; min-width: 0; }
+.hero-eyebrow { font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--paper-brass-light); font-weight: 600; }
+.hero-name { font-family: var(--f-display); font-size: 46px; line-height: 1.12; font-weight: 600; margin-top: 22px; }
+.hero-title { font-size: 14px; color: var(--paper-on-pine-muted); margin-top: 8px; max-width: 420px; }
+.hero-phone { margin-top: auto; padding-bottom: 34px; display: flex; flex-direction: column; gap: 2px; }
+.hero-phone small { font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--paper-on-pine-muted); font-weight: 600; }
+.hero-phone strong { font-size: 32px; font-weight: 600; color: var(--paper-brass-light); font-variant-numeric: tabular-nums; letter-spacing: .02em; line-height: 1.2; }
+
+.eyebrow { font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--paper-brass); font-weight: 700; }
+.intro h3 { font-family: var(--f-body); font-size: 26px; font-weight: 700; margin: 6px 0 0; line-height: 1.2; }
+.intro p { margin: 10px 0 0; color: var(--paper-ink); font-size: 15px; }
+.route { margin-top: 18px; border-top: 1px solid var(--paper-line); }
+.route-row { display: flex; align-items: baseline; gap: 18px; padding: 11px 0; border-bottom: 1px solid var(--paper-line); }
+.route-row .n { font-size: 15px; font-weight: 700; color: var(--paper-brass); width: 28px; font-variant-numeric: tabular-nums; }
+.route-row .m { font-weight: 600; font-size: 15px; flex: 1; }
+.nw { white-space: nowrap; }
+.route-row .p { color: var(--paper-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+.u-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; padding-bottom: 16px; border-bottom: 2px solid var(--paper-pine); }
+.u-head h3 { font-family: var(--f-body); font-size: 28px; font-weight: 700; margin: 4px 0 0; line-height: 1.2; }
+.u-price { text-align: right; flex: none; }
+.u-price small { display: block; font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--paper-muted); font-weight: 600; }
+.u-price strong { font-size: 22px; color: var(--paper-pine); font-weight: 700; line-height: 1.25; }
+
+.specs { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--paper-line); }
+.spec { padding: 4px 14px 14px; border-left: 1px solid var(--paper-line); }
+.spec:first-child { border-left: 0; padding-left: 0; }
+.spec small { display: block; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--paper-muted); font-weight: 600; }
+.spec strong { display: block; font-size: 17px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.spec strong.na { color: var(--paper-muted); font-weight: 400; }
+
+.note { background: var(--paper-tint); border-radius: 6px; padding: 13px 16px; }
+.note.plain { background: none; border: 1px solid var(--paper-line); }
+.note small, .fig-label { display: block; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--paper-muted); font-weight: 700; margin-bottom: 5px; }
+.note p { margin: 0; white-space: pre-wrap; font-size: 15px; }
+
+.fig { border: 1px solid var(--paper-line); border-radius: 6px; padding: 10px; display: flex; justify-content: center; background: #ffffff; }
+.fig img { display: block; max-width: none; }
+.prow { display: flex; gap: 12px; }
+.pcell { position: relative; overflow: hidden; border-radius: 4px; background: var(--paper-tint); flex: none; }
+.pcell img { position: absolute; max-width: none; display: block; }
+
+.closing { padding-top: 10px; }
+.closing .rule { width: 56px; height: 3px; background: var(--paper-brass); margin-bottom: 18px; }
+.closing h3 { font-family: var(--f-display); font-size: 28px; font-weight: 600; margin: 0; line-height: 1.25; }
+.closing p { white-space: pre-wrap; margin: 12px 0 0; font-size: 15px; }
+.contact {
+  margin-top: 22px; background: var(--paper-pine); color: var(--paper-on-pine); border-radius: 8px;
+  padding: 18px 22px; display: flex; justify-content: space-between; align-items: center; gap: 20px;
+}
+.contact .who small { display: block; font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--paper-brass-light); font-weight: 600; }
+.contact .who strong { display: block; font-family: var(--f-display); font-size: 22px; font-weight: 600; margin-top: 2px; }
+.contact .ph-big { font-size: 26px; font-weight: 600; color: var(--paper-brass-light); font-variant-numeric: tabular-nums; letter-spacing: .02em; }
