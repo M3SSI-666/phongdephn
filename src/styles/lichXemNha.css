@@ -35,18 +35,22 @@
 .page-foot b { color: var(--paper-ink); font-weight: 600; }
 .page-foot .tc { letter-spacing: .14em; text-transform: uppercase; font-size: 10px; font-weight: 600; color: var(--paper-brass); }
 
+/* Cao 230px, trước là 300px: phần đầu chỉ dùng ~250px nên thừa một mảng trống, mà chỗ
+   đó lấn vào phần nội dung và đẩy ảnh mặt bằng sang trang 2.
+   SỐ NÀY PHẢI KHỚP với HERO_H trong lichXemNhaPdf.js — bên đó dùng nó để tính chiều
+   cao còn lại của trang bìa. Lệch nhau là nội dung tràn hoặc hở. */
 .hero {
-  position: absolute; left: 0; right: 0; top: 0; height: 300px; background: var(--paper-pine); color: var(--paper-on-pine);
-  padding: 46px 52px 0; display: flex; justify-content: space-between; gap: 32px;
+  position: absolute; left: 0; right: 0; top: 0; height: 230px; background: var(--paper-pine); color: var(--paper-on-pine);
+  padding: 34px 52px 0; display: flex; justify-content: space-between; gap: 32px;
 }
 .hero::after { content: ""; position: absolute; left: 52px; right: 52px; bottom: 0; height: 3px; background: var(--paper-brass); }
 .hero-l { display: flex; flex-direction: column; min-width: 0; }
 .hero-eyebrow { font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--paper-brass-light); font-weight: 600; }
-.hero-name { font-family: var(--f-display); font-size: 46px; line-height: 1.12; font-weight: 600; margin-top: 22px; }
-.hero-title { font-size: 14px; color: var(--paper-on-pine-muted); margin-top: 8px; max-width: 420px; }
-.hero-phone { margin-top: auto; padding-bottom: 34px; display: flex; flex-direction: column; gap: 2px; }
+.hero-name { font-family: var(--f-display); font-size: 38px; line-height: 1.12; font-weight: 600; margin-top: 14px; }
+.hero-title { font-size: 13px; color: var(--paper-on-pine-muted); margin-top: 6px; max-width: 420px; }
+.hero-phone { margin-top: auto; padding-bottom: 24px; display: flex; flex-direction: column; gap: 2px; }
 .hero-phone small { font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--paper-on-pine-muted); font-weight: 600; }
-.hero-phone strong { font-size: 32px; font-weight: 600; color: var(--paper-brass-light); font-variant-numeric: tabular-nums; letter-spacing: .02em; line-height: 1.2; }
+.hero-phone strong { font-size: 28px; font-weight: 600; color: var(--paper-brass-light); font-variant-numeric: tabular-nums; letter-spacing: .02em; line-height: 1.2; }
 
 /* Chữ trang bìa thu nhỏ hơn bản gốc: nhường chỗ cho ảnh mặt bằng tổng nằm cuùng trang,
    thay vì bị đẩy sang trang riêng rồi bỏ trống cả hai trang. */
