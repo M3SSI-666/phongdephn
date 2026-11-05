@@ -81,7 +81,7 @@ const EMPTY_FORM = {
   // Nội thất để TRỐNG chứ không đặt sẵn: dự án chỉ còn 2 trạng thái, chọn hộ một cái là
   // đoán bừa hộ người dùng và nó sẽ được lưu y như thật.
   Huong_BC: '', Gia: '', Gia_Net: '', Phi_MG: '', Noi_That: '',
-  Thoi_Gian_Vao: '', Ten_Chu: '', Lien_He: '', Hinh_Anh: '', Nguon: '', Ghi_Chu: '', Mau_Ma_Can: '',
+  Thoi_Gian_Vao: '', Ten_Chu: '', Lien_He: '', Hinh_Anh: '', Nguon: '', Ghi_Chu: '', Mau_Ma_Can: '', Layout: '',
 };
 
 // Bảng hàng con (tag) mặc định cho Quỹ Căn Thuê. User có thể thêm tag tuỳ chỉnh (lưu localStorage).
@@ -250,12 +250,12 @@ function isSoonMoveIn(val) {
 
 const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
-  'Hướng BC', 'Giá', 'Giá Nét', 'Phí MG', 'Nội Thất', 'Thời Gian Vào', 'Tên Chủ', 'Liên Hệ', 'Ảnh', 'Nguồn', 'Ghi Chú', '',
+  'Hướng BC', 'Giá', 'Giá Nét', 'Phí MG', 'Nội Thất', 'Thời Gian Vào', 'Tên Chủ', 'Liên Hệ', 'Ảnh', 'Layout', 'Nguồn', 'Ghi Chú', '',
 ];
 // Cột cuối là 6 nút thao tác (sales / copy / Telegram / tag / sửa / xoá), mỗi nút ~28px
 // nên cần ~176. Trước là 140 — đủ cho 5 nút, thêm nút Telegram thì nút xoá bị cắt.
 // Phần thêm vào lấy đúng từ cột Ghi Chú để bảng không rộng thêm.
-const COL_WIDTHS = [92, 100, 72, 66, 76, 85, 70, 70, 90, 110, 100, 100, 100, 80, 100, 234, 176];
+const COL_WIDTHS = [92, 100, 72, 66, 76, 85, 70, 70, 90, 110, 100, 100, 100, 80, 70, 100, 234, 176];
 
 export function QuyCanThueContent({ overrideUserId, overrideRole, isViewAs } = {}) {
   return <QuyCanThueInner overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
@@ -303,6 +303,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
   const [upProgress, setUpProgress] = useState(0);
   const [dragOver, setDragOver]     = useState(false);
   const fileInputRef                = useRef();
+  const layoutInputRef = useRef(null);
 
   const [toast, setToast]           = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -512,6 +513,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       Thoi_Gian_Vao: item.Thoi_Gian_Vao, Lien_He: item.Lien_He, Hinh_Anh: item.Hinh_Anh,
       Nguon: item.Nguon, Ghi_Chu: item.Ghi_Chu, Mau_Ma_Can: item.Mau_Ma_Can || '',
       Ten_Chu: item.Ten_Chu, Gia_Net: item.Gia_Net || '', Ngay_Update: item.Ngay_Update,
+      Layout: item.Layout || '',
       ...extra,
     };
   }
@@ -716,6 +718,20 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     setForm(prev => ({ ...prev, Hinh_Anh: newUrls.join(', ') }));
   }
 
+  // Layout chỉ MỘT ảnh, khác cột Ảnh (nhiều ảnh + video). Chọn ảnh mới là thay hẳn ảnh cũ —
+  // báo cáo dẫn khách chỉ đặt được một mặt bằng cho mỗi căn.
+  async function handleLayoutFile(files) {
+    const file = files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return showToast('Layout phải là ảnh', 'error');
+    setUploading(true);
+    try {
+      const url = await uploadToCloudinary(file, 'image', setUpProgress);
+      setForm(prev => ({ ...prev, Layout: url }));
+    } catch (e) { showToast('Upload thất bại: ' + e.message, 'error'); }
+    finally { setUploading(false); setUpProgress(0); }
+  }
+
   function removeImage(url) {
     const urls = form.Hinh_Anh.split(',').map(u=>u.trim()).filter(u => u && u !== url);
     setForm(prev => ({ ...prev, Hinh_Anh: urls.join(', ') }));
@@ -747,6 +763,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       Ten_Chu:       item.Ten_Chu       || '',
       Lien_He:       item.Lien_He       || '',
       Hinh_Anh:      item.Hinh_Anh      || '',
+      Layout:    item.Layout    || '',
       Nguon:         item.Nguon         || '',
       Ghi_Chu:       item.Ghi_Chu       || '',
       Mau_Ma_Can:    item.Mau_Ma_Can    || '',
@@ -967,6 +984,14 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
   }
 
   // ── Thumbnail cell ──
+  // Ô Layout: có thì hiện ảnh thu nhỏ, chưa có thì hiện dấu mờ để nhìn lướt biết căn nào
+  // còn thiếu mặt bằng — đó là thứ phải bù trước khi xuất báo cáo dẫn khách.
+  function LayoutCell({ value }) {
+    const url = (value || '').trim();
+    if (!url) return <span style={{ color:'#3a3f52', fontSize:15 }} title="Chưa có layout">▦</span>;
+    return <img src={anhCloudinary(url, 64)} alt="layout" style={{ width:32, height:32, objectFit:'cover', borderRadius:4, border:'1px solid #3a3f52' }} />;
+  }
+
   function ThumbCell({ value }) {
     const urls = value ? value.split(',').map(u=>u.trim()).filter(Boolean) : [];
     if (!urls.length) return <span style={{color:'#8a9bb8', fontSize:16}} title="Xem mặt bằng">🗺</span>;
@@ -1202,9 +1227,16 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                       <td style={{...st.td, textAlign:'center', cursor:'pointer', background: rowBg}}
                         onClick={() => {
                           const urls = item.Hinh_Anh ? item.Hinh_Anh.split(',').map(u=>u.trim()).filter(Boolean) : [];
-                          setLightbox({ urls: sortMedia(urls), index: 0, maCan: item.Ma_Can || 'media', defaultTab: urls.length ? 'anh' : 'matbang' });
+                          setLightbox({ urls: sortMedia(urls), index: 0, maCan: item.Ma_Can || 'media', layout: item.Layout || '', defaultTab: urls.length ? 'anh' : 'matbang' });
                         }}
                       ><ThumbCell value={item.Hinh_Anh} /></td>
+                      {/* Layout: mặt bằng riêng của căn. Bấm vào mở thẳng tab Mặt bằng. */}
+                      <td style={{...st.td, textAlign:'center', cursor:'pointer', background: rowBg}}
+                        onClick={() => {
+                          const urls = item.Hinh_Anh ? item.Hinh_Anh.split(',').map(u=>u.trim()).filter(Boolean) : [];
+                          setLightbox({ urls: sortMedia(urls), index: 0, maCan: item.Ma_Can || 'media', layout: item.Layout || '', defaultTab: 'matbang' });
+                        }}
+                      ><LayoutCell value={item.Layout} /></td>
                       <td style={{...st.td, textAlign:'center', fontSize:12, background: rowBg}}>{item.Nguon}</td>
                       <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8', background: rowBg}}>{item.Ghi_Chu}</td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none', background: rowBg}}>
@@ -1420,6 +1452,30 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
             </div>
 
             {/* Modal footer */}
+            <div style={{ marginTop:14 }}>
+              <label style={st.fieldLabel}>Layout (mặt bằng riêng của căn)</label>
+              {form.Layout ? (
+                <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:6 }}>
+                  <img src={anhCloudinary(form.Layout, 240)} alt="layout"
+                    style={{ width:120, height:120, objectFit:'contain', background:'#fff', borderRadius:8, border:'1px solid #3a3f52' }} />
+                  <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                    <button onClick={() => layoutInputRef.current?.click()} disabled={uploading}
+                      style={st.cancelBtn} className="ct-btn">Đổi ảnh khác</button>
+                    <button onClick={() => setForm(prev => ({ ...prev, Layout: '' }))} disabled={uploading}
+                      style={{ ...st.cancelBtn, color:C.error }} className="ct-btn">Xoá layout</button>
+                  </div>
+                </div>
+              ) : (
+                <div onClick={() => !uploading && layoutInputRef.current?.click()}
+                  style={{ border:'2px dashed #3a3f52', borderRadius:10, padding:'14px 20px', marginTop:6,
+                    cursor: uploading ? 'default':'pointer', textAlign:'center', color:'#8a9bb8', fontSize:13, background:'#1e2130' }}>
+                  ▦ Click để chọn ảnh layout
+                </div>
+              )}
+              <input ref={layoutInputRef} type="file" accept="image/*" style={{ display:'none' }}
+                onChange={e => { handleLayoutFile(e.target.files); e.target.value=''; }} />
+            </div>
+
             <div style={st.modalFooter}>
               <button onClick={closeModal} style={st.cancelBtn} className="ct-btn">Huỷ</button>
               <button onClick={handleSave} disabled={saving||uploading} style={st.saveBtn} className="ct-btn">
@@ -1583,6 +1639,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
           urls={lightbox.urls}
           startIndex={lightbox.index}
           maCan={lightbox.maCan}
+          layout={lightbox.layout}
           defaultTab={lightbox.defaultTab}
           onClose={() => setLightbox(null)}
         />
@@ -1632,7 +1689,10 @@ function extractBuilding(maCan) {
   return m ? m[1] : null;
 }
 
-function FloorPlanTab({ maCan }) {
+function FloorPlanTab({ maCan, layout = '' }) {
+  // Căn đã import Layout riêng thì hiện cái đó; chưa có mới rơi về mặt bằng chung của tòa
+  // (/mat-bang/<tòa>.jpg). Một chỗ xem duy nhất, không để hai loại mặt bằng nằm hai nơi.
+  const rieng = (layout || '').trim();
   const code = extractBuilding(maCan);
   const [src, setSrc] = useState(code ? `/mat-bang/${code}.jpg` : null);
   const [failed, setFailed] = useState(false);
@@ -1641,6 +1701,13 @@ function FloorPlanTab({ maCan }) {
     if (code) { setSrc(`/mat-bang/${code}.jpg`); setFailed(false); }
   }, [code]);
 
+  if (rieng) return (
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
+      <div style={{ fontSize:13, color:'#8a9bb8' }}>Layout căn <strong style={{color:'#e2e8f0'}}>{maCan}</strong></div>
+      <img src={rieng} alt={`Layout ${maCan}`}
+        style={{ maxWidth:'100%', maxHeight:'82vh', objectFit:'contain', borderRadius:10, background:'#fff', boxShadow:'0 8px 40px rgba(0,0,0,0.7)' }} />
+    </div>
+  );
   if (!code) return <div style={lb.mbMsg}>Không xác định được mã tòa từ "{maCan}"</div>;
   if (failed)  return <div style={lb.mbMsg}>Chưa có ảnh mặt bằng cho tòa <strong>{code}</strong></div>;
   return (
@@ -1658,7 +1725,7 @@ function FloorPlanTab({ maCan }) {
   );
 }
 
-function LightboxModal({ urls, startIndex, maCan = 'anh', defaultTab = 'anh', onClose }) {
+function LightboxModal({ urls, startIndex, maCan = 'anh', layout = '', defaultTab = 'anh', onClose }) {
   const [tab, setTab]           = useState(defaultTab); // 'anh' | 'matbang'
   const [idx, setIdx]           = useState(startIndex);
   const [downloading, setDl]    = useState(false);
@@ -1758,7 +1825,7 @@ function LightboxModal({ urls, startIndex, maCan = 'anh', defaultTab = 'anh', on
             </div>
           )}
         </>) : (
-          <FloorPlanTab maCan={maCan} />
+          <FloorPlanTab maCan={maCan} layout={layout} />
         )}
       </div>
     </div>
