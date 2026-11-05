@@ -22,10 +22,16 @@ export const todayISO = () => {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 };
 
-export const THANKS_MAC_DINH =
-  'Cảm ơn anh/chị đã dành thời gian đi xem nhà cùng em hôm nay. Em gửi lại lịch trình và ' +
-  'thông tin các căn để anh/chị tiện xem lại và bàn thêm cùng gia đình.\n\n' +
-  'Còn vấn đề gì cần giải đáp, anh/chị cứ nhắn Zalo hoặc gọi trực tiếp cho em nhé.';
+// Lời cảm ơn dựng theo xưng hô người dùng chọn ("anh", "chị", "cô chú"...). Trước đây
+// cứng "anh/chị" — đúng về nghĩa nhưng đọc như thư mẫu, mà đây là tin gửi riêng một khách.
+export const XUNG_HO_MAC_DINH = 'anh/chị';
+
+export function thanksMacDinh(xungHo) {
+  const x = (xungHo || '').trim() || XUNG_HO_MAC_DINH;
+  return `Cảm ơn ${x} đã dành thời gian đi xem nhà cùng em hôm nay. Em gửi lại lịch trình và ` +
+    `thông tin các căn để ${x} tiện xem lại và bàn thêm cùng gia đình.\n\n` +
+    `Còn vấn đề gì cần giải đáp, ${x} cứ nhắn Zalo hoặc gọi trực tiếp cho em nhé.`;
+}
 
 function el(tag, attrs, ...kids) {
   const e = document.createElement(tag);
@@ -186,9 +192,10 @@ function photoRows(u) {
   return rows;
 }
 
+// Không còn dòng tiêu đề "Cảm ơn ... đã dành thời gian xem nhà": nó lặp đúng ý của câu
+// ngay bên dưới, mà lại in cỡ 28px nên đọc như hai lần cảm ơn liền nhau.
 const closingBlock = s => el('div', { class: 'closing' },
   el('div', { class: 'rule' }),
-  el('h3', { text: `Cảm ơn ${s.client || 'anh/chị'} đã dành thời gian xem nhà` }),
   s.thanks ? el('p', { text: s.thanks }) : null,
   el('div', { class: 'contact' },
     el('div', { class: 'who' }, el('small', { text: 'Times City' }), el('strong', { text: s.name || '' })),

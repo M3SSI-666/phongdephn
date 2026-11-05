@@ -28,6 +28,7 @@ export default function LoTrinhModal({ cans, toUnit, tenSales = '', onClose, sho
   const [phone, setPhone] = useState(luu.phone || '');
   const [title, setTitle] = useState(luu.title || 'Chuyên viên tư vấn mua bán & cho thuê căn hộ Times City');
   const [client, setClient] = useState('');
+  const [xungHo, setXungHo] = useState(luu.xungHo || 'anh/chị');
   const [date, setDate]   = useState('');
   const [ghiChu, setGhiChu] = useState(() => Object.fromEntries(cans.map(c => [c.Ma_Can, ''])));
 
@@ -42,7 +43,7 @@ export default function LoTrinhModal({ cans, toUnit, tenSales = '', onClose, sho
     if (!phone.trim()) return showToast('Điền số điện thoại đã', 'error');
     setDangChay(true);
     try {
-      ghiSales({ name: name.trim(), phone: phone.trim(), title: title.trim() });
+      ghiSales({ name: name.trim(), phone: phone.trim(), title: title.trim(), xungHo: xungHo.trim() });
 
       setBuoc('Đang tải thư viện tạo PDF…');
       const mod = await import('../utils/lichXemNhaPdf');
@@ -59,7 +60,7 @@ export default function LoTrinhModal({ cans, toUnit, tenSales = '', onClose, sho
       const state = {
         name: name.trim(), phone: phone.trim(), title: title.trim(),
         client: client.trim(), date: date || mod.todayISO(),
-        thanks: mod.THANKS_MAC_DINH, units,
+        thanks: mod.thanksMacDinh(xungHo), units,
       };
 
       const ten = await mod.xuatPdf(state, (i, n) => setBuoc(`Đang vẽ trang ${i}/${n}…`));
@@ -94,9 +95,11 @@ export default function LoTrinhModal({ cans, toUnit, tenSales = '', onClose, sho
         </div>
         <label style={s.lb}>Chức danh</label>
         <input value={title} onChange={e => setTitle(e.target.value)} style={s.inp} />
-        <div style={s.grid2}>
+        <div style={s.grid3}>
           <div><label style={s.lb}>Gửi cho khách</label>
             <input value={client} onChange={e => setClient(e.target.value)} style={s.inp} placeholder="VD: anh Minh (để trống được)" /></div>
+          <div><label style={s.lb}>Xưng hô</label>
+            <input value={xungHo} onChange={e => setXungHo(e.target.value)} style={s.inp} placeholder="anh/chị" title="Dùng trong lời cảm ơn cuối file" /></div>
           <div><label style={s.lb}>Ngày xem</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} style={s.inp} /></div>
         </div>
@@ -149,7 +152,8 @@ const s = {
   box:       { background:'#1a1d2e', border:'1px solid #3a3f52', borderRadius:14, padding:18, width:620, maxWidth:'100%', maxHeight:'92vh', overflowY:'auto', color:'#e2e8f0' },
   header:    { display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 },
   x:         { background:'none', border:'none', color:'#8a9bb8', fontSize:18, cursor:'pointer', fontFamily:F },
-  grid2:     { display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 },
+  grid3:     { display:'grid', gridTemplateColumns:'1.4fr 1fr 1fr', gap:10 },
+    grid2:     { display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 },
   lb:        { display:'block', fontSize:11.5, color:'#8a9bb8', fontWeight:700, margin:'8px 0 4px' },
   lbSec:     { fontSize:12, color:'#8a9bb8', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.4px', margin:'16px 0 8px' },
   inp:       { width:'100%', boxSizing:'border-box', padding:'9px 12px', border:'1.5px solid #3a3f52', borderRadius:8, background:'#1e2130', color:'#e2e8f0', fontSize:13, fontFamily:F, outline:'none' },
