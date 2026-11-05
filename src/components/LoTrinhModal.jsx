@@ -22,7 +22,7 @@ const ghiSales = v => {
  * toUnit   — hàm của từng trang, đổi 1 căn PhongdepHN sang cấu trúc unit của module PDF
  * tenSales — tên lấy từ tài khoản đăng nhập, dùng làm giá trị gợi ý
  */
-export default function LoTrinhModal({ cans, toUnit, tenSales = '', onClose, showToast }) {
+export default function LoTrinhModal({ cans, toUnit, giaCuaCan, donViGia, tenSales = '', onClose, showToast }) {
   const luu = docSales();
   const [name, setName]   = useState(luu.name || tenSales);
   const [phone, setPhone] = useState(luu.phone || '');
@@ -31,6 +31,8 @@ export default function LoTrinhModal({ cans, toUnit, tenSales = '', onClose, sho
   const [xungHo, setXungHo] = useState(luu.xungHo || 'anh/chị');
   const [date, setDate]   = useState('');
   const [ghiChu, setGhiChu] = useState(() => Object.fromEntries(cans.map(c => [c.Ma_Can, ''])));
+  // Để TRỐNG = dùng giá của bảng hàng (ưu tiên Giá Nét). Gõ vào mới đè lên.
+  const [gia, setGia] = useState(() => Object.fromEntries(cans.map(c => [c.Ma_Can, ''])));
 
   const [dangChay, setDangChay] = useState(false);
   const [bước, setBuoc] = useState('');
@@ -54,7 +56,10 @@ export default function LoTrinhModal({ cans, toUnit, tenSales = '', onClose, sho
       for (let i = 0; i < cans.length; i++) {
         if (huy.current) return;
         setBuoc(`Đang tải ảnh căn ${i + 1}/${cans.length} — ${cans[i].Ma_Can}`);
-        units.push(await toUnit(cans[i], ghiChu[cans[i].Ma_Can] || '', mod.napAnh));
+        units.push(await toUnit(cans[i], {
+          ghiChu: ghiChu[cans[i].Ma_Can] || '',
+          gia: gia[cans[i].Ma_Can] || '',
+        }, mod.napAnh));
       }
 
       const state = {
@@ -119,17 +124,26 @@ export default function LoTrinhModal({ cans, toUnit, tenSales = '', onClose, sho
                 : <span style={s.miniTrong} title="Chưa có layout">▦</span>}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 13 }}>{c.Ma_Can}</div>
-                <input
-                  value={ghiChu[c.Ma_Can] || ''}
-                  onChange={e => setGhiChu(p => ({ ...p, [c.Ma_Can]: e.target.value }))}
-                  placeholder="Ghi chú riêng cho căn này (hiện trong file)"
-                  style={s.inpNho} />
+                <div style={{ display:'flex', gap:6, marginTop:4 }}>
+                  <input
+                    value={gia[c.Ma_Can] || ''}
+                    onChange={e => setGia(p => ({ ...p, [c.Ma_Can]: e.target.value }))}
+                    placeholder={giaCuaCan ? giaCuaCan(c) : ''}
+                    title={`Giá báo khách. Gõ số không là thêm "${donViGia}". Để trống thì dùng giá của bảng hàng.`}
+                    style={{ ...s.inpNho, marginTop:0, width:150, flexShrink:0 }} />
+                  <input
+                    value={ghiChu[c.Ma_Can] || ''}
+                    onChange={e => setGhiChu(p => ({ ...p, [c.Ma_Can]: e.target.value }))}
+                    placeholder="Ghi chú riêng cho căn này (hiện trong file)"
+                    style={{ ...s.inpNho, marginTop:0 }} />
+                </div>
               </div>
             </div>
           ))}
         </div>
 
         <div style={s.hint}>
+          Ô giá để trống thì lấy giá của bảng hàng (mờ sẵn trong ô); gõ “6.5” là thành “6.5 {donViGia}”.
           Tổng {soAnh} ảnh. Ảnh phải tải về trước khi dựng trang nên bước này có thể mất
           một lúc — đừng đóng cửa sổ giữa chừng.
         </div>

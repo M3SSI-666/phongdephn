@@ -5,6 +5,7 @@ import { fetchQuyCanThue, postQuyCanThue, fetchQuyCanThueCon, postQuyCanThueCon,
 import { normalizeThietKe, conKey, expectOf, STATUS_GRAY, STATUS_PAUSED, KHUNG_THUE, khungConTrong } from '../utils/quyCanShared';
 import XuatCanModal from '../components/XuatCanModal';
 import LoTrinhModal from '../components/LoTrinhModal';
+import { giaBaoKhach, DON_VI_THUE } from '../utils/giaBaoKhach';
 import { dongXuatCan, xuatDanhSach } from '../utils/xuatCan';
 import TelegramModal from '../components/TelegramModal';
 import TelegramSettingsModal from '../components/TelegramSettingsModal';
@@ -946,7 +947,10 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
   // Đổi 1 căn PhongdepHN -> cấu trúc `unit` của module PDF.
   // Ảnh phải nạp trước để biết kích thước thật; ảnh hỏng trả null và bị loại.
   // Bỏ video: file PDF không phát được, chèn vào chỉ ra ô đen.
-  const toUnitPdf = useCallback(async (item, ghiChuThem, napAnh) => {
+  // Giá mặc định của một căn: ưu tiên Giá Nét (giá đã làm với chủ).
+  const giaCuaCan = useCallback(item => giaText(item.Gia_Net || item.Gia), []);
+
+  const toUnitPdf = useCallback(async (item, them, napAnh) => {
     const urls = (item.Hinh_Anh || '').split(',').map(u => u.trim())
       .filter(u => u && !isVideo(u)).map(u => anhCloudinary(u, 1600));
     const photos = (await Promise.all(urls.map(napAnh))).filter(Boolean);
@@ -966,16 +970,17 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     }
     return {
       ma: item.Ma_Can || '',
-      gia: giaText(item.Gia_Net || item.Gia),
+      // Giá báo khách gõ tay đè lên giá bảng hàng; để trống thì dùng giá bảng hàng.
+      gia: giaBaoKhach(them.gia, DON_VI_THUE) || giaCuaCan(item),
       dtTim: (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim(),
       huongBC: huongText(item.Huong_BC),
       hienTrang: normalizeNoiThat(item.Noi_That),
       // CHỈ lấy ghi chú gõ trong hộp Lộ trình. Cột Ghi Chú của bảng hàng là ghi chú nội bộ —
       // chứa pass cửa, số điện thoại chủ nhà, giá chốt thật — không được lọt vào file gửi khách.
-      ghiChu: (ghiChuThem || '').trim(),
+      ghiChu: (them.ghiChu || '').trim(),
       layout, layoutNhan, photos,
     };
-  }, []);
+  }, [giaCuaCan]);
 
   function moLoTrinh() {
     const chon = daChon.map(ri => hienThi.find(it => it._rowIndex === ri)).filter(Boolean);
@@ -1584,6 +1589,8 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
         <LoTrinhModal
           cans={loTrinh}
           toUnit={toUnitPdf}
+          giaCuaCan={giaCuaCan}
+          donViGia={DON_VI_THUE}
           tenSales={user?.fullName || ''}
           onClose={() => setLoTrinh(null)}
           showToast={showToast}
