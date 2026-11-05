@@ -8,6 +8,7 @@
 // xem bảng hàng.
 
 import './../styles/lichXemNha.css';
+import { tenFilePdf } from './tenFilePdf.js';
 
 const PW = 794, PH = 1123, CW = PW - 104, HERO_H = 300, GAP = 18;
 
@@ -63,11 +64,6 @@ function fmtDate(iso) {
   return `${WEEKDAYS[d.getDay()]}, ${m[3]}/${m[2]}/${m[1]}`;
 }
 
-export function slug(s) {
-  return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/đ/g, 'd').replace(/Đ/g, 'D')
-    .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-}
 
 // ── Đo chiều cao khối ──
 // Khối phải được gắn vào DOM thật mới đo được chiều cao. Dùng một trang ẩn đặt ngoài
@@ -118,8 +114,15 @@ function makePage(s, cover) {
 function introBlock(s) {
   const n = s.units.length;
   const codes = s.units.map((u, i) => u.ma || `Căn ${i + 1}`);
+  // "Hôm nay" chỉ đúng khi ngày xem ĐÚNG LÀ hôm nay. Bản trước ghi cứng, nên file làm
+  // lại sau vài hôm vẫn tự xưng "hôm nay" trong khi dòng ngày ngay trên đó ghi ngày khác.
+  // Không phải hôm nay thì bỏ hẳn cụm chỉ thời gian — ngày đã nằm ở tiêu đề phía trên,
+  // nhắc lại trong câu là thừa.
+  const moDau = (s.date || '') === todayISO()
+    ? (s.client ? `Kính gửi ${s.client}, hôm nay mình` : 'Hôm nay mình')
+    : (s.client ? `Kính gửi ${s.client}, mình` : 'Mình');
   const lead = n
-    ? [`${s.client ? `Kính gửi ${s.client}, hôm` : 'Hôm'} nay mình đã cùng xem ${n} căn hộ tại Times City, lần lượt là `,
+    ? [`${moDau} đã cùng xem ${n} căn hộ tại Times City, lần lượt là `,
        codes.map((c, i) => [i ? ', ' : '', el('span', { class: 'nw', text: c })]), '.']
     : [`${s.client ? `Kính gửi ${s.client}. ` : ''}Chưa có căn nào trong lịch trình.`];
   const route = n ? el('div', { class: 'route' }, s.units.map((u, i) =>
@@ -315,7 +318,7 @@ export async function xuatPdf(state, onTienDo) {
       if (i > 0) pdf.addPage();
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.88), 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
     }
-    const ten = `Lo-trinh-xem-nha${state.client ? '-' + slug(state.client) : ''}-${state.date || todayISO()}.pdf`;
+    const ten = tenFilePdf(state.date || todayISO(), state.client);
     pdf.save(ten);
     return ten;
   } finally {
