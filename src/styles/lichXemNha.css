@@ -46,13 +46,15 @@
 .hero-phone small { font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--paper-on-pine-muted); font-weight: 600; }
 .hero-phone strong { font-size: 32px; font-weight: 600; color: var(--paper-brass-light); font-variant-numeric: tabular-nums; letter-spacing: .02em; line-height: 1.2; }
 
+/* Chữ trang bìa thu nhỏ hơn bản gốc: nhường chỗ cho ảnh mặt bằng tổng nằm cuùng trang,
+   thay vì bị đẩy sang trang riêng rồi bỏ trống cả hai trang. */
 .eyebrow { font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--paper-brass); font-weight: 700; }
-.intro h3 { font-family: var(--f-body); font-size: 26px; font-weight: 700; margin: 6px 0 0; line-height: 1.2; }
-.intro p { margin: 10px 0 0; color: var(--paper-ink); font-size: 15px; }
-.route { margin-top: 18px; border-top: 1px solid var(--paper-line); }
-.route-row { display: flex; align-items: baseline; gap: 18px; padding: 11px 0; border-bottom: 1px solid var(--paper-line); }
-.route-row .n { font-size: 15px; font-weight: 700; color: var(--paper-brass); width: 28px; font-variant-numeric: tabular-nums; }
-.route-row .m { font-weight: 600; font-size: 15px; flex: 1; }
+.intro h3 { font-family: var(--f-body); font-size: 22px; font-weight: 700; margin: 6px 0 0; line-height: 1.2; }
+.intro p { margin: 9px 0 0; color: var(--paper-ink); font-size: 13.5px; }
+.route { margin-top: 14px; border-top: 1px solid var(--paper-line); }
+.route-row { display: flex; align-items: baseline; gap: 18px; padding: 8px 0; border-bottom: 1px solid var(--paper-line); }
+.route-row .n { font-size: 13.5px; font-weight: 700; color: var(--paper-brass); width: 28px; font-variant-numeric: tabular-nums; }
+.route-row .m { font-weight: 600; font-size: 13.5px; flex: 1; }
 .nw { white-space: nowrap; }
 .route-row .p { color: var(--paper-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 

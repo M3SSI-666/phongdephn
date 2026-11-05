@@ -14,6 +14,10 @@ const PW = 794, PH = 1123, CW = PW - 104, HERO_H = 300, GAP = 18;
 // Mặt bằng tổng khu, file tĩnh trong public/ nên cùng domain — không vướng CORS.
 const SITE_PLAN = '/mat-bang/times-city.jpg';
 
+// Phần khối .fig chiếm thêm ngoài bản thân ảnh: nhãn (~18px) + padding và viền (~22px).
+// Khớp với .fig-label / .fig trong lichXemNha.css — sửa CSS đó thì sửa cả số này.
+const FIG_CHROME = 44;
+
 const pad2 = n => String(n).padStart(2, '0');
 const WEEKDAYS = ['Chủ nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 
@@ -219,13 +223,22 @@ function buildPages(s) {
   newPage(true);
   place(introBlock(s));
 
-  // Mặt bằng tổng Times City lấp chỗ trống còn lại của trang bìa. Đặt sau phần danh
-  // sách căn chứ không nhét vào trong introBlock: nó là ảnh trang trí, không được phép
-  // đẩy nội dung sang trang mới. Thiếu chỗ thì BỎ HẲN, thà trang bìa trống một khoảng
-  // còn hơn đẻ thêm một trang chỉ để chứa cái bản đồ.
+  // Mặt bằng tổng Times City lấp nốt chỗ trống của trang bìa.
+  //
+  // KHÔNG dùng place(): place() thấy không vừa là tự sang trang mới, mà đây là ảnh
+  // trang trí — đẩy nó sang trang riêng thì vừa thừa một trang gần như trắng, vừa để
+  // trang bìa hở một mảng. Nên tự đo rồi tự quyết: vừa thì đặt, không vừa thì bỏ.
+  //
+  // Trừ FIG_CHROME trước khi co ảnh: khối này còn có nhãn và viền + padding của .fig,
+  // không trừ ra thì ảnh cao đúng bằng chỗ trống, cộng thêm nhãn là tràn vài pixel —
+  // đúng lỗi khiến nó rơi sang trang 2.
   if (s.sitePlan) {
-    const con = cur.contentH - used - GAP - 30;
-    if (con >= 200) place(sitePlanFig(s.sitePlan, con));
+    const con = cur.contentH - used - GAP;
+    if (con >= 220) {
+      const fig = sitePlanFig(s.sitePlan, con - FIG_CHROME);
+      const h = doCao(fig);
+      if (h <= con) { cur.content.append(fig); used += GAP + h; }
+    }
   }
 
   const n = s.units.length;
