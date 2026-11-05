@@ -136,15 +136,15 @@ const unitHead = (u, i, n) => el('div', { class: 'u-head' },
     el('h3', { text: u.ma || `Căn ${i + 1}` })),
   u.gia ? el('div', { class: 'u-price' }, el('small', { text: 'Giá' }), el('strong', { text: u.gia })) : null);
 
+// Chỉ còn hai trường bảng hàng thực sự có. Bỏ "DT thông thủy" và "Hướng cửa": dữ liệu
+// không có nên chúng luôn in ra "—", chiếm nửa hàng để nói rằng mình không biết gì.
 function specsBlock(u) {
   const v = (x, unit) => x
     ? el('strong', { text: unit ? `${x} ${unit}` : x })
     : el('strong', { class: 'na', text: '—' });
   return el('div', { class: 'specs' },
-    el('div', { class: 'spec' }, el('small', { text: 'DT tim tường' }), v(u.dtTim, 'm²')),
-    el('div', { class: 'spec' }, el('small', { text: 'DT thông thủy' }), v(u.dtThong, 'm²')),
-    el('div', { class: 'spec' }, el('small', { text: 'Hướng ban công' }), v(u.huongBC)),
-    el('div', { class: 'spec' }, el('small', { text: 'Hướng cửa' }), v(u.huongCua)));
+    el('div', { class: 'spec' }, el('small', { text: 'Diện tích' }), v(u.dtTim, 'm²')),
+    el('div', { class: 'spec' }, el('small', { text: 'Hướng ban công' }), v(u.huongBC)));
 }
 
 const noteBlock = (label, text, plain) =>

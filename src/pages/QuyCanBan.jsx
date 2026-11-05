@@ -947,9 +947,7 @@ function QuyCanBanInner({
       ma: item.Ma_Can || '',
       gia: gia ? `${gia}${phi ? ` ${phi.toLowerCase()}` : ''}` : '',
       dtTim: (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim(),
-      dtThong: '',                       // bảng hàng không có DT thông thủy
       huongBC: huongText(item.Huong_BC),
-      huongCua: huongText(item.Huong_Cua),
       hienTrang: normalizeNoiThat(item.Noi_That),
       ghiChu: [item.Ghi_Chu, ghiChuThem].map(v => (v || '').trim()).filter(Boolean).join(' — '),
       layout, photos,
