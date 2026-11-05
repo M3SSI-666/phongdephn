@@ -969,7 +969,9 @@ function QuyCanBanInner({
     return {
       ma: item.Ma_Can || '',
       // Giá báo khách gõ tay đè lên giá bảng hàng; để trống thì dùng giá bảng hàng.
-      gia: giaBaoKhach(them.gia, DON_VI_BAN) || giaCuaCan(item),
+      // Loại phí lấy từ cột Phí của chính căn đó, nên gõ "6.7" ở căn Thu về ra "6.7 tỷ thu về",
+      // căn Bao phí ra "6.7 tỷ bao phí" — khớp với cách giá mặc định vẫn ghi.
+      gia: giaBaoKhach(them.gia, DON_VI_BAN, mapPhi(item.Phi).toLowerCase()) || giaCuaCan(item),
       dtTim: (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim(),
       huongBC: huongText(item.Huong_BC),
       hienTrang: normalizeNoiThat(item.Noi_That),
