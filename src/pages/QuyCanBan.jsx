@@ -158,8 +158,8 @@ function buildCustomerMessage(item) {
   // Chỉ nêu tòa, bỏ tầng. Vẫn giữ parseToaTang vì Mã Căn mới là nơi chứa số tòa.
   const { toa } = parseToaTang(item.Ma_Can);
   const header = toa
-    ? `Thông tin căn hộ tòa ${toa}:`
-    : `Thông tin căn hộ ${item.Ma_Can || ''}:`;
+    ? `Căn hộ tòa ${toa}:`
+    : `Căn hộ ${item.Ma_Can || ''}:`;
   const lines = [header];
   const tk = thietKeText(item.Thiet_Ke);
   if (tk) lines.push(`- Thiết kế: ${tk}`);
