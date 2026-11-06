@@ -48,3 +48,26 @@ test('tinMaCan: không có mã thì không trả về mỗi trái tim', () => {
 test('maCanTelegram vẫn trả mã trần, không dính trái tim', () => {
   assert.equal(maCanTelegram('T081903'), 'T081903');
 });
+
+// "❤️ MÃ - SĐT - TÊN CHỦ" trên một dòng.
+test('tinMaCan: mã căn - SĐT - tên chủ', () => {
+  assert.equal(tinMaCan('P110312A', '0971 524 525', 'A Hoan'),
+    '❤️ P110312A - 0971 524 525 - A Hoan');
+});
+
+// Ô SĐT hay chứa hai số xuống dòng — gộp lại, không thì tin vỡ bố cục.
+test('tinMaCan: gộp xuống dòng trong ô SĐT', () => {
+  assert.equal(tinMaCan('P110312A', '0967883663\n0899997888', ''),
+    '❤️ P110312A - 0967883663 0899997888');
+});
+
+// Thiếu phần nào thì bỏ hẳn, không để dấu gạch mồ côi.
+test('tinMaCan: thiếu SĐT hoặc tên chủ', () => {
+  assert.equal(tinMaCan('P110312A', '', 'A Hoan'), '❤️ P110312A - A Hoan');
+  assert.equal(tinMaCan('P110312A', '0971524525', ''), '❤️ P110312A - 0971524525');
+  assert.equal(tinMaCan('P110312A', '', ''), '❤️ P110312A');
+});
+
+test('tinMaCan: không có mã thì rỗng dù có SĐT', () => {
+  assert.equal(tinMaCan('', '0971 524 525', 'A Hoan'), '');
+});

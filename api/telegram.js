@@ -99,16 +99,23 @@ async function guiCan(req, res, sheetId, email, key) {
 
   // maCan = chuỗi gửi đi (có trái tim). maCanLog = mã trần, dùng làm khoá nhật ký —
   // khoá phải là mã thuần, không thì đổi biểu tượng một cái là mất dấu hết tin cũ.
-  const { chatId, maCan, maCanLog, message, images } = req.body || {};
+  const { chatId, maCan, maCanLog, message, images, layout } = req.body || {};
   if (!chatId)  return res.status(400).json({ error: 'Thiếu chatId' });
   if (!message) return res.status(400).json({ error: 'Thiếu nội dung tin' });
 
   const media = Array.isArray(images) ? images.filter(u => typeof u === 'string' && u) : [];
   const api = (method, body) => goiTelegram(TOKEN, method, body);
 
-  // Thứ tự đúng như lúc gửi tay: ảnh trước, rồi mã căn, rồi thông tin.
-  // Ảnh đi trước để khi cuộn lại trong nhóm, nhìn ảnh là nhận ra căn ngay.
+  // Thứ tự: layout -> ảnh căn -> mã căn + SĐT -> thông tin.
+  // Layout đi đầu vì nó cho thấy bố cục căn trước khi xem ảnh thật, và gửi RIÊNG một
+  // tin chứ không nhét chung album: nằm trong lưới 10 ảnh thì nó bị thu bé bằng ảnh
+  // phòng ngủ, mà đây là bản vẽ — nhỏ là không đọc được gì.
   const loi = [];
+  if (layout) {
+    const r = await api('sendPhoto', { chat_id: chatId, photo: layout });
+    if (!r.ok) loi.push(`layout: ${r.detail}`);
+  }
+
   for (let i = 0; i < media.length; i += MEDIA_MOI_ALBUM) {
     const lo = media.slice(i, i + MEDIA_MOI_ALBUM).map(url => ({
       type: laVideo(url) ? 'video' : 'photo',

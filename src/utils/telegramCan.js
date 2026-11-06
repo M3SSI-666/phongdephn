@@ -32,9 +32,16 @@ export function doiViTriNhom(ds, tu, i, duoi) {
 // trong app vẫn dùng mã trần, thêm tim vào đó chỉ tổ rối.
 export const TIM = '❤️';
 
-export function tinMaCan(maCan) {
+// "❤️ P110312A - 0971 524 525 - A Hoan". Mã căn LUÔN đứng đầu để tìm trong Telegram
+// vẫn khớp; phần nào trống thì bỏ hẳn, không để lại dấu gạch mồ côi.
+export function tinMaCan(maCan, sdt, tenChu) {
   const ma = maCanTelegram(maCan);
-  return ma ? `${TIM} ${ma}` : '';
+  if (!ma) return '';
+  // Ô SĐT hay chứa nhiều số xuống dòng — gộp lại một dòng, không thì tin vỡ bố cục.
+  const phan = [sdt, tenChu]
+    .map(v => (v || '').toString().replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+  return [`${TIM} ${ma}`, ...phan].join(' - ');
 }
 
 // Ô Hình Ảnh (các URL nối nhau bằng dấu phẩy) -> danh sách media gửi Telegram.

@@ -30,7 +30,10 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
 
   const media = mediaTelegram(item?.Hinh_Anh);
   const maCan = maCanTelegram(item?.Ma_Can);   // mã trần, dùng cho chữ trong app
-  const maCanGui = tinMaCan(item?.Ma_Can);     // có trái tim, đúng chuỗi gửi sang Telegram
+  // Cột số điện thoại tên khác nhau giữa hai bảng: Bán dùng SDT, Thuê dùng Lien_He.
+  const maCanGui = tinMaCan(item?.Ma_Can, item?.SDT || item?.Lien_He, item?.Ten_Chu);
+  // Layout gửi RIÊNG một tin trước album ảnh — xem api/telegram.js.
+  const layout = (item?.Layout || '').trim() ? anhCloudinary(item.Layout.trim(), RONG_ANH_TELEGRAM) : '';
 
   const taiNhom = useCallback(async () => {
     setDangTai(true);
@@ -56,7 +59,7 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
     if (dangGui) return;
     setDangGui(true);
     try {
-      const kq = await guiTelegram({ chatId: n.Chat_Id, maCan: maCanGui, maCanLog: maCan, message, images: media });
+      const kq = await guiTelegram({ chatId: n.Chat_Id, maCan: maCanGui, maCanLog: maCan, message, images: media, layout });
       // Ảnh hỏng mà chữ đã gửi được thì KHÔNG báo "thành công" trơn: người gửi phải
       // biết để còn đăng bù ảnh, không thì nhóm nhận được tin cụt mà không ai hay.
       if (kq.anhLoi?.length) {
@@ -117,13 +120,14 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
 
         {/* Xem trước đúng thứ tự sẽ gửi, để không phải sang Telegram mới biết sai. */}
         <div style={s.preview}>
+          <div style={s.previewLabel}>1. {layout ? 'Ảnh layout' : 'Không có layout — bỏ qua'}</div>
           <div style={s.previewLabel}>
             {media.length
-              ? `1. ${media.length} ảnh/video${media.length > MEDIA_MOI_ALBUM ? ` (chia ${Math.ceil(media.length / MEDIA_MOI_ALBUM)} album)` : ''}`
-              : '1. Không có ảnh — chỉ gửi phần chữ'}
+              ? `2. ${media.length} ảnh/video${media.length > MEDIA_MOI_ALBUM ? ` (chia ${Math.ceil(media.length / MEDIA_MOI_ALBUM)} album)` : ''}`
+              : '2. Không có ảnh căn — bỏ qua'}
           </div>
-          <div style={s.previewLabel}>2. {maCanGui}</div>
-          <div style={s.previewLabel}>3. Thông tin gửi khách:</div>
+          <div style={{ ...s.previewLabel, whiteSpace: 'pre-wrap' }}>3. {maCanGui}</div>
+          <div style={s.previewLabel}>4. Thông tin gửi khách:</div>
           <pre style={s.msg}>{message}</pre>
         </div>
 
