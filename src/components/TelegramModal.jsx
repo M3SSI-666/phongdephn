@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { C } from '../utils/theme';
-import { maCanTelegram, tinMaCan, mediaTelegram, doiViTriNhom } from '../utils/telegramCan';
+import { maCanTelegram, tinMaCan, mediaTelegram, doiViTriNhom, RONG_ANH_TELEGRAM } from '../utils/telegramCan';
+import { anhCloudinary } from '../utils/anhCloudinary';
 import { fetchTelegramNhom, guiTelegram, fetchTelegramLog, suaTelegram, sapXepTelegramNhom } from '../utils/api';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
