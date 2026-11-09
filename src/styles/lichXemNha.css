@@ -66,6 +66,7 @@
 .route-row > span:first-child { border-left: 0; }
 .route-row .n { font-weight: 700; color: var(--paper-brass); width: 34px; font-variant-numeric: tabular-nums; }
 .route-row .m { font-weight: 600; width: 96px; }
+.route-row .h { width: 82px; }
 .route-row .v { flex: 1; min-width: 0; color: var(--paper-muted); }
 .route-row .d { width: 70px; font-variant-numeric: tabular-nums; }
 .route-row .g { width: 124px; font-weight: 600; font-variant-numeric: tabular-nums; }

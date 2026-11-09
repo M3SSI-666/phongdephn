@@ -975,7 +975,8 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       // Giá báo khách gõ tay đè lên giá bảng hàng; để trống thì dùng giá bảng hàng.
       gia: giaBaoKhach(them.gia, DON_VI_THUE) || giaCuaCan(item),
       dtTim: (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim(),
-      huongBC: huongText(item.Huong_BC),
+      // Hướng gõ trong hộp đè lên bảng hàng; để trống thì dùng cột Hướng BC.
+      huongBC: (them.huong || '').trim() || huongText(item.Huong_BC),
       noiBat: !!them.noiBat,
       // View gõ trong hộp đè lên cột View của bảng hàng; để trống thì dùng cột.
       view: (them.view || '').trim() || (item.View || '').trim(),
