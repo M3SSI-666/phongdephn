@@ -6,7 +6,7 @@ test('phiBaoPhi: bốn mức phí theo số phòng ngủ', () => {
   assert.equal(phiBaoPhi('1PN'), 100);
   assert.equal(phiBaoPhi('2PN'), 150);
   assert.equal(phiBaoPhi('3PN'), 200);
-  assert.equal(phiBaoPhi('4PN'), 300);
+  assert.equal(phiBaoPhi('4PN'), 250);
 });
 
 test('phiBaoPhi: đọc được mọi cách ghi số phòng ngủ', () => {
@@ -20,9 +20,9 @@ test('phiBaoPhi: đọc được mọi cách ghi số phòng ngủ', () => {
 
 // 5PN trở lên là căn hiếm, không có mức phí riêng -> lấy mức cao nhất đang biết.
 test('phiBaoPhi: 5PN trở lên lấy mức 4PN', () => {
-  assert.equal(phiBaoPhi('5PN'),  300);
-  assert.equal(phiBaoPhi('6PN'),  300);
-  assert.equal(phiBaoPhi('10PN'), 300);
+  assert.equal(phiBaoPhi('5PN'),  250);
+  assert.equal(phiBaoPhi('6PN'),  250);
+  assert.equal(phiBaoPhi('10PN'), 250);
 });
 
 // null = KHÔNG trừ gì cả, cột tr/m² giữ nguyên công thức Giá/m² như trước.
@@ -50,4 +50,13 @@ test('normalizeThietKe: "2N" là cách ghi khác của "2PN"', () => {
   assert.equal(normalizeThietKe('2PN'), '2PN');
   assert.equal(normalizeThietKe('Studio'), 'Studio');
   assert.equal(normalizeThietKe(''), '');
+});
+
+// Đập thông / shophouse không đếm theo số phòng ngủ nên có mức phí riêng.
+test('phiBaoPhi: mức riêng cho đập thông và shophouse', () => {
+  assert.equal(phiBaoPhi('2PN', 'dapthong'), 350, 'cả bảng Đập Thông dùng mức này');
+  assert.equal(phiBaoPhi('', 'shophouse'), 350);
+  assert.equal(phiBaoPhi('Đập thông'), 350, 'gõ thẳng vào ô Thiết Kế cũng nhận');
+  assert.equal(phiBaoPhi('dap thong'), 350);
+  assert.equal(phiBaoPhi('Shophouse'), 350);
 });

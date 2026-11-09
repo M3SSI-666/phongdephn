@@ -393,7 +393,9 @@ function QuyCanBanInner({
   // parseGiaValue trả về TRIỆU nên trừ thẳng mức phí (100/150/200/300 triệu) được.
   function trPerM2(item) {
     const dt = parseDienTich(item.Dien_Tich);
-    const phi = mapPhi(item.Phi) === 'Bao phí' ? phiBaoPhi(item.Thiet_Ke) : null;
+    // moduleKey phân biệt tab Quỹ Căn Bán với Quỹ Đập Thông — hai tab dùng chung file này.
+    // Căn đập thông ghi Thiết Kế là "2PN"/"3PN" như thường nên nhìn vào đó không biết được.
+    const phi = mapPhi(item.Phi) === 'Bao phí' ? phiBaoPhi(item.Thiet_Ke, moduleKey) : null;
     // Trừ xong mà ra <= 0 thì dữ liệu vô lý (phí lớn hơn cả giá) -> trả null, để ô trống.
     // Hiện một con số bịa còn tệ hơn để trống: người dùng nhìn cột này để định giá.
     const chia = g => {

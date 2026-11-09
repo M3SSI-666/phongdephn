@@ -79,12 +79,25 @@ export function mapPhi(val) {
 //
 // Đây là con số ƯỚC LƯỢNG do người dùng đưa, không phải phí thật của từng căn — cột
 // tr/m² vì thế là để so sánh tương đối giữa các căn, không phải để chốt hợp đồng.
-const PHI_THEO_PN = { 1: 100, 2: 150, 3: 200, 4: 300 };
+const PHI_THEO_PN = { 1: 100, 2: 150, 3: 200, 4: 250 };
+// Đập thông là hai căn gộp, shophouse là mặt bằng thương mại — cả hai đều không đếm theo
+// số phòng ngủ nên phải có mức riêng.
+const PHI_DAP_THONG = 350;
+const PHI_SHOPHOUSE = 350;
 
 // Không đọc được số phòng ngủ (Studio, ô trống, chữ lạ) thì trả null = KHÔNG trừ.
 // Đoán bừa một mức phí lên căn không rõ thiết kế thì sai số nằm thẳng trong con số
 // người dùng nhìn để định giá; giữ công thức cũ thì ít nhất nó vẫn là Giá/m² đúng nghĩa.
-export function phiBaoPhi(thietKe) {
+// loai: 'dapthong' | 'shophouse' | bỏ trống. Truyền vào khi CẢ BẢNG là loại đó — tab
+// Quỹ Đập Thông ghi Thiết Kế là "2PN"/"3PN" như thường, nhìn vào đó không biết được.
+export function phiBaoPhi(thietKe, loai) {
+  if (loai === 'dapthong')  return PHI_DAP_THONG;
+  if (loai === 'shophouse') return PHI_SHOPHOUSE;
+  // Có người gõ thẳng loại vào ô Thiết Kế thì cũng nhận.
+  const bd = String(thietKe || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
+  if (bd.includes('dap thong')) return PHI_DAP_THONG;
+  if (bd.includes('shophouse')) return PHI_SHOPHOUSE;
   const m = String(thietKe || '').match(/\d+/);
   if (!m) return null;
   const pn = parseInt(m[0], 10);

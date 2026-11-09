@@ -12,7 +12,7 @@ import { tenFilePdf } from './tenFilePdf.js';
 
 // HERO_H PHẢI KHỚP với chiều cao .hero trong lichXemNha.css — dùng để tính chỗ còn lại
 // của trang bìa. Lệch nhau là nội dung tràn khỏi phần đầu hoặc hở một mảng.
-const PW = 794, PH = 1123, CW = PW - 104, HERO_H = 230, GAP = 18;
+const PW = 794, PH = 1123, CW = PW - 104, HERO_H = 196, GAP = 18;
 
 // Mặt bằng tổng khu, file tĩnh trong public/ nên cùng domain — không vướng CORS.
 const SITE_PLAN = '/mat-bang/times-city.jpg';
