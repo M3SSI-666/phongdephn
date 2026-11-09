@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { C } from '../utils/theme';
-import { anhCloudinary } from '../utils/anhCloudinary';
 
 const F = "'Quicksand', 'Nunito', 'Segoe UI', sans-serif";
 
@@ -133,9 +132,6 @@ export default function LoTrinhModal({ cans, toUnit, giaCuaCan, donViGia, tenSal
                 })}
                 style={noiBat.has(c.Ma_Can) ? s.saoOn : s.sao}
                 title={noiBat.has(c.Ma_Can) ? 'Bỏ đánh dấu nổi bật' : 'Đánh dấu căn đáng chú ý'}>★</button>
-              {(c.Layout || '').trim()
-                ? <img src={anhCloudinary(c.Layout, 72)} alt="" style={s.mini} />
-                : <span style={s.miniTrong} title="Chưa có layout">▦</span>}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 13 }}>{c.Ma_Can}</div>
                 <div style={{ display:'flex', gap:6, marginTop:4 }}>
@@ -144,13 +140,13 @@ export default function LoTrinhModal({ cans, toUnit, giaCuaCan, donViGia, tenSal
                     onChange={e => setGia(p => ({ ...p, [c.Ma_Can]: e.target.value }))}
                     placeholder={giaCuaCan ? giaCuaCan(c) : ''}
                     title={`Giá báo khách. Gõ số không là thêm "${donViGia}". Để trống thì dùng giá của bảng hàng.`}
-                    style={{ ...s.inpNho, marginTop:0, width:150, flexShrink:0 }} />
+                    style={{ ...s.inpNho, marginTop:0, width:170, flexShrink:0 }} />
                   <input
                     value={view[c.Ma_Can] || ''}
                     onChange={e => setView(p => ({ ...p, [c.Ma_Can]: e.target.value }))}
                     placeholder={(c.View || '').trim() || 'View'}
                     title="View hiện trong bảng lộ trình. Để trống thì lấy cột View của bảng hàng."
-                    style={{ ...s.inpNho, marginTop:0, width:170, flexShrink:0 }} />
+                    style={{ ...s.inpNho, marginTop:0, width:240, flexShrink:0 }} />
                   <input
                     value={ghiChu[c.Ma_Can] || ''}
                     onChange={e => setGhiChu(p => ({ ...p, [c.Ma_Can]: e.target.value }))}
@@ -184,7 +180,7 @@ export default function LoTrinhModal({ cans, toUnit, giaCuaCan, donViGia, tenSal
 
 const s = {
   overlay:   { position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2100, padding:16, fontFamily:F },
-  box:       { background:'#1a1d2e', border:'1px solid #3a3f52', borderRadius:14, padding:18, width:760, maxWidth:'100%', maxHeight:'92vh', overflowY:'auto', color:'#e2e8f0' },
+  box:       { background:'#1a1d2e', border:'1px solid #3a3f52', borderRadius:14, padding:18, width:960, maxWidth:'100%', maxHeight:'92vh', overflowY:'auto', color:'#e2e8f0' },
   header:    { display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 },
   x:         { background:'none', border:'none', color:'#8a9bb8', fontSize:18, cursor:'pointer', fontFamily:F },
   grid3:     { display:'grid', gridTemplateColumns:'1.4fr 1fr 1fr', gap:10 },
@@ -199,9 +195,7 @@ const s = {
   stt:       { width:22, height:22, flexShrink:0, borderRadius:6, background:'#38b274', color:'#fff', fontSize:11.5, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center' },
   sao:       { width:26, height:26, flexShrink:0, padding:0, borderRadius:6, border:'1.5px solid #3a3f52', background:'transparent', color:'#3a3f52', fontSize:14, cursor:'pointer', fontFamily:F },
   saoOn:     { width:26, height:26, flexShrink:0, padding:0, borderRadius:6, border:'1.5px solid #a3e635', background:'rgba(163,230,53,0.18)', color:'#a3e635', fontSize:14, cursor:'pointer', fontFamily:F },
-    mini:      { width:36, height:36, flexShrink:0, objectFit:'contain', background:'#fff', borderRadius:5, border:'1px solid #3a3f52' },
-  miniTrong: { width:36, height:36, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', color:'#3a3f52', fontSize:16, border:'1px dashed #3a3f52', borderRadius:5 },
-  hint:      { fontSize:11, color:'#6b7a94', lineHeight:1.7, margin:'12px 0' },
+    hint:      { fontSize:11, color:'#6b7a94', lineHeight:1.7, margin:'12px 0' },
   tienDo:    { fontSize:12.5, color:'#38bdf8', fontWeight:700, padding:'8px 10px', background:'rgba(56,189,248,0.1)', borderRadius:8, marginBottom:10 },
   hang:      { display:'flex', gap:8 },
   btnChinh:  { flex:1, padding:'10px 18px', borderRadius:9, border:'none', background:C.gradient, color:'#fff', fontSize:13.5, fontWeight:700, cursor:'pointer', fontFamily:F },
