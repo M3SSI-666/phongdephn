@@ -79,7 +79,7 @@ export function mapPhi(val) {
 //
 // Đây là con số ƯỚC LƯỢNG do người dùng đưa, không phải phí thật của từng căn — cột
 // tr/m² vì thế là để so sánh tương đối giữa các căn, không phải để chốt hợp đồng.
-const PHI_THEO_PN = { 1: 100, 2: 150, 3: 200, 4: 250 };
+const PHI_THEO_PN = { 1: 100, 2: 150, 3: 200, 4: 300 };
 // Đập thông là hai căn gộp, shophouse là mặt bằng thương mại — cả hai đều không đếm theo
 // số phòng ngủ nên phải có mức riêng.
 const PHI_DAP_THONG = 350;

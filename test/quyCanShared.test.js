@@ -6,7 +6,7 @@ test('phiBaoPhi: bốn mức phí theo số phòng ngủ', () => {
   assert.equal(phiBaoPhi('1PN'), 100);
   assert.equal(phiBaoPhi('2PN'), 150);
   assert.equal(phiBaoPhi('3PN'), 200);
-  assert.equal(phiBaoPhi('4PN'), 250);
+  assert.equal(phiBaoPhi('4PN'), 300);
 });
 
 test('phiBaoPhi: đọc được mọi cách ghi số phòng ngủ', () => {
@@ -20,9 +20,9 @@ test('phiBaoPhi: đọc được mọi cách ghi số phòng ngủ', () => {
 
 // 5PN trở lên là căn hiếm, không có mức phí riêng -> lấy mức cao nhất đang biết.
 test('phiBaoPhi: 5PN trở lên lấy mức 4PN', () => {
-  assert.equal(phiBaoPhi('5PN'),  250);
-  assert.equal(phiBaoPhi('6PN'),  250);
-  assert.equal(phiBaoPhi('10PN'), 250);
+  assert.equal(phiBaoPhi('5PN'),  300);
+  assert.equal(phiBaoPhi('6PN'),  300);
+  assert.equal(phiBaoPhi('10PN'), 300);
 });
 
 // null = KHÔNG trừ gì cả, cột tr/m² giữ nguyên công thức Giá/m² như trước.
