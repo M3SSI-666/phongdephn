@@ -970,6 +970,15 @@ function QuyCanBanInner({
         if (layout) layoutNhan = `Mặt bằng tòa ${toa}`;
       }
     }
+    // Tr/m² phải tính theo ĐÚNG giá in trong báo cáo. Gõ tay 6.9 mà cột đơn giá vẫn lấy
+    // giá sheet thì hai con số trên cùng một dòng đá nhau.
+    // Dựng item bóng với giá vừa gõ rồi gọi lại trPerM2 — giữ nguyên luật trừ phí của căn
+    // bao phí, chứ không chép lại công thức ở đây rồi để hai bản lệch nhau.
+    // Chỉ nhận phần SỐ đứng đầu ("6.9", "6,9 tỷ bao phí"); gõ chữ thuần ("thương lượng")
+    // thì không suy ra được số nào, giữ đơn giá theo bảng hàng.
+    const soNhap = (them.gia || '').toString().trim().match(/^[\d.,]+/);
+    const dgBaoCao = trPerM2(soNhap ? { ...item, Gia_Net: `${soNhap[0]} tỷ`, Gia: `${soNhap[0]} tỷ` } : item);
+
     return {
       ma: item.Ma_Can || '',
       // Giá báo khách gõ tay đè lên giá bảng hàng; để trống thì dùng giá bảng hàng.
@@ -982,7 +991,7 @@ function QuyCanBanInner({
       // View gõ trong hộp đè lên cột View của bảng hàng; để trống thì dùng cột.
       view: (them.view || '').trim() || (item.View || '').trim(),
       // Đơn giá/m² đã có sẵn hàm tính, dùng chung với cột Tr/m² của bảng.
-      donGia: trPerM2(item) != null ? String(trPerM2(item)) : '',
+      donGia: dgBaoCao != null ? String(dgBaoCao) : '',
       hienTrang: normalizeNoiThat(item.Noi_That),
       // CHỈ lấy ghi chú gõ trong hộp Lộ trình. Cột Ghi Chú của bảng hàng là ghi chú nội bộ —
       // chứa pass cửa, số điện thoại chủ nhà, giá chốt thật — không được lọt vào file gửi khách.
