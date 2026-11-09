@@ -58,11 +58,21 @@
 .intro h3 { font-family: var(--f-body); font-size: 22px; font-weight: 700; margin: 6px 0 0; line-height: 1.2; }
 .intro p { margin: 9px 0 0; color: var(--paper-ink); font-size: 13.5px; }
 .route { margin-top: 14px; border-top: 1px solid var(--paper-line); }
-.route-row { display: flex; align-items: baseline; gap: 18px; padding: 8px 0; border-bottom: 1px solid var(--paper-line); }
-.route-row .n { font-size: 13.5px; font-weight: 700; color: var(--paper-brass); width: 28px; font-variant-numeric: tabular-nums; }
-.route-row .m { font-weight: 600; font-size: 13.5px; flex: 1; }
+/* Bảng lộ trình 7 cột. Bề ngang cố định cho từng cột, riêng View co giãn — nó là chữ
+   tự do dài ngắn không đều, các cột số còn lại phải thẳng hàng mới so sánh được. */
+.route-row { display: flex; align-items: baseline; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--paper-line); font-size: 12.5px; }
+.route-row .n { font-weight: 700; color: var(--paper-brass); width: 24px; font-variant-numeric: tabular-nums; }
+.route-row .m { font-weight: 600; width: 86px; }
+.route-row .v { flex: 1; min-width: 0; color: var(--paper-muted); }
+.route-row .d { width: 58px; text-align: right; font-variant-numeric: tabular-nums; }
+.route-row .g { width: 112px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.route-row .u { width: 58px; text-align: right; font-variant-numeric: tabular-nums; }
+/* Dòng tiêu đề: chữ nhỏ viết hoa để phân biệt với dữ liệu mà không cần tô nền. */
+.route-row.route-head { font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--paper-muted); font-weight: 700; padding: 4px 0; }
+.route-row.route-head .m, .route-row.route-head .g { font-weight: 700; }
 .nw { white-space: nowrap; }
-.route-row .p { color: var(--paper-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.route-row .p { width: 46px; text-align: right; color: var(--paper-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 
 .u-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; padding-bottom: 16px; border-bottom: 2px solid var(--paper-pine); }
 .u-head h3 { font-family: var(--f-body); font-size: 28px; font-weight: 700; margin: 4px 0 0; line-height: 1.2; }

@@ -130,11 +130,27 @@ function introBlock(s) {
     ? [than(`em tóm tắt lại lộ trình buổi xem nhà gồm ${n} căn: `),
        codes.map((c, i) => [i ? ', ' : '', el('span', { class: 'nw', text: c })]), '.']
     : [than('chưa có căn nào trong lịch trình.')];
-  const route = n ? el('div', { class: 'route' }, s.units.map((u, i) =>
-    el('div', { class: 'route-row' },
-      el('span', { class: 'n', text: pad2(i + 1) }),
-      el('span', { class: 'm', text: codes[i] }),
-      el('span', { class: 'p', 'data-ref': String(i) })))) : null;
+  // Bảng lộ trình: STT · mã căn · view · diện tích · giá · đơn giá/m² · số trang.
+  // Ô trống in dấu gạch chứ không để rỗng — cột rỗng giữa bảng nhìn như lỗi in.
+  const o = (v, cls) => el('span', { class: cls, text: (v || '').toString().trim() || '—' });
+  const route = n ? el('div', { class: 'route' },
+    el('div', { class: 'route-row route-head' },
+      el('span', { class: 'n', text: 'TT' }),
+      el('span', { class: 'm', text: 'Mã căn' }),
+      el('span', { class: 'v', text: 'View' }),
+      el('span', { class: 'd', text: 'DT' }),
+      el('span', { class: 'g', text: 'Giá' }),
+      el('span', { class: 'u', text: 'Tr/m²' }),
+      el('span', { class: 'p', text: 'Trang' })),
+    s.units.map((u, i) =>
+      el('div', { class: 'route-row' },
+        el('span', { class: 'n', text: pad2(i + 1) }),
+        el('span', { class: 'm', text: codes[i] }),
+        o(u.view, 'v'),
+        o(u.dtTim ? `${u.dtTim} m²` : '', 'd'),
+        o(u.gia, 'g'),
+        o(u.donGia, 'u'),
+        el('span', { class: 'p', 'data-ref': String(i) })))) : null;
   return el('div', { class: 'intro' },
     el('div', { class: 'eyebrow', text: 'Lịch trình xem nhà' }),
     el('h3', { text: fmtDate(s.date) || 'Chưa chọn ngày' }),

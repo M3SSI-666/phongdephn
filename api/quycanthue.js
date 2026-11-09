@@ -6,8 +6,8 @@ import crypto from 'crypto';
 // Gộp chung 1 serverless function để không vượt giới hạn function của Vercel.
 const MAIN_SHEET = 'Quy_Can_Thue';
 const CON_SHEET  = 'Quy_Can_Thue_Con';
-// 21 columns: STT, Ngay_Update, Ma_Can, Thiet_Ke, Dien_Tich, Slot_Xe, Huong_BC, Gia, Phi_MG, Noi_That, Thoi_Gian_Vao, Lien_He, Hinh_Anh, Nguon, Ghi_Chu, Mau_Ma_Can, Owner_Id, Ten_Chu, Gia_Net, Bang_Con, Layout
-const COLUMNS = 'A:U';
+// 22 columns: STT, Ngay_Update, Ma_Can, Thiet_Ke, Dien_Tich, Slot_Xe, Huong_BC, Gia, Phi_MG, Noi_That, Thoi_Gian_Vao, Lien_He, Hinh_Anh, Nguon, Ghi_Chu, Mau_Ma_Can, Owner_Id, Ten_Chu, Gia_Net, Bang_Con, Layout, View
+const COLUMNS = 'A:V';
 // Layout (ảnh mặt bằng riêng của từng căn) nối vào CUỐI, sau Bang_Con. Chèn vào giữa là
 // đẩy lệch Owner_Id/Bang_Con, mọi dòng cũ đọc ra sai cột.
 // Cột dùng để tìm dòng bảng con mà không cần _rowIndex của client. (Sheet này có STT ở cột A.)
@@ -99,6 +99,7 @@ async function handleGet(req, res, sheetId, email, key, SHEET_NAME, isCon) {
     Gia_Net:       row[18] || '',
     Bang_Con:      row[19] || '',
     Layout:   row[20] || '',
+    View:     row[21] || '',
     _rowIndex: i + 2,
   }));
 
@@ -146,6 +147,7 @@ async function handlePost(req, res, sheetId, email, key, SHEET_NAME, isCon) {
       giaNet,
       bangCon,
       p.Layout     || '',
+      p.View       || '',
     ];
   }
 
@@ -166,7 +168,7 @@ async function handlePost(req, res, sheetId, email, key, SHEET_NAME, isCon) {
     if (!payload._rowIndex) return res.status(400).json({ error: 'Missing _rowIndex' });
     const stale = await assertRow(sheetId, token, SHEET_NAME, payload);
     if (stale) return res.status(409).json(stale);
-    const range = `${SHEET_NAME}!A${payload._rowIndex}:U${payload._rowIndex}`;
+    const range = `${SHEET_NAME}!A${payload._rowIndex}:V${payload._rowIndex}`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?valueInputOption=${WRITE_MODE}`;
     const response = await fetch(url, {
       method: 'PUT',
@@ -198,7 +200,7 @@ async function handlePost(req, res, sheetId, email, key, SHEET_NAME, isCon) {
       const data = updates
         .filter(p => p._rowIndex)
         .map(p => ({
-          range: `${SHEET_NAME}!A${p._rowIndex}:U${p._rowIndex}`,
+          range: `${SHEET_NAME}!A${p._rowIndex}:V${p._rowIndex}`,
           values: [buildRow(p, { keepDate: true })],
         }));
       if (data.length) {
@@ -376,14 +378,14 @@ async function createSheetWithHeaders(sheetId, token, SHEET_NAME) {
   const HEADERS = [
     'STT', 'Ngay_Update', 'Ma_Can', 'Thiet_Ke', 'Dien_Tich', 'Slot_Xe',
     'Huong_BC', 'Gia', 'Phi_MG', 'Noi_That', 'Thoi_Gian_Vao',
-    'Lien_He', 'Hinh_Anh', 'Nguon', 'Ghi_Chu', 'Mau_Ma_Can', 'Owner_Id', 'Ten_Chu', 'Gia_Net', 'Bang_Con', 'Layout',
+    'Lien_He', 'Hinh_Anh', 'Nguon', 'Ghi_Chu', 'Mau_Ma_Can', 'Owner_Id', 'Ten_Chu', 'Gia_Net', 'Bang_Con', 'Layout', 'View',
   ];
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ requests: [{ addSheet: { properties: { title: SHEET_NAME } } }] }),
   });
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!A1:U1?valueInputOption=USER_ENTERED`, {
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!A1:V1?valueInputOption=USER_ENTERED`, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ values: [HEADERS] }),

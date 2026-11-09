@@ -51,7 +51,7 @@ const EMPTY_FORM = {
   Huong_BC: '', Huong_Cua: '', Gia: '', Gia_Net: '', Phi: 'Thu về',
   // Để TRỐNG chứ không đặt sẵn: chỉ còn 2 lựa chọn, chọn hộ là đoán bừa hộ người dùng
   // và giá trị đó sẽ được lưu y như thật.
-  Noi_That: '', SDT: '', Ten_Chu: '', Hinh_Anh: '', Nguon: '', Ghi_Chu: '', Mau_Ma_Can: '', Layout: '',
+  Noi_That: '', SDT: '', Ten_Chu: '', Hinh_Anh: '', Nguon: '', Ghi_Chu: '', Mau_Ma_Can: '', Layout: '', View: '',
 };
 
 // Bảng hàng con (tag) cho Quỹ Căn Bán. Chỉ chia theo số phòng ngủ.
@@ -201,12 +201,12 @@ function isRecentUpdate(val) {
 
 const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
-  'Hướng BC', 'Giá', 'Giá Nét', 'Tr/m²', 'Phí', 'SDT', 'Tên Chủ', 'Ảnh', 'Layout', 'Nguồn', 'Ghi Chú', '',
+  'Hướng BC', 'View', 'Giá', 'Giá Nét', 'Tr/m²', 'Phí', 'SDT', 'Tên Chủ', 'Ảnh', 'Layout', 'Nguồn', 'Ghi Chú', '',
 ];
 // Cột cuối là 5 nút thao tác (copy / Telegram / tag / sửa / xoá), mỗi nút ~28px nên cần
 // ~148. Trước là 104 — đủ cho 4 nút, nhưng thêm nút Telegram thì nút xoá bị cắt mất một
 // nửa. Phần thêm vào lấy đúng từ cột Ghi Chú để bảng không rộng thêm.
-const COL_WIDTHS = [92, 100, 72, 66, 76, 80, 72, 80, 80, 110, 100, 110, 100, 70, 80, 276, 148];
+const COL_WIDTHS = [92, 100, 72, 66, 76, 80, 120, 72, 80, 80, 110, 100, 110, 100, 70, 80, 276, 148];
 
 export function QuyCanBanContent({ overrideUserId, overrideRole, isViewAs } = {}) {
   return <QuyCanBanInner overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
@@ -547,6 +547,7 @@ function QuyCanBanInner({
       Nguon: item.Nguon, Ghi_Chu: item.Ghi_Chu, Mau_Ma_Can: item.Mau_Ma_Can || '',
       Gia_Net: item.Gia_Net || '', Ngay_Update: item.Ngay_Update,
       Layout: item.Layout || '',
+      View: item.View || '',
       ...extra,
     };
   }
@@ -788,6 +789,7 @@ function QuyCanBanInner({
       Ten_Chu:   item.Ten_Chu   || '',
       Hinh_Anh:  item.Hinh_Anh  || '',
       Layout:    item.Layout    || '',
+      View:      item.View      || '',
       Nguon:     item.Nguon     || '',
       Ghi_Chu:   item.Ghi_Chu   || '',
       Mau_Ma_Can:item.Mau_Ma_Can|| '',
@@ -974,6 +976,9 @@ function QuyCanBanInner({
       gia: giaBaoKhach(them.gia, DON_VI_BAN, mapPhi(item.Phi).toLowerCase()) || giaCuaCan(item),
       dtTim: (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim(),
       huongBC: huongText(item.Huong_BC),
+      view: (item.View || '').trim(),
+      // Đơn giá/m² đã có sẵn hàm tính, dùng chung với cột Tr/m² của bảng.
+      donGia: trPerM2(item) != null ? String(trPerM2(item)) : '',
       hienTrang: normalizeNoiThat(item.Noi_That),
       // CHỈ lấy ghi chú gõ trong hộp Lộ trình. Cột Ghi Chú của bảng hàng là ghi chú nội bộ —
       // chứa pass cửa, số điện thoại chủ nhà, giá chốt thật — không được lọt vào file gửi khách.
@@ -1284,6 +1289,8 @@ function QuyCanBanInner({
                         })()}
                       </td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'normal', background: rowBg}}>{huongText(item.Huong_BC)}</td>
+                      {/* View: mô tả tầm nhìn, gõ tay. Hiện trong bảng lộ trình của báo cáo dẫn khách. */}
+                      <td style={{...st.td, textAlign:'center', whiteSpace:'normal', fontSize:12, background: rowBg}}>{item.View}</td>
                       <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap', background: rowBg}}>{(perM2Price(item) != null || isDateSerialGia(item.Gia)) ? '' : item.Gia}</td>
                       {viewingCon && <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', color:'#34D399', background: rowBg}}>{item.Gia_Net}</td>}
                       <td style={{...st.td, textAlign:'center', fontSize:12, color:'#38b274', fontWeight:700, background: rowBg}}>
@@ -1538,6 +1545,10 @@ function QuyCanBanInner({
             </div>
 
             <div style={{ marginTop:14 }}>
+              <div style={{ marginBottom: 14 }}>
+                <FormField label="View" value={form.View} onChange={v => set('View', v)}
+                  placeholder="VD: Nhạc Nước, Quảng trường, Đường nội khu..." />
+              </div>
               <label style={st.fieldLabel}>Layout (mặt bằng riêng của căn)</label>
               {form.Layout ? (
                 <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:6 }}>
