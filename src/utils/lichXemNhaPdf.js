@@ -39,16 +39,18 @@ export function thanksMacDinh(xungHo) {
   // KHÔNG có "hôm nay": file hay được gửi sau buổi xem vài ngày, mà ngày xem đã nằm
   // ngay dòng tiêu đề trang đầu rồi.
   //
-  // Đoạn giữa hỏi hai thứ CỤ THỂ — căn nào phù hợp nhất, điểm gì chưa vừa ý — thay vì
-  // "có gì cứ liên hệ": câu hỏi mở thì khách đọc xong rồi thôi, còn câu hỏi cụ thể thì trả
-  // lời được bằng một dòng, mà đó đúng là thứ cần để lọc căn tiếp.
-  // Câu sau chốt bằng lời mời chọn căn để "làm việc" — đây mới là bước đưa khách từ
-  // xem sang thương lượng, và nói rõ em sẽ làm gì tiếp để khách thấy nhắn lại là có việc xảy ra.
+  // Đoạn giữa: vế đầu do user viết — xin phản hồi về căn phù hợp nhất và điểm còn lăn
+  // tăn. Hỏi hai thứ CỤ THỂ như vậy thì khách trả lời được bằng một dòng, khác hẳn
+  // "có gì cứ liên hệ" vốn đọc xong là thôi.
+  // Vế sau chốt bằng bước đưa khách từ XEM sang THƯƠNG LƯỢNG, và nói rõ em làm gì tiếp
+  // (làm việc với chủ nhà về giá và điều khoản) để nhắn lại là có việc xảy ra, chứ không
+  // phải nhắn cho lịch sự.
   return `Cảm ơn ${x} đã dành thời gian đi xem nhà cùng em. Em gửi lại lịch trình và ` +
     `thông tin các căn để ${x} tiện xem lại và trao đổi thêm cùng gia đình.\n\n` +
-    `Sau buổi xem, ${x} cho em biết căn nào ${x} thấy phù hợp và ưng ý nhất, hay còn ` +
-    `điểm gì chưa vừa ý để em tìm tiếp cho sát hơn. ${X} muốn em làm việc căn nào thì ` +
-    `nhắn em, em sẽ trao đổi với chủ nhà và báo lại ${x} ngay.\n\n` +
+    `Sau buổi xem nhà, em rất mong nhận được phản hồi của ${x} về căn hộ mà ${x} cảm ` +
+    `thấy phù hợp nhất, hoặc cho em biết vấn đề gì ${x} vẫn còn lăn tăn. Khi ${x} đã ` +
+    `chọn được căn ưng ý, chỉ cần nhắn em một tiếng — em sẽ làm việc với chủ nhà về giá ` +
+    `và các điều khoản, rồi báo lại ${x} trong thời gian sớm nhất.\n\n` +
     `Mọi thắc mắc ${x} cứ nhắn Zalo hoặc gọi trực tiếp cho em bất cứ lúc nào.`;
 }
 
