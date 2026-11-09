@@ -976,6 +976,7 @@ function QuyCanBanInner({
       gia: giaBaoKhach(them.gia, DON_VI_BAN, mapPhi(item.Phi).toLowerCase()) || giaCuaCan(item),
       dtTim: (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim(),
       huongBC: huongText(item.Huong_BC),
+      noiBat: !!them.noiBat,
       view: (item.View || '').trim(),
       // Đơn giá/m² đã có sẵn hàm tính, dùng chung với cột Tr/m² của bảng.
       donGia: trPerM2(item) != null ? String(trPerM2(item)) : '',

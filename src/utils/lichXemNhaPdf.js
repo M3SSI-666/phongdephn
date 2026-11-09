@@ -130,7 +130,7 @@ function introBlock(s) {
     ? [than(`em tóm tắt lại lộ trình buổi xem nhà gồm ${n} căn: `),
        codes.map((c, i) => [i ? ', ' : '', el('span', { class: 'nw', text: c })]), '.']
     : [than('chưa có căn nào trong lịch trình.')];
-  // Bảng lộ trình: STT · mã căn · view · diện tích · giá · đơn giá/m² · số trang.
+  // Bảng lộ trình: STT · mã căn · view · diện tích · giá · đơn giá/m².
   // Ô trống in dấu gạch chứ không để rỗng — cột rỗng giữa bảng nhìn như lỗi in.
   const o = (v, cls) => el('span', { class: cls, text: (v || '').toString().trim() || '—' });
   const route = n ? el('div', { class: 'route' },
@@ -140,17 +140,17 @@ function introBlock(s) {
       el('span', { class: 'v', text: 'View' }),
       el('span', { class: 'd', text: 'DT' }),
       el('span', { class: 'g', text: 'Giá' }),
-      el('span', { class: 'u', text: 'Tr/m²' }),
-      el('span', { class: 'p', text: 'Trang' })),
+      el('span', { class: 'u', text: 'Tr/m²' })),
     s.units.map((u, i) =>
-      el('div', { class: 'route-row' },
+      // Căn được đánh dấu nổi bật: tô nền để nhìn một cái là thấy, vì đây là thứ khách
+      // sẽ hỏi lại đầu tiên khi mở file ra xem lại.
+      el('div', { class: 'route-row' + (u.noiBat ? ' noi-bat' : '') },
         el('span', { class: 'n', text: pad2(i + 1) }),
         el('span', { class: 'm', text: codes[i] }),
         o(u.view, 'v'),
         o(u.dtTim ? `${u.dtTim} m²` : '', 'd'),
         o(u.gia, 'g'),
-        o(u.donGia, 'u'),
-        el('span', { class: 'p', 'data-ref': String(i) })))) : null;
+        o(u.donGia, 'u')))) : null;
   return el('div', { class: 'intro' },
     el('div', { class: 'eyebrow', text: 'Lịch trình xem nhà' }),
     el('h3', { text: fmtDate(s.date) || 'Chưa chọn ngày' }),
@@ -234,7 +234,6 @@ function buildPages(s) {
   moHost();
   const pages = [];
   let cur = null, used = 0;
-  const refs = {};
   const newPage = cover => { cur = makePage(s, cover); pages.push(cur); used = 0; };
   const place = (block, breakBefore) => {
     if (!cur || (breakBefore && used > 0)) newPage(false);
@@ -268,7 +267,6 @@ function buildPages(s) {
   const n = s.units.length;
   s.units.forEach((u, i) => {
     place(unitHead(u, i, n), true);
-    refs[i] = pages.length;
     place(specsBlock(u));
     if (u.hienTrang?.trim()) place(noteBlock('Hiện trạng', u.hienTrang.trim()));
     if (u.ghiChu?.trim()) place(noteBlock('Ghi chú', u.ghiChu.trim(), true));
@@ -285,9 +283,6 @@ function buildPages(s) {
     p.foot.replaceChildren(
       el('span', {}, el('b', { text: s.name || '' }), s.phone ? ` · ${s.phone}` : ''),
       el('span', {}, el('span', { class: 'tc', text: 'Times City' }), `  ·  Trang ${i + 1}/${total}`));
-  });
-  pages[0].page.querySelectorAll('[data-ref]').forEach(sp => {
-    sp.textContent = `Trang ${refs[sp.dataset.ref]}`;
   });
   return pages.map(p => p.page);
 }

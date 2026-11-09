@@ -33,6 +33,8 @@ export default function LoTrinhModal({ cans, toUnit, giaCuaCan, donViGia, tenSal
   const [ghiChu, setGhiChu] = useState(() => Object.fromEntries(cans.map(c => [c.Ma_Can, ''])));
   // Để TRỐNG = dùng giá của bảng hàng (ưu tiên Giá Nét). Gõ vào mới đè lên.
   const [gia, setGia] = useState(() => Object.fromEntries(cans.map(c => [c.Ma_Can, ''])));
+  // Căn đáng chú ý của buổi xem — tô nổi trong bảng lộ trình ở trang đầu file.
+  const [noiBat, setNoiBat] = useState(() => new Set());
 
   const [dangChay, setDangChay] = useState(false);
   const [bước, setBuoc] = useState('');
@@ -59,6 +61,7 @@ export default function LoTrinhModal({ cans, toUnit, giaCuaCan, donViGia, tenSal
         units.push(await toUnit(cans[i], {
           ghiChu: ghiChu[cans[i].Ma_Can] || '',
           gia: gia[cans[i].Ma_Can] || '',
+          noiBat: noiBat.has(cans[i].Ma_Can),
         }, mod.napAnh));
       }
 
@@ -119,6 +122,14 @@ export default function LoTrinhModal({ cans, toUnit, giaCuaCan, donViGia, tenSal
           {cans.map((c, i) => (
             <div key={c.Ma_Can} style={s.row}>
               <span style={s.stt}>{i + 1}</span>
+              <button
+                onClick={() => setNoiBat(p => {
+                  const t = new Set(p);
+                  if (t.has(c.Ma_Can)) t.delete(c.Ma_Can); else t.add(c.Ma_Can);
+                  return t;
+                })}
+                style={noiBat.has(c.Ma_Can) ? s.saoOn : s.sao}
+                title={noiBat.has(c.Ma_Can) ? 'Bỏ đánh dấu nổi bật' : 'Đánh dấu căn đáng chú ý'}>★</button>
               {(c.Layout || '').trim()
                 ? <img src={anhCloudinary(c.Layout, 72)} alt="" style={s.mini} />
                 : <span style={s.miniTrong} title="Chưa có layout">▦</span>}
@@ -143,6 +154,7 @@ export default function LoTrinhModal({ cans, toUnit, giaCuaCan, donViGia, tenSal
         </div>
 
         <div style={s.hint}>
+          Bấm ★ để đánh dấu căn đáng chú ý — căn đó sẽ được tô nổi trong bảng lộ trình.
           Ô giá để trống thì lấy giá của bảng hàng (mờ sẵn trong ô); gõ “6.5” là thành “6.5 {donViGia}”.
           Tổng {soAnh} ảnh. Ảnh phải tải về trước khi dựng trang nên bước này có thể mất
           một lúc — đừng đóng cửa sổ giữa chừng.
@@ -176,7 +188,9 @@ const s = {
   ds:        { display:'flex', flexDirection:'column', gap:8, maxHeight:260, overflowY:'auto' },
   row:       { display:'flex', alignItems:'center', gap:10, padding:'8px 10px', background:'#141726', border:'1px solid #2a2f45', borderRadius:9 },
   stt:       { width:22, height:22, flexShrink:0, borderRadius:6, background:'#38b274', color:'#fff', fontSize:11.5, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center' },
-  mini:      { width:36, height:36, flexShrink:0, objectFit:'contain', background:'#fff', borderRadius:5, border:'1px solid #3a3f52' },
+  sao:       { width:26, height:26, flexShrink:0, padding:0, borderRadius:6, border:'1.5px solid #3a3f52', background:'transparent', color:'#3a3f52', fontSize:14, cursor:'pointer', fontFamily:F },
+  saoOn:     { width:26, height:26, flexShrink:0, padding:0, borderRadius:6, border:'1.5px solid #fbbf24', background:'rgba(251,191,36,0.18)', color:'#fbbf24', fontSize:14, cursor:'pointer', fontFamily:F },
+    mini:      { width:36, height:36, flexShrink:0, objectFit:'contain', background:'#fff', borderRadius:5, border:'1px solid #3a3f52' },
   miniTrong: { width:36, height:36, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', color:'#3a3f52', fontSize:16, border:'1px dashed #3a3f52', borderRadius:5 },
   hint:      { fontSize:11, color:'#6b7a94', lineHeight:1.7, margin:'12px 0' },
   tienDo:    { fontSize:12.5, color:'#38bdf8', fontWeight:700, padding:'8px 10px', background:'rgba(56,189,248,0.1)', borderRadius:8, marginBottom:10 },

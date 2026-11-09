@@ -976,6 +976,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       gia: giaBaoKhach(them.gia, DON_VI_THUE) || giaCuaCan(item),
       dtTim: (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim(),
       huongBC: huongText(item.Huong_BC),
+      noiBat: !!them.noiBat,
       view: (item.View || '').trim(),
       // Bảng Thuê không có cột Tr/m² — đơn giá thuê theo m² không phải cách bên này định giá.
       donGia: '',
