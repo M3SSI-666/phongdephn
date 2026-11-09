@@ -44,13 +44,16 @@ export function thanksMacDinh(xungHo) {
   // "có gì cứ liên hệ" vốn đọc xong là thôi.
   // Vế sau chốt bằng bước đưa khách từ XEM sang THƯƠNG LƯỢNG, và nói rõ em làm gì tiếp
   // (làm việc với chủ nhà về giá và điều khoản) để nhắn lại là có việc xảy ra, chứ không
-  // phải nhắn cho lịch sự.
+  // phải nhắn cho lịch sự. Hành động đặt ở ngưỡng thấp nhất ("nhắn em một tiếng"), không
+  // bắt khách phải chốt căn ngay.
+  // Kết bằng "ngôi nhà" chứ không phải "căn hộ": đang giúp khách tìm chỗ ở, không phải
+  // chốt một hợp đồng.
   return `Cảm ơn ${x} đã dành thời gian đi xem nhà cùng em. Em gửi lại lịch trình và ` +
     `thông tin các căn để ${x} tiện xem lại và trao đổi thêm cùng gia đình.\n\n` +
     `Sau buổi xem nhà, em rất mong nhận được phản hồi của ${x} về căn hộ mà ${x} cảm ` +
-    `thấy phù hợp nhất, hoặc cho em biết vấn đề gì ${x} vẫn còn lăn tăn. Khi ${x} đã ` +
-    `chọn được căn ưng ý, chỉ cần nhắn em một tiếng — em sẽ làm việc với chủ nhà về giá ` +
-    `và các điều khoản, rồi báo lại ${x} trong thời gian sớm nhất.\n\n` +
+    `thấy phù hợp nhất, hoặc cho em biết vấn đề gì ${x} vẫn còn lăn tăn. ${X} cứ nhắn ` +
+    `em một tiếng — em sẽ làm việc với chủ nhà về giá và các điều khoản, để ${x} sớm ` +
+    `tìm được ngôi nhà thật sự ưng ý cho gia đình.\n\n` +
     `Mọi thắc mắc ${x} cứ nhắn Zalo hoặc gọi trực tiếp cho em bất cứ lúc nào.`;
 }
 
