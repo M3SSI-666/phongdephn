@@ -1676,13 +1676,15 @@ function QuyCanBanInner({
         />
       )}
 
+      {/* tenSales ghép theo thứ tự tiếng Việt (họ trước): Clerk trả fullName kiểu Tây
+          nên ra "Tùng Mai" thay vì "Mai Tùng". Thiếu họ hoặc tên thì rơi về fullName. */}
       {loTrinh && (
         <LoTrinhModal
           cans={loTrinh}
           toUnit={toUnitPdf}
           giaCuaCan={giaCuaCan}
           donViGia={DON_VI_BAN}
-          tenSales={user?.fullName || ''}
+          tenSales={[user?.lastName, user?.firstName].filter(Boolean).join(' ') || user?.fullName || ''}
           onClose={() => setLoTrinh(null)}
           showToast={showToast}
         />

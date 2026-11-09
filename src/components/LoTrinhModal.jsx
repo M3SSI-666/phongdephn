@@ -25,7 +25,7 @@ export default function LoTrinhModal({ cans, toUnit, giaCuaCan, donViGia, tenSal
   const luu = docSales();
   const [name, setName]   = useState(luu.name || tenSales);
   const [phone, setPhone] = useState(luu.phone || '');
-  const [title, setTitle] = useState(luu.title || 'Chuyên viên tư vấn mua bán & cho thuê căn hộ Times City');
+  const [title, setTitle] = useState(luu.title || 'Chuyên tư vấn mua bán & cho thuê căn hộ chung cư Times City');
   const [client, setClient] = useState('');
   const [xungHo, setXungHo] = useState(luu.xungHo || 'anh/chị');
   const [date, setDate]   = useState('');
