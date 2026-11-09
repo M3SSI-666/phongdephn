@@ -75,10 +75,10 @@
   color: var(--paper-muted); font-weight: 700; border-bottom-width: 2px; }
 .route-row.route-head > span { padding: 5px 6px; }
 .route-row.route-head .m, .route-row.route-head .g { font-weight: 700; }
-/* Căn đánh dấu nổi bật: nền vàng nhạt + vạch đồng bên trái. Dùng cả nền lẫn vạch vì
-   bản in đen trắng làm nền nhạt gần như biến mất, còn vạch thì vẫn thấy. */
-.route-row.noi-bat { background: #fdf4dd; box-shadow: inset 3px 0 0 var(--paper-brass); }
-.route-row.noi-bat .m { color: var(--paper-pine); }
+/* Căn đánh dấu nổi bật: nền lime nhạt + vạch lime đậm bên trái. Dùng cả nền lẫn vạch
+   vì bản in đen trắng làm nền nhạt gần như biến mất, còn vạch thì vẫn thấy. */
+.route-row.noi-bat { background: #f1fbdf; box-shadow: inset 3px 0 0 #7cb518; }
+.route-row.noi-bat .m { color: var(--paper-ink); }
 .route-row.noi-bat .v { color: var(--paper-ink); }
 
 .u-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; padding-bottom: 16px; border-bottom: 2px solid var(--paper-pine); }

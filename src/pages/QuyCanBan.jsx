@@ -977,7 +977,8 @@ function QuyCanBanInner({
       dtTim: (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim(),
       huongBC: huongText(item.Huong_BC),
       noiBat: !!them.noiBat,
-      view: (item.View || '').trim(),
+      // View gõ trong hộp đè lên cột View của bảng hàng; để trống thì dùng cột.
+      view: (them.view || '').trim() || (item.View || '').trim(),
       // Đơn giá/m² đã có sẵn hàm tính, dùng chung với cột Tr/m² của bảng.
       donGia: trPerM2(item) != null ? String(trPerM2(item)) : '',
       hienTrang: normalizeNoiThat(item.Noi_That),

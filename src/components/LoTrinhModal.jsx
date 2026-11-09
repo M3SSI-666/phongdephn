@@ -33,6 +33,8 @@ export default function LoTrinhModal({ cans, toUnit, giaCuaCan, donViGia, tenSal
   const [ghiChu, setGhiChu] = useState(() => Object.fromEntries(cans.map(c => [c.Ma_Can, ''])));
   // Để TRỐNG = dùng giá của bảng hàng (ưu tiên Giá Nét). Gõ vào mới đè lên.
   const [gia, setGia] = useState(() => Object.fromEntries(cans.map(c => [c.Ma_Can, ''])));
+  // Để TRỐNG = dùng cột View của bảng hàng. Gõ vào mới đè lên, chỉ cho lần xuất này.
+  const [view, setView] = useState(() => Object.fromEntries(cans.map(c => [c.Ma_Can, ''])));
   // Căn đáng chú ý của buổi xem — tô nổi trong bảng lộ trình ở trang đầu file.
   const [noiBat, setNoiBat] = useState(() => new Set());
 
@@ -62,6 +64,7 @@ export default function LoTrinhModal({ cans, toUnit, giaCuaCan, donViGia, tenSal
           ghiChu: ghiChu[cans[i].Ma_Can] || '',
           gia: gia[cans[i].Ma_Can] || '',
           noiBat: noiBat.has(cans[i].Ma_Can),
+          view: view[cans[i].Ma_Can] || '',
         }, mod.napAnh));
       }
 
@@ -143,6 +146,12 @@ export default function LoTrinhModal({ cans, toUnit, giaCuaCan, donViGia, tenSal
                     title={`Giá báo khách. Gõ số không là thêm "${donViGia}". Để trống thì dùng giá của bảng hàng.`}
                     style={{ ...s.inpNho, marginTop:0, width:150, flexShrink:0 }} />
                   <input
+                    value={view[c.Ma_Can] || ''}
+                    onChange={e => setView(p => ({ ...p, [c.Ma_Can]: e.target.value }))}
+                    placeholder={(c.View || '').trim() || 'View'}
+                    title="View hiện trong bảng lộ trình. Để trống thì lấy cột View của bảng hàng."
+                    style={{ ...s.inpNho, marginTop:0, width:170, flexShrink:0 }} />
+                  <input
                     value={ghiChu[c.Ma_Can] || ''}
                     onChange={e => setGhiChu(p => ({ ...p, [c.Ma_Can]: e.target.value }))}
                     placeholder="Ghi chú riêng cho căn này (hiện trong file)"
@@ -155,7 +164,7 @@ export default function LoTrinhModal({ cans, toUnit, giaCuaCan, donViGia, tenSal
 
         <div style={s.hint}>
           Bấm ★ để đánh dấu căn đáng chú ý — căn đó sẽ được tô nổi trong bảng lộ trình.
-          Ô giá để trống thì lấy giá của bảng hàng (mờ sẵn trong ô); gõ “6.5” là thành “6.5 {donViGia}”.
+          Ô giá và ô View để trống thì lấy theo bảng hàng (mờ sẵn trong ô); gõ “6.5” là thành “6.5 {donViGia}”.
           Tổng {soAnh} ảnh. Ảnh phải tải về trước khi dựng trang nên bước này có thể mất
           một lúc — đừng đóng cửa sổ giữa chừng.
         </div>
@@ -175,7 +184,7 @@ export default function LoTrinhModal({ cans, toUnit, giaCuaCan, donViGia, tenSal
 
 const s = {
   overlay:   { position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2100, padding:16, fontFamily:F },
-  box:       { background:'#1a1d2e', border:'1px solid #3a3f52', borderRadius:14, padding:18, width:620, maxWidth:'100%', maxHeight:'92vh', overflowY:'auto', color:'#e2e8f0' },
+  box:       { background:'#1a1d2e', border:'1px solid #3a3f52', borderRadius:14, padding:18, width:760, maxWidth:'100%', maxHeight:'92vh', overflowY:'auto', color:'#e2e8f0' },
   header:    { display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 },
   x:         { background:'none', border:'none', color:'#8a9bb8', fontSize:18, cursor:'pointer', fontFamily:F },
   grid3:     { display:'grid', gridTemplateColumns:'1.4fr 1fr 1fr', gap:10 },
@@ -189,7 +198,7 @@ const s = {
   row:       { display:'flex', alignItems:'center', gap:10, padding:'8px 10px', background:'#141726', border:'1px solid #2a2f45', borderRadius:9 },
   stt:       { width:22, height:22, flexShrink:0, borderRadius:6, background:'#38b274', color:'#fff', fontSize:11.5, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center' },
   sao:       { width:26, height:26, flexShrink:0, padding:0, borderRadius:6, border:'1.5px solid #3a3f52', background:'transparent', color:'#3a3f52', fontSize:14, cursor:'pointer', fontFamily:F },
-  saoOn:     { width:26, height:26, flexShrink:0, padding:0, borderRadius:6, border:'1.5px solid #fbbf24', background:'rgba(251,191,36,0.18)', color:'#fbbf24', fontSize:14, cursor:'pointer', fontFamily:F },
+  saoOn:     { width:26, height:26, flexShrink:0, padding:0, borderRadius:6, border:'1.5px solid #a3e635', background:'rgba(163,230,53,0.18)', color:'#a3e635', fontSize:14, cursor:'pointer', fontFamily:F },
     mini:      { width:36, height:36, flexShrink:0, objectFit:'contain', background:'#fff', borderRadius:5, border:'1px solid #3a3f52' },
   miniTrong: { width:36, height:36, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', color:'#3a3f52', fontSize:16, border:'1px dashed #3a3f52', borderRadius:5 },
   hint:      { fontSize:11, color:'#6b7a94', lineHeight:1.7, margin:'12px 0' },

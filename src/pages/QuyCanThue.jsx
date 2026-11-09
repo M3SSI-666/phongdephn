@@ -977,7 +977,8 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       dtTim: (item.Dien_Tich || '').replace(/\s*m²|m2|m$/i, '').trim(),
       huongBC: huongText(item.Huong_BC),
       noiBat: !!them.noiBat,
-      view: (item.View || '').trim(),
+      // View gõ trong hộp đè lên cột View của bảng hàng; để trống thì dùng cột.
+      view: (them.view || '').trim() || (item.View || '').trim(),
       // Bảng Thuê không có cột Tr/m² — đơn giá thuê theo m² không phải cách bên này định giá.
       donGia: '',
       hienTrang: normalizeNoiThat(item.Noi_That),
