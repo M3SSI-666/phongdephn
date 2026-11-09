@@ -39,15 +39,16 @@ export function thanksMacDinh(xungHo) {
   // KHÔNG có "hôm nay": file hay được gửi sau buổi xem vài ngày, mà ngày xem đã nằm
   // ngay dòng tiêu đề trang đầu rồi.
   //
-  // Đoạn giữa là câu mời phản hồi, cố ý hỏi thứ CỤ THỂ (căn nào ưng nhất, điểm gì chưa
-  // vừa ý) thay vì "có gì cứ liên hệ" — câu hỏi mở thì khách đọc xong rồi thôi, còn câu
-  // hỏi cụ thể thì trả lời được ngay bằng một dòng, và câu trả lời đó chính là thứ sales
-  // cần để lọc căn tiếp theo.
+  // Đoạn giữa hỏi hai thứ CỤ THỂ — căn nào phù hợp nhất, điểm gì chưa vừa ý — thay vì
+  // "có gì cứ liên hệ": câu hỏi mở thì khách đọc xong rồi thôi, còn câu hỏi cụ thể thì trả
+  // lời được bằng một dòng, mà đó đúng là thứ cần để lọc căn tiếp.
+  // Câu sau chốt bằng lời mời chọn căn để "làm việc" — đây mới là bước đưa khách từ
+  // xem sang thương lượng, và nói rõ em sẽ làm gì tiếp để khách thấy nhắn lại là có việc xảy ra.
   return `Cảm ơn ${x} đã dành thời gian đi xem nhà cùng em. Em gửi lại lịch trình và ` +
     `thông tin các căn để ${x} tiện xem lại và trao đổi thêm cùng gia đình.\n\n` +
-    `${X} xem qua rồi cho em xin vài dòng nhé: căn nào ${x} ưng nhất, hay còn điểm gì ` +
-    `chưa vừa ý. Em sẽ dựa vào đó lọc thêm những căn sát nhu cầu hơn và sắp lịch để ` +
-    `${x} xem lại.\n\n` +
+    `Sau buổi xem, ${x} cho em biết căn nào ${x} thấy phù hợp và ưng ý nhất, hay còn ` +
+    `điểm gì chưa vừa ý để em tìm tiếp cho sát hơn. ${X} muốn em làm việc căn nào thì ` +
+    `nhắn em, em sẽ trao đổi với chủ nhà và báo lại ${x} ngay.\n\n` +
     `Mọi thắc mắc ${x} cứ nhắn Zalo hoặc gọi trực tiếp cho em bất cứ lúc nào.`;
 }
 
