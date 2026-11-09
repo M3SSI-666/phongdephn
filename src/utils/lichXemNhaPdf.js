@@ -35,9 +35,20 @@ export const XUNG_HO_MAC_DINH = 'anh/chị';
 
 export function thanksMacDinh(xungHo) {
   const x = (xungHo || '').trim() || XUNG_HO_MAC_DINH;
-  return `Cảm ơn ${x} đã dành thời gian đi xem nhà cùng em hôm nay. Em gửi lại lịch trình và ` +
-    `thông tin các căn để ${x} tiện xem lại và bàn thêm cùng gia đình.\n\n` +
-    `Còn vấn đề gì cần giải đáp, ${x} cứ nhắn Zalo hoặc gọi trực tiếp cho em nhé.`;
+  const X = x.charAt(0).toUpperCase() + x.slice(1);   // đứng đầu câu
+  // KHÔNG có "hôm nay": file hay được gửi sau buổi xem vài ngày, mà ngày xem đã nằm
+  // ngay dòng tiêu đề trang đầu rồi.
+  //
+  // Đoạn giữa là câu mời phản hồi, cố ý hỏi thứ CỤ THỂ (căn nào ưng nhất, điểm gì chưa
+  // vừa ý) thay vì "có gì cứ liên hệ" — câu hỏi mở thì khách đọc xong rồi thôi, còn câu
+  // hỏi cụ thể thì trả lời được ngay bằng một dòng, và câu trả lời đó chính là thứ sales
+  // cần để lọc căn tiếp theo.
+  return `Cảm ơn ${x} đã dành thời gian đi xem nhà cùng em. Em gửi lại lịch trình và ` +
+    `thông tin các căn để ${x} tiện xem lại và trao đổi thêm cùng gia đình.\n\n` +
+    `${X} xem qua rồi cho em xin vài dòng nhé: căn nào ${x} ưng nhất, hay còn điểm gì ` +
+    `chưa vừa ý. Em sẽ dựa vào đó lọc thêm những căn sát nhu cầu hơn và sắp lịch để ` +
+    `${x} xem lại.\n\n` +
+    `Mọi thắc mắc ${x} cứ nhắn Zalo hoặc gọi trực tiếp cho em bất cứ lúc nào.`;
 }
 
 function el(tag, attrs, ...kids) {
