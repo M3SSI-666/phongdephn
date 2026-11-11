@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { maCanTelegram, tinMaCan, mediaTelegram, RONG_ANH_TELEGRAM } from '../src/utils/telegramCan.js';
+import { maCanTelegram, tinMaCan, themSo0, mediaTelegram, RONG_ANH_TELEGRAM } from '../src/utils/telegramCan.js';
 
 // Mã gửi lên Telegram phải trùng khít mã trong sheet: ghi liền, không gạch nối.
 test('maCanTelegram: giữ nguyên mã, không chèn gạch', () => {
@@ -70,4 +70,29 @@ test('tinMaCan: thiếu SĐT hoặc tên chủ', () => {
 
 test('tinMaCan: không có mã thì rỗng dù có SĐT', () => {
   assert.equal(tinMaCan('', '0971 524 525', 'A Hoan'), '');
+});
+
+// Ô SĐT trong Google Sheet hay bị hiểu là SỐ nên mất số 0 đầu (gặp thật 11/11:
+// "T071606 - 937738788"). Tin gửi đi phải tự bù số 0.
+test('themSo0: SĐT mất số 0 đầu thì thêm vào', () => {
+  assert.equal(themSo0('937738788'), '0937738788');
+  assert.equal(themSo0(937738788), '0937738788');          // ô sheet trả về kiểu số
+  assert.equal(themSo0('0937738788'), '0937738788');       // đủ số 0 thì giữ nguyên
+  assert.equal(themSo0('0971 524 525'), '0971 524 525');   // dạng có cách giữ nguyên
+  assert.equal(themSo0('967883663\n899997888'), '0967883663\n0899997888');
+  assert.equal(themSo0('+84937738788'), '0937738788');
+  assert.equal(themSo0('84937738788'), '0937738788');
+  assert.equal(themSo0(''), '');
+  assert.equal(themSo0(null), '');
+});
+
+test('themSo0: không đụng dãy số không phải SĐT di động', () => {
+  assert.equal(themSo0('123456789'), '123456789');         // đầu 1 không phải đầu số di động
+  assert.equal(themSo0('9377387881'), '9377387881');       // 10 chữ số, không phải thiếu 0
+  assert.equal(themSo0('A Hoan'), 'A Hoan');
+});
+
+test('tinMaCan: SĐT thiếu số 0 được bù, đủ 3 phần mã - SĐT - tên chủ', () => {
+  assert.equal(tinMaCan('T071606', '937738788', 'Chị Lan'), '❤️ T071606 - 0937738788 - Chị Lan');
+  assert.equal(tinMaCan('T071606', 937738788, ''), '❤️ T071606 - 0937738788');
 });

@@ -32,13 +32,24 @@ export function doiViTriNhom(ds, tu, i, duoi) {
 // trong app vẫn dùng mã trần, thêm tim vào đó chỉ tổ rối.
 export const TIM = '❤️';
 
+// SĐT Việt Nam luôn có số 0 đầu, nhưng ô SĐT trong Google Sheet hay bị hiểu là SỐ
+// nên mất số 0: "0937738788" thành "937738788". Bù lại: dãy đúng 9 chữ số bắt đầu
+// bằng 3/5/7/8/9 (đầu số di động) → thêm "0". Dạng quốc tế "+84…" / "84…" → "0…".
+// Không dùng lookbehind (?<!…) trong regex: Safari iOS cũ không hỗ trợ, cả module
+// hỏng theo. Ô có nhiều số (xuống dòng, cách nhau) thì sửa từng số một.
+export function themSo0(sdt) {
+  return (sdt ?? '').toString()
+    .replace(/(^|[^\d+])\+?84([35789]\d{8})(?!\d)/g, (_, a, b) => `${a}0${b}`)
+    .replace(/(^|\D)([35789]\d{8})(?!\d)/g, (_, a, b) => `${a}0${b}`);
+}
+
 // "❤️ P110312A - 0971 524 525 - A Hoan". Mã căn LUÔN đứng đầu để tìm trong Telegram
 // vẫn khớp; phần nào trống thì bỏ hẳn, không để lại dấu gạch mồ côi.
 export function tinMaCan(maCan, sdt, tenChu) {
   const ma = maCanTelegram(maCan);
   if (!ma) return '';
   // Ô SĐT hay chứa nhiều số xuống dòng — gộp lại một dòng, không thì tin vỡ bố cục.
-  const phan = [sdt, tenChu]
+  const phan = [themSo0(sdt), tenChu]
     .map(v => (v || '').toString().replace(/\s+/g, ' ').trim())
     .filter(Boolean);
   return [`${TIM} ${ma}`, ...phan].join(' - ');
