@@ -1,10 +1,12 @@
-// Tra ảnh mặt bằng riêng của một căn từ chính mã căn.
+// Định vị một căn trên mặt bằng tòa, từ chính mã căn.
 //
-// Mặt bằng mọi tầng của một tòa giống hệt nhau, nên ảnh layout chỉ cần một bản cho mỗi
-// TRỤC chứ không phải mỗi căn: tòa T1 có 450 căn mà chỉ 18 ảnh. Nhập thêm căn T1 mới là
-// căn đó có layout ngay, không ai phải upload gì.
+// Mặt bằng mọi tầng của một tòa giống hệt nhau, nên vị trí một căn do TRỤC quyết định:
+// 18 khung phủ hết 450 căn của tòa T1, và căn nhập thêm ngày mai là có ngay, không ai
+// phải upload gì.
 //
-// Ảnh và toạ độ do scripts/catTrucMatBang.py cắt sẵn từ mặt bằng tòa.
+// Chỉ lưu TOẠ ĐỘ chứ không lưu ảnh cắt sẵn — khung đỏ được vẽ lúc hiển thị, nên đổi màu
+// hay độ dày nét là sửa một dòng, không phải sinh lại ảnh nào.
+// Toạ độ do scripts/catTrucMatBang.py đo từ mặt bằng tòa.
 import { parseMaCan } from './maCan.js';
 import BAN_DO from '../data/matBangTruc.js';
 
@@ -18,12 +20,6 @@ export function trucCuaCan(maCan) {
   const toa = BAN_DO[p.toa];
   const khung = toa && toa[p.truc];
   return khung ? { toa: p.toa, truc: p.truc, khung } : null;
-}
-
-// Ảnh cắt riêng của căn, dùng cho ô Layout và cho PDF lộ trình.
-export function anhTrucCan(maCan) {
-  const t = trucCuaCan(maCan);
-  return t ? `${THU_MUC}/${t.toa}-${t.truc}.jpg` : null;
 }
 
 // Mặt bằng cả tòa dùng làm nền khoanh đỏ. Khung đỏ tính theo % của ẢNH NÀY, không

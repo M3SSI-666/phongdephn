@@ -19,7 +19,7 @@ import TelegramSettingsModal from '../components/TelegramSettingsModal';
 import { parseBangCon, joinBangCon, validateTagName, doiTenTrongBangCon } from '../utils/conTagState';
 import { doiViTri } from '../utils/doiViTri';
 import { maCanTrucMatch, maCanTangInRange, normalizeTruc, tangToNumber, numberToTang, parseMaCan } from '../utils/maCan';
-import { anhTrucCan, matBangSach, khungTrucCan } from '../utils/matBangTruc';
+import { matBangSach, khungTrucCan, veKhoanhDo } from '../utils/matBangTruc';
 import { resolveKhu } from '../utils/khuToa';
 import { parseDienTich, dienTichInRange, formatDienTich } from '../utils/dienTich';
 import { anhCloudinary } from '../utils/anhCloudinary';
@@ -1047,10 +1047,15 @@ function QuyCanBanInner({
     if ((item.Layout || '').trim()) {
       layout = await napAnh(anhCloudinary(item.Layout.trim(), 2000));
     }
-    // Tòa đã cắt theo trục thì lấy đúng mặt bằng căn đó — khách cầm báo cáo thấy căn
-    // mình vừa đi xem, chứ không phải sơ đồ cả tòa rồi tự dò.
-    const anhTruc = anhTrucCan(item.Ma_Can);
-    if (!layout && anhTruc) layout = await napAnh(anhTruc);
+    // Tòa đã đo theo trục thì vẽ mặt bằng tòa có khoanh đỏ vị trí căn. Vẽ ra ảnh thật
+    // rồi mới nạp, vì file PDF không mang được thẻ div khung đỏ của giao diện.
+    if (!layout) {
+      const ve = await veKhoanhDo(item.Ma_Can);
+      if (ve) {
+        layout = await napAnh(ve);
+        if (layout) layoutNhan = `Vị trí căn trên mặt bằng tòa ${extractBuilding(item.Ma_Can)}`;
+      }
+    }
     if (!layout) {
       const toa = extractBuilding(item.Ma_Can);
       if (toa) {
@@ -1157,17 +1162,23 @@ function QuyCanBanInner({
     return [...urls.filter(isVideo), ...urls.filter(u => !isVideo(u))];
   }
 
-  // Ô Layout: ưu tiên ảnh import riêng cho căn, không có thì lấy ảnh TRỤC cắt sẵn từ mặt
-  // bằng tòa — mọi tầng cùng trục dùng chung một ảnh nên căn mới nhập là có ngay.
-  // Hết cả hai mới hiện dấu mờ, lúc đó mới thật sự thiếu mặt bằng để đi dẫn khách.
+  // Ô Layout: ưu tiên ảnh import riêng cho căn, không có thì hiện mặt bằng tòa thu nhỏ
+  // với khung đỏ ở đúng vị trí căn. Bé thì bé, nhưng vệt đỏ cho biết căn nằm đầu hồi hay
+  // giữa nhà ngay từ lúc lướt bảng. Hết cả hai mới là thật sự thiếu mặt bằng.
   function LayoutCell({ value, maCan }) {
     const url = (value || '').trim();
-    const tuDong = url ? null : anhTrucCan(maCan);
-    if (!url && !tuDong) return <span style={{ color:'#3a3f52', fontSize:15 }} title="Chưa có layout">▦</span>;
-    return <img src={url ? anhCloudinary(url, 64) : tuDong} alt="layout"
-      title={url ? 'Layout nhập riêng cho căn' : 'Mặt bằng trục, cắt tự động từ mặt bằng tòa'}
-      style={{ width:32, height:32, borderRadius:4, border:'1px solid #3a3f52',
-               objectFit: url ? 'cover' : 'contain', background: url ? 'none' : '#fff' }} />;
+    if (url) return <img src={anhCloudinary(url, 64)} alt="layout" title="Layout nhập riêng cho căn"
+      style={{ width:32, height:32, objectFit:'cover', borderRadius:4, border:'1px solid #3a3f52' }} />;
+    const khung = khungTrucCan(maCan);
+    if (!khung) return <span style={{ color:'#3a3f52', fontSize:15 }} title="Chưa có layout">▦</span>;
+    return (
+      <span title="Mặt bằng tòa, khoanh đỏ vị trí căn"
+        style={{ position:'relative', display:'inline-block', lineHeight:0, width:58,
+                 borderRadius:3, overflow:'hidden', border:'1px solid #3a3f52', background:'#fff' }}>
+        <img src={matBangSach(maCan)} alt="mặt bằng" style={{ display:'block', width:'100%' }} />
+        <span style={{ position:'absolute', ...khung, border:'1px solid #e11d48', boxSizing:'border-box' }} />
+      </span>
+    );
   }
 
   function ThumbCell({ value }) {

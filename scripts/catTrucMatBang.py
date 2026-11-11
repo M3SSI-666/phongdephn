@@ -37,9 +37,7 @@ DAU_FILE = ("// Toạ độ từng trục trên mặt bằng tòa, tính theo % 
             "// SINH TỰ ĐỘNG bởi scripts/catTrucMatBang.py — sửa tay là lần chạy sau mất sạch.\n"
             "export default ")
 
-PHONG = 3          # ảnh gốc ~120px/căn, PDF cho phóng tối đa 1,6 lần -> phải phóng sẵn
-CHAT_LUONG = 88
-LE = 3             # chừa vài pixel quanh căn cho đỡ cụt nét tường
+CHAT_LUONG = 92    # ảnh nền: nét bản vẽ mảnh, nén mạnh là rỗ hết
 
 # Mỗi tòa: danh sách DẢI MÀU theo thứ tự trái sang phải, mỗi dải ghi các trục trong đó.
 #   ["04", "05"]            dải này một cột, ô trên là trục 04, ô dưới là 05
@@ -255,27 +253,7 @@ def lam_toa(toa, chi_do=False):
     # Ảnh nền giữ NGUYÊN BẢN đầy đủ, không cắt: nhãn "T1-04 / 75,2 M2" nằm ngoài hình
     # tòa, cắt sát khung là khách mất đúng hai thứ họ đọc đầu tiên.
     os.makedirs(THUMUC_RA, exist_ok=True)
-    im_day.save(os.path.join(THUMUC_RA, "%s.jpg" % toa), quality=92, optimize=True)
-
-    dientich = lambda b: (b[2] - b[0]) * (b[3] - b[1])
-    trang = Image.new("RGB", (W, H), (255, 255, 255))
-    for t, b in hop.items():
-        anh = im.copy()
-        # Phần đè lên ô căn khác thuộc về căn NHỎ hơn: căn giữa đầu hồi là chữ nhật gọn,
-        # hai căn kia mới là chữ L ôm quanh. Làm mờ cho khỏi tưởng là phòng của mình.
-        for k, b2 in hop.items():
-            if k == t or dientich(b2) >= dientich(b):
-                continue
-            gx1, gy1 = max(b[0], b2[0]), max(b[1], b2[1])
-            gx2, gy2 = min(b[2], b2[2]) + 1, min(b[3], b2[3]) + 1
-            if gx2 > gx1 and gy2 > gy1:
-                o = (gx1, gy1, gx2, gy2)
-                anh.paste(Image.blend(anh.crop(o), trang.crop(o), 0.82), o)
-        c = anh.crop((max(b[0] - LE, 0), max(b[1] - LE, 0),
-                      min(b[2] + LE + 1, W), min(b[3] + LE + 1, H)))
-        c = c.resize((c.width * PHONG, c.height * PHONG), Image.LANCZOS)
-        c.save(os.path.join(THUMUC_RA, "%s-%s.jpg" % (toa, t)),
-               quality=CHAT_LUONG, optimize=True)
+    im_day.save(os.path.join(THUMUC_RA, "%s.jpg" % toa), quality=CHAT_LUONG, optimize=True)
 
     # Toạ độ tính theo % của ẢNH NỀN đầy đủ, nên phải cộng lại chỗ lệch của khung đo.
     DW, DH = im_day.size
@@ -285,8 +263,7 @@ def lam_toa(toa, chi_do=False):
                for t, b in sorted(hop.items())}
     ghi_ban_do(du)
 
-    kb = sum(os.path.getsize(os.path.join(THUMUC_RA, "%s-%s.jpg" % (toa, t))) for t in hop) / 1024.0
-    print("%s: %d truc, %d KB  (mat bang %dx%d)" % (toa, len(hop), kb, W, H))
+    print("%s: %d truc  (mat bang %dx%d, khung do tren %dx%d)" % (toa, len(hop), W, H, DW, DH))
     return hop
 
 
