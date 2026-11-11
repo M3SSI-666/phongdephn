@@ -1128,7 +1128,10 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
 
   // ── Media helpers ──
   function isVideo(url) {
-    return /\.(mp4|mov|avi|webm|mkv|m4v)(\?|$)/i.test(url) || url.includes('/video/upload/');
+    // url rỗng hay undefined thì .includes ném lỗi, mà lỗi ném ra giữa lúc dựng giao
+    // diện là React gỡ sạch cây — trắng cả app chứ không phải mất mỗi một ô ảnh.
+    return typeof url === 'string'
+      && (/\.(mp4|mov|avi|webm|mkv|m4v)(\?|$)/i.test(url) || url.includes('/video/upload/'));
   }
   function sortMedia(urls) {
     return [...urls.filter(isVideo), ...urls.filter(u => !isVideo(u))];
@@ -1882,7 +1885,9 @@ function ColorPicker({ value, onChange }) {
 
 // ── Lightbox ──
 function isVideoUrl(url) {
-  return /\.(mp4|mov|avi|webm|mkv|m4v)(\?|$)/i.test(url) || url.includes('/video/upload/');
+  // Xem chú thích ở isVideo: ném lỗi lúc dựng giao diện là trắng cả app.
+  return typeof url === 'string'
+    && (/\.(mp4|mov|avi|webm|mkv|m4v)(\?|$)/i.test(url) || url.includes('/video/upload/'));
 }
 
 function extractBuilding(maCan) {
