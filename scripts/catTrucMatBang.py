@@ -145,12 +145,30 @@ def cat_khung(im):
     px = im.load()
     hang = [sum(1 for x in range(W) if ho_mau(px, x, y)) for y in range(H)]
     cot = [sum(1 for y in range(H) if ho_mau(px, x, y)) for x in range(W)]
-    ys = [y for y, v in enumerate(hang) if v > W * 0.04]
-    xs = [x for x, v in enumerate(cot) if v > H * 0.05]
+    # Nhãn P1 in màu xanh ngọc nên cũng "có màu", và một hàng chữ đậm đủ dày để vượt
+    # ngưỡng. Nhưng hàng chữ chỉ là một dải MỎNG vài pixel, tách rời khỏi tòa bởi khoảng
+    # trắng; bỏ các dải mỏng đi là hàng chữ rụng. Không được lấy "dải dài nhất": tòa
+    # hình chữ H bị hành lang giữa cắt làm hai dải, lấy một dải là mất nửa tòa.
+    ys = bo_dai_mong([y for y, v in enumerate(hang) if v > W * 0.25], H * 0.05)
+    xs = bo_dai_mong([x for x, v in enumerate(cot) if v > H * 0.20], W * 0.05)
     if not xs or not ys:
         raise SystemExit("khong tim thay vung mau nao trong anh")
     ox, oy = min(xs), min(ys)
     return im.crop((ox, oy, max(xs) + 1, max(ys) + 1)), ox, oy
+
+
+def bo_dai_mong(chi_so, toi_thieu, ho=3):
+    """Giữ lại các dải chỉ số liên tục dài từ `toi_thieu` trở lên, gộp làm một danh sách.
+    Đứt quãng dưới `ho` phần tử vẫn tính là liền (nét tường, nhiễu nén)."""
+    dai, cur = [], []
+    for i in chi_so:
+        if cur and i - cur[-1] > ho:
+            dai.append(cur)
+            cur = []
+        cur.append(i)
+    if cur:
+        dai.append(cur)
+    return [i for d in dai if len(d) >= toi_thieu for i in d]
 
 
 def dai_mau_ngang(im):
