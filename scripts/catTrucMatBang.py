@@ -24,6 +24,7 @@ import colorsys
 import io
 import json
 import os
+import re
 import statistics as stat
 import sys
 
@@ -45,23 +46,32 @@ CHAT_LUONG = 92    # ảnh nền: nét bản vẽ mảnh, nén mạnh là rỗ h
 LE_NGANG = 0.018
 LE_DOC = 0.040
 
-# Tối hơn mức này là MỰC (chữ nhãn ~100–130, tường và nét vẽ < 80). Màu tô các căn nằm ở
-# 160–230 nên không bị tính là mực — quan trọng, vì dải kiểm tra của một căn hay lọt
-# sang màu tô của căn bên cạnh (P3-10 có căn 11 ôm bên trái); lấy mốc "trắng tinh" thì
-# không hàng nào sạch và luật dò chữ chết lặng, khung gạch thẳng qua nhãn.
-MUC = 140
+# Tối hơn mức này là MỰC. Dòng m² của nhãn P5 in xám nhạt, sáng tới ~150–180 — để 140
+# là máy không thấy nó và đặt cạnh khung đè lên. Màu tô của căn bên cạnh (160–230) không
+# bị vạ lây vì dải kiểm tra đã trừ hết cột thuộc căn khác (xem toa_do).
+MUC = 185
 CACH_CHU = 3       # dừng cách chữ ngần này pixel
+MUC_LAC = 2        # hàng có tới ngần này pixel mực vẫn tính là sạch (nhiễu nén, răng cưa)
 
 
-def toa_do(b, im_day):
-    """Bao (pixel) -> toạ độ % đã nới lề.
+def toa_do(b, im_day, khac=()):
+    """Bao (pixel) -> toạ độ % đã nới lề. `khac` = bao của các căn còn lại.
 
-    Nới mỗi cạnh ra đủ lề, nhưng không được gạch qua chữ nhãn. Tiêu chí là KHE SẠCH:
-    đi từ mép căn ra ngoài, nếu gặp một hàng không có mực rồi sau đó mới gặp mực, thì
-    mực đó là chữ nhãn (hoặc thứ gì đó ngoài tòa) -> dừng cách nó vài pixel. Chưa qua
-    hàng sạch nào mà gặp mực thì đó là tường của chính căn -> cứ nới tiếp.
-    "Sạch" = không có mực, còn màu tô thì được: dải kiểm tra thường lọt sang màu tô của
-    căn bên cạnh, đòi trắng tinh là không bao giờ có hàng sạch.
+    Nới mỗi cạnh ra đủ lề, nhưng không được gạch qua chữ nhãn. Đi từ mép căn ra ngoài,
+    đọc từng hàng của một dải kiểm tra:
+
+    * Dải kiểm tra BỎ các cột thuộc bao của căn khác. Nét vẽ của căn bên cạnh lọt vào
+      dải (P5-03 lấn 24px vào dải của P5-02) làm không hàng nào "sạch", và luật dò chữ
+      chết lặng. Ta biết bao của mọi căn, không phải đoán thụt bao nhiêu cho đủ.
+    * "Sạch" = không có MỰC; màu tô của căn bên cạnh vẫn được tính là sạch.
+    * Mực ngay 1–2 hàng đầu kể từ mép căn là KHỐI DÍNH LIỀN — tường của chính căn, hoặc
+      nhãn nằm trong hốc của căn (P5-02 có dòng "90,6m²" chồng lên mép căn). Khe dưới
+      4 hàng vẫn thuộc khối (khoảng cách giữa hai dòng chữ chỉ 1–3 hàng). Phải đi qua
+      hết khối rồi mới bắt đầu dò chữ; cho phép vượt lề mong muốn tới gấp đôi để thoát
+      khối, và nét đỏ (vẽ phía trong khung) không được đè lên khối.
+    * Qua khối rồi mà gặp mực -> đó là chữ nhãn ngoài căn, dừng cách nó CACH_CHU.
+    * Mép căn trống ngay từ hàng đầu -> không có khối dính; mực gặp sau đó là chữ ngoài
+      căn (P3-10 có "56,3 m²" cách đáy căn đúng 3 hàng — vẫn phải dừng trước nó).
 
     Không dùng "viền bao của tòa" làm mốc được: tòa chữ U như P3 có nhãn nằm ngay trong
     lòng khuyết, tức là BÊN TRONG viền bao — mốc đó cho phép khung gạch ngang chữ.
@@ -69,6 +79,7 @@ def toa_do(b, im_day):
     W, H = im_day.size
     px = im_day.load()
     lx, ly = W * LE_NGANG, H * LE_DOC
+    net = max(3, round(W / 220))               # bề dày nét đỏ, như veKhoanhDo trong app
     bx1, by1, bx2, by2 = b
 
     def muc(x, y):
@@ -81,33 +92,55 @@ def toa_do(b, im_day):
         d = (c - a) * 0.15
         return int(a + d), int(c - d)
 
-    def sach(hang):                # cả dải không có mực?
-        return not any(muc(x, y) for x, y in hang)
-
-    def noi(mep_can, mong, chieu, lay_dai, gioi_han):
-        """Từ mép căn đi theo `chieu` tới `mong`; qua khe sạch rồi mà gặp mực thì dừng."""
-        qua_sach = False
-        v = mep_can + chieu
-        while (v > mong) if chieu < 0 else (v < mong):
-            if v < 0 or v >= gioi_han:
-                break
-            if sach(lay_dai(v)):
-                qua_sach = True
-            elif qua_sach:
-                return v - chieu * CACH_CHU            # mực sau khe sạch = chữ, lùi lại
-            v += chieu
-        return mong
-
     sx1, sx2 = thut(bx1, bx2)
     sy1, sy2 = thut(by1, by2)
-    hang = lambda y: [(x, y) for x in range(max(0, sx1), min(W, sx2 + 1))]
-    cot  = lambda x: [(x, y) for y in range(max(0, sy1), min(H, sy2 + 1))]
-    y1 = noi(by1, int(by1 - ly), -1, hang, H)
-    y2 = noi(by2, int(by2 + ly), +1, hang, H)
-    x1 = noi(bx1, int(bx1 - lx), -1, cot, W)
-    x2 = noi(bx2, int(bx2 + lx), +1, cot, W)
-    x1, y1 = max(0, x1), max(0, y1)
-    x2, y2 = min(W - 1, x2), min(H - 1, y2)
+
+    # Bao của căn khác nở thêm vài pixel: tường bao của nó là nét đen nằm NGAY NGOÀI bao
+    # màu (P5-03 bao tới x=313, tường ở 314–316). Trừ đúng bao màu là sót lại một vạch
+    # mực dọc theo mọi hàng, không hàng nào sạch được.
+    no = max(3, round(W * 0.005))
+    khac_no = [(k[0] - no, k[1] - no, k[2] + no, k[3] + no) for k in khac]
+
+    def hang(y):                   # dải ngang tại hàng y, trừ cột thuộc căn khác
+        bo = [(k[0], k[2]) for k in khac_no if k[1] <= y <= k[3]]
+        return [(x, y) for x in range(max(0, sx1), min(W, sx2 + 1))
+                if not any(a <= x <= c for a, c in bo)]
+
+    def cot(x):                    # dải dọc tại cột x, trừ hàng thuộc căn khác
+        bo = [(k[1], k[3]) for k in khac_no if k[0] <= x <= k[2]]
+        return [(x, y) for y in range(max(0, sy1), min(H, sy2 + 1))
+                if not any(a <= y <= c for a, c in bo)]
+
+    def sach(dai):                 # vài pixel mực lạc (nhiễu nén, răng cưa) vẫn là sạch
+        return sum(1 for x, y in dai if muc(x, y)) <= MUC_LAC
+
+    def noi(mep, mong, chieu, lay_dai, gioi_han, le):
+        sach_lien, khoi, qua_khoi = 0, False, False
+        v = mep + chieu
+        buoc = 0
+        while 0 <= v < gioi_han and abs(v - mep) <= 2 * le:
+            buoc += 1
+            if sach(lay_dai(v)):
+                sach_lien += 1
+                if (buoc <= 2 and not khoi) or sach_lien >= 4:
+                    qua_khoi = True
+            elif qua_khoi:
+                return v - chieu * CACH_CHU            # chữ ngoài căn: dừng trước nó
+            else:
+                khoi, sach_lien = True, 0              # tường / nhãn trong hốc: đi tiếp
+            # đủ lề, và phía trong đủ hàng sạch cho nét đỏ không đè lên khối
+            if abs(v - mep) >= le and sach_lien >= net + CACH_CHU:
+                return v
+            v += chieu
+        return mong                                    # kẹt trong khối quá 2 lề: đành lấy lề
+
+    y1 = noi(by1, int(by1 - ly), -1, hang, H, ly)
+    y2 = noi(by2, int(by2 + ly), +1, hang, H, ly)
+    x1 = noi(bx1, int(bx1 - lx), -1, cot, W, lx)
+    x2 = noi(bx2, int(bx2 + lx), +1, cot, W, lx)
+    # không bao giờ bó hẹp hơn chính căn, và không ra ngoài ảnh
+    x1, y1 = max(0, min(x1, bx1)), max(0, min(y1, by1))
+    x2, y2 = min(W - 1, max(x2, bx2)), min(H - 1, max(y2, by2))
     return {"x": round(x1 / W * 100, 2), "y": round(y1 / H * 100, 2),
             "w": round((x2 - x1) / W * 100, 2), "h": round((y2 - y1) / H * 100, 2)}
 
@@ -150,6 +183,16 @@ CONFIG_VUNG = {
         "12B": (18.1, 29.5), "12A": (16.8, 46.2), "12": (18.2, 70.7), "11": (17.5, 85.6),
         "04": (82.3, 38.1), "05": (81.9, 62.7), "06": (80.3, 84.2),
         "10": (29.3, 68.5), "09": (43.9, 64.9), "08": (56.5, 65.2), "07": (69.8, 67.3),
+    },
+    # 21 trục — có cả 19, 20, 21. Căn 15 tô xám trung tính, bắt bằng luật "xám đặc".
+    "P05": {
+        "04": (16.3, 21.6), "03": (25.3, 17.0),
+        "02": (31.7, 34.2), "01": (47.3, 34.4), "21": (57.1, 32.1), "20": (68.5, 33.9),
+        "19": (76.2, 16.7), "18": (85.5, 17.2),
+        "05": (16.9, 30.3), "06": (17.8, 45.2), "07": (18.0, 67.0), "08": (16.1, 76.2),
+        "09": (25.5, 81.3), "10": (28.3, 67.4), "11": (42.9, 63.2), "12": (56.6, 63.5),
+        "12A": (71.2, 67.6), "12B": (77.3, 80.2), "15": (84.3, 73.0),
+        "17": (82.2, 38.2), "16": (81.3, 51.0),
     },
 }
 
@@ -327,6 +370,103 @@ def o_trong_cot(im, xa, xb, ds, tam_y):
     return {k: tuple(v) for k, v in bao.items()}, None, None
 
 
+# ============ Cách 3: khung vẽ tay ============
+#
+# Người dùng tự khoanh đỏ từng trục trên ảnh chụp mặt bằng, gửi một thư mục gồm:
+#   <tòa>.png / .jpg        mặt bằng sạch, KHÔNG có khung đỏ  -> thành ảnh nền
+#   <tòa>-<trục>.jpg        mỗi ảnh đúng MỘT khung đỏ quanh trục đó
+# Máy chỉ làm hai việc: tìm khung đỏ, và căn chỉnh từng ảnh về ảnh nền (ảnh chụp màn
+# hình cắt lệch nhau vài pixel) bằng cách so khung bao của tòa. Khung giữ nguyên như vẽ,
+# không nới thêm — người vẽ đã quyết định lề rồi.
+#
+#   python scripts/catTrucMatBang.py T18 --zip "C:\...\T18"
+#
+# Tên file phải mang ĐÚNG mã trục như trong mã căn (T18-12A.jpg, không phải T18-13.jpg):
+# tên sai là khung gắn nhầm căn mà không ai báo. Lô nào đã lỡ đánh số liền thì khai lại
+# ở DOI_TEN_ZIP, sau khi đã soi ảnh kiểm xác nhận từng cái.
+DOI_TEN_ZIP = {
+    "T18": {"13": "12A", "14": "12B"},   # đã soi ảnh: file 13 khoanh T18-12A, file 14 khoanh T18-12B
+}
+TRUC_HOP_LE = re.compile(r"^(\d{2}|12[AB])$")
+
+
+def la_do(p):
+    return p[0] > 190 and p[1] < 90 and p[2] < 90
+
+
+def khung_toa_bo_do(im):
+    """Khung bao vùng màu của tòa, bỏ qua pixel đỏ của khung vẽ tay."""
+    W, H = im.size
+    px = im.load()
+    def mau(p):
+        return max(p) >= 70 and (max(p) - min(p)) >= 10 and not la_do(p)
+    hang = [sum(1 for x in range(W) if mau(px[x, y])) for y in range(H)]
+    cot  = [sum(1 for y in range(H) if mau(px[x, y])) for x in range(W)]
+    ys = bo_dai_mong([y for y, v in enumerate(hang) if v > W * 0.25], H * 0.05)
+    xs = bo_dai_mong([x for x, v in enumerate(cot) if v > H * 0.20], W * 0.05)
+    if not xs or not ys:
+        raise SystemExit("khong tim thay vung mau cua toa trong anh")
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def khung_do_trong(im):
+    W, H = im.size
+    px = im.load()
+    xs, ys = [], []
+    for x in range(W):
+        for y in range(H):
+            if la_do(px[x, y]):
+                xs.append(x); ys.append(y)
+    if len(xs) < 200:
+        return None
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def lam_toa_zip(toa, thu_muc):
+    import glob
+    goc_fs = [f for f in glob.glob(os.path.join(thu_muc, toa + ".*")) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
+    if len(goc_fs) != 1:
+        raise SystemExit("%s: can dung MOT anh nen %s.png/.jpg trong %s" % (toa, toa, thu_muc))
+    goc = Image.open(goc_fs[0]).convert("RGB")
+    GW, GH = goc.size
+    if khung_do_trong(goc):
+        raise SystemExit("%s: anh nen dang co khung do — anh nen phai sach" % toa)
+    gk = khung_toa_bo_do(goc)
+    doi = DOI_TEN_ZIP.get(toa, {})
+
+    hop = {}
+    for f in sorted(glob.glob(os.path.join(thu_muc, toa + "-*.*"))):
+        duoi = os.path.splitext(os.path.basename(f))[0][len(toa) + 1:].upper()
+        truc = doi.get(duoi, duoi)
+        if not TRUC_HOP_LE.match(truc):
+            raise SystemExit("%s: ten file %s -> truc '%s' khong hop le" % (toa, os.path.basename(f), truc))
+        if truc in hop:
+            raise SystemExit("%s: truc %s co hai file" % (toa, truc))
+        im = Image.open(f).convert("RGB")
+        kd = khung_do_trong(im)
+        if not kd:
+            raise SystemExit("%s: %s khong co khung do" % (toa, os.path.basename(f)))
+        kt = khung_toa_bo_do(im)
+        sx = (gk[2] - gk[0]) / float(kt[2] - kt[0])
+        sy = (gk[3] - gk[1]) / float(kt[3] - kt[1])
+        if not (0.95 <= sx <= 1.05 and 0.95 <= sy <= 1.05):
+            raise SystemExit("%s: %s khac ti le anh nen (%.2f/%.2f) — chup cung mot cua so" % (toa, os.path.basename(f), sx, sy))
+        hop[truc] = (gk[0] + (kd[0] - kt[0]) * sx, gk[1] + (kd[1] - kt[1]) * sy,
+                     gk[0] + (kd[2] - kt[0]) * sx, gk[1] + (kd[3] - kt[1]) * sy)
+    if not hop:
+        raise SystemExit("%s: khong co file %s-<truc>.jpg nao" % (toa, toa))
+
+    os.makedirs(THUMUC_RA, exist_ok=True)
+    goc.save(os.path.join(THUMUC_RA, "%s.jpg" % toa), quality=CHAT_LUONG, optimize=True)
+    du = doc_ban_do()
+    du[toa] = {t: {"x": round(b[0] / GW * 100, 2), "y": round(b[1] / GH * 100, 2),
+                   "w": round((b[2] - b[0]) / GW * 100, 2), "h": round((b[3] - b[1]) / GH * 100, 2)}
+               for t, b in sorted(hop.items())}
+    ghi_ban_do(du)
+    print("%s: %d truc tu khung ve tay  (mat bang %dx%d)" % (toa, len(hop), GW, GH))
+    return hop
+
+
 # ============ Cách 2: vùng màu liên thông ============
 
 VOI = 4          # nối qua được tối đa ngần này pixel nét vẽ
@@ -342,12 +482,29 @@ def tim_vung(im):
     px = im.load()
     # Ngưỡng bão hoà 8: nền trắng JPEG lệch tối đa 2, còn ô tô nhạt nhất đo được (xám-tím
     # P2-08 và P2-11) chỉ 11–12 — để 14 như trước là hai căn đó biến mất khỏi bản vẽ.
+    #
+    # Riêng P5-15 tô XÁM TRUNG TÍNH (bão hoà 0), không ngưỡng bão hoà nào bắt được. Nhận
+    # thêm "mảng xám đặc": xám sáng 165–215 mà ô 5×5 quanh nó không dính nét tối nào.
+    # Điều kiện lân cận là bắt buộc — viền răng cưa xám bám quanh mọi nét đen cũng sáng
+    # cỡ đó, bỏ điều kiện là chúng nối nhau thành một mạng nhện phủ cả bản vẽ.
+    def xam_dac(x, y):
+        for dx in (-2, -1, 0, 1, 2):
+            for dy in (-2, -1, 0, 1, 2):
+                xx, yy = x + dx, y + dy
+                if 0 <= xx < W and 0 <= yy < H:
+                    r2, g2, b2 = px[xx, yy]
+                    if (r2 * 299 + g2 * 587 + b2 * 114) / 1000.0 < 150:
+                        return False
+        return True
+
     mau = [[None] * H for _ in range(W)]
     for x in range(W):
         for y in range(H):
             r, g, b = px[x, y]
             mx, mn = max(r, g, b), min(r, g, b)
             if mx >= 70 and (mx - mn) >= 8:
+                mau[x][y] = (r, g, b)
+            elif 165 <= (r * 299 + g * 587 + b * 114) / 1000.0 <= 215 and xam_dac(x, y):
                 mau[x][y] = (r, g, b)
 
     nhan = [[0] * H for _ in range(W)]
@@ -451,9 +608,14 @@ def lam_toa_vung(toa, chi_do=False):
         return
 
     moc = CONFIG_VUNG[toa]
-    if len(vung) != len(moc):
-        raise SystemExit("%s: khai %d truc nhung tim duoc %d mang mau — chay --vung xem lai"
+    if len(vung) < len(moc):
+        raise SystemExit("%s: khai %d truc nhung chi tim duoc %d mang mau — chay --vung xem lai"
                          % (toa, len(moc), len(vung)))
+    if len(vung) > len(moc):
+        # Thừa mảng thì không sao — mốc sẽ chọn đúng mảng — nhưng phải nói ra để còn biết
+        # thừa là thứ gì (lõi thang tô xám? sơ đồ phụ dính trong ảnh?).
+        print("   %s: tim duoc %d mang, khai %d truc — %d mang khong gan voi truc nao"
+              % (toa, len(vung), len(moc), len(vung) - len(moc)))
 
     hop, da_dung = {}, set()
     for truc, (mx, my) in moc.items():
@@ -471,7 +633,8 @@ def lam_toa_vung(toa, chi_do=False):
     os.makedirs(THUMUC_RA, exist_ok=True)
     im.save(os.path.join(THUMUC_RA, "%s.jpg" % toa), quality=CHAT_LUONG, optimize=True)
     du = doc_ban_do()
-    du[toa] = {t: toa_do(b, im) for t, b in sorted(hop.items())}
+    du[toa] = {t: toa_do(b, im, [k for t2, k in hop.items() if t2 != t])
+               for t, b in sorted(hop.items())}
     ghi_ban_do(du)
     print("%s: %d truc  (mat bang %dx%d)" % (toa, len(hop), W, H))
     return hop
@@ -534,9 +697,10 @@ def lam_toa(toa, chi_do=False):
     im_day.save(os.path.join(THUMUC_RA, "%s.jpg" % toa), quality=CHAT_LUONG, optimize=True)
 
     # Toạ độ tính theo % của ẢNH NỀN đầy đủ, nên phải cộng lại chỗ lệch của khung đo.
+    day = {t: (ox + b[0], oy + b[1], ox + b[2], oy + b[3]) for t, b in hop.items()}
     du = doc_ban_do()
-    du[toa] = {t: toa_do((ox + b[0], oy + b[1], ox + b[2], oy + b[3]), im_day)
-               for t, b in sorted(hop.items())}
+    du[toa] = {t: toa_do(b, im_day, [k for t2, k in day.items() if t2 != t])
+               for t, b in sorted(day.items())}
     ghi_ban_do(du)
 
     print("%s: %d truc  (mat bang %dx%d, khung do tren %dx%d)" % (toa, len(hop), W, H, im_day.width, im_day.height))
@@ -545,6 +709,11 @@ def lam_toa(toa, chi_do=False):
 
 if __name__ == "__main__":
     args = sys.argv[1:]
+    if "--zip" in args:
+        i = args.index("--zip")
+        toa_zip, thu_muc = args[i - 1], args[i + 1]
+        lam_toa_zip(toa_zip, thu_muc)
+        raise SystemExit(0)
     do = "--do" in args
     vung = "--vung" in args
     args = [a for a in args if not a.startswith("--")]
