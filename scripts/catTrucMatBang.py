@@ -127,6 +127,14 @@ CONFIG_VUNG = {
         "12A": (14.5, 72.9), "12": (24.0, 70.7), "11": (36.2, 72.5), "10": (45.3, 64.7),
         "09": (56.0, 64.7), "08": (64.3, 71.0), "07": (77.3, 70.7), "06": (86.8, 72.9),
     },
+    # Cùng dáng chữ H với P1 nhưng hàng trên lệch: trái 3 căn (15,16,17), phải 4 (01..04).
+    "P02": {
+        "15": (19.5, 28.5), "16": (33.2, 29.5), "17": (42.8, 34.3), "01": (56.3, 33.7),
+        "02": (61.3, 27.1), "03": (74.8, 26.9), "04": (80.9, 28.1),
+        "12B": (14.7, 40.1), "05": (85.1, 40.1),
+        "12A": (14.1, 65.8), "12": (22.4, 72.6), "11": (37.9, 71.0), "10": (43.4, 65.3),
+        "09": (56.3, 65.3), "08": (62.0, 71.1), "07": (77.4, 72.6), "06": (85.7, 65.8),
+    },
 }
 
 # Cách 1 — DẢI MÀU DỌC, cho tòa xếp thành lưới cột đều như T1.
@@ -316,12 +324,14 @@ def tim_vung(im):
     """
     W, H = im.size
     px = im.load()
+    # Ngưỡng bão hoà 8: nền trắng JPEG lệch tối đa 2, còn ô tô nhạt nhất đo được (xám-tím
+    # P2-08 và P2-11) chỉ 11–12 — để 14 như trước là hai căn đó biến mất khỏi bản vẽ.
     mau = [[None] * H for _ in range(W)]
     for x in range(W):
         for y in range(H):
             r, g, b = px[x, y]
             mx, mn = max(r, g, b), min(r, g, b)
-            if mx >= 70 and (mx - mn) >= 14:
+            if mx >= 70 and (mx - mn) >= 8:
                 mau[x][y] = (r, g, b)
 
     nhan = [[0] * H for _ in range(W)]
@@ -406,6 +416,14 @@ def lam_toa_vung(toa, chi_do=False):
     im = Image.open(nguon).convert("RGB")
     W, H = im.size
     vung = tim_vung(im)
+
+    # Một căn không thể nằm ngoài tòa. Vệt đường cong vàng nhạt vẽ nền ở rìa ảnh P2 chạy
+    # sát cạnh căn 15, flood fill rò theo nó lên tận mép trên ảnh — kẹp bao về viền tòa
+    # là vết rò tự mất, mà không phải chỉnh ngưỡng màu cho từng bản vẽ.
+    vx1, vy1, vx2, vy2 = vien_toa_cua(im)
+    for v in vung:
+        x1, y1, x2, y2 = v["bao"]
+        v["bao"] = (max(x1, vx1), max(y1, vy1), min(x2, vx2), min(y2, vy2))
 
     if chi_do:
         print("%s: anh %dx%d — %d mang mau du to" % (toa, W, H, len(vung)))
