@@ -2030,7 +2030,7 @@ function LightboxModal({ urls, startIndex, maCan = 'anh', layout = '', defaultTa
             </button>
           </div>
           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            {tab === 'anh' && <>
+            {tab === 'anh' && urls.length > 0 && <>
               <span style={lb.counter}>{idx + 1} / {urls.length}</span>
               <button onClick={() => dlOne(urls[idx], `${maCan}_${idx+1}.jpg`)} style={lb.dlBtn}>⬇ Ảnh này</button>
               <button onClick={dlAll} disabled={downloading} style={lb.dlAllBtn}>
@@ -2041,7 +2041,11 @@ function LightboxModal({ urls, startIndex, maCan = 'anh', layout = '', defaultTa
           </div>
         </div>
 
-        {tab === 'anh' ? (<>
+        {tab === 'anh' && !urls.length ? (
+          // Bấm từ ô Layout thì mở thẳng tab Mặt Bằng, căn chưa nhập ảnh nào mà bấm
+          // sang tab Ảnh là ra một khoảng trắng không nói gì.
+          <div style={lb.mbMsg}>Chưa có ảnh</div>
+        ) : tab === 'anh' ? (<>
           <div style={lb.imgWrap}>
             {idx > 0 && <button onClick={() => setIdx(i => i - 1)} style={lb.arrowLeft}>‹</button>}
             {isVideoUrl(urls[idx]) ? (

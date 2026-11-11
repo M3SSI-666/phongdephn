@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { C } from '../utils/theme';
 import { maCanTelegram, tinMaCan, mediaTelegram, doiViTriNhom, RONG_ANH_TELEGRAM } from '../utils/telegramCan';
-import { anhTrucCanTuyetDoi } from '../utils/matBangTruc';
+import { veKhoanhDo } from '../utils/matBangTruc';
 import { anhCloudinary } from '../utils/anhCloudinary';
 import { fetchTelegramNhom, guiTelegram, fetchTelegramLog, suaTelegram, sapXepTelegramNhom } from '../utils/api';
 
@@ -35,11 +35,17 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
   // Cột số điện thoại tên khác nhau giữa hai bảng: Bán dùng SDT, Thuê dùng Lien_He.
   const maCanGui = tinMaCan(item?.Ma_Can, item?.SDT || item?.Lien_He, item?.Ten_Chu);
   // Layout gửi RIÊNG một tin trước album ảnh — xem api/telegram.js.
-  // Không có ảnh nhập tay thì gửi ảnh trục cắt sẵn từ mặt bằng tòa, nên căn nào cũng có
-  // layout để gửi chứ không phải chờ ai upload.
-  const layout = (item?.Layout || '').trim()
-    ? anhCloudinary(item.Layout.trim(), RONG_ANH_TELEGRAM)
-    : anhTrucCanTuyetDoi(item?.Ma_Can, typeof window === 'undefined' ? '' : window.location.origin);
+  const layout = (item?.Layout || '').trim() ? anhCloudinary(item.Layout.trim(), RONG_ANH_TELEGRAM) : '';
+  // Căn chưa nhập layout riêng thì gửi mặt bằng tòa có khoanh đỏ vị trí căn — đúng ảnh
+  // đang hiện khi bấm vào ô Layout. Phải vẽ ra ảnh thật mới gửi được, nên nó đến muộn
+  // một nhịp so với phần còn lại của hộp thoại.
+  const [matBangVe, setMatBangVe] = useState('');
+  useEffect(() => {
+    if (layout) { setMatBangVe(''); return; }
+    let huy = false;
+    veKhoanhDo(item?.Ma_Can).then(d => { if (!huy) setMatBangVe(d); });
+    return () => { huy = true; };
+  }, [layout, item?.Ma_Can]);
 
   const taiNhom = useCallback(async () => {
     setDangTai(true);
@@ -65,7 +71,8 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
     if (dangGui) return;
     setDangGui(true);
     try {
-      const kq = await guiTelegram({ chatId: n.Chat_Id, maCan: maCanGui, maCanLog: maCan, message, images: media, layout });
+      const kq = await guiTelegram({ chatId: n.Chat_Id, maCan: maCanGui, maCanLog: maCan,
+        message, images: media, layout, matBangVe });
       // Ảnh hỏng mà chữ đã gửi được thì KHÔNG báo "thành công" trơn: người gửi phải
       // biết để còn đăng bù ảnh, không thì nhóm nhận được tin cụt mà không ai hay.
       if (kq.anhLoi?.length) {
@@ -127,8 +134,9 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
         {/* Xem trước đúng thứ tự sẽ gửi, để không phải sang Telegram mới biết sai. */}
         <div style={s.preview}>
           <div style={s.previewLabel}>
-            {!layout ? '1. Không có layout — bỏ qua'
-              : (item?.Layout || '').trim() ? '1. Ảnh layout' : '1. Ảnh layout (mặt bằng trục)'}
+            {layout ? '1. Ảnh layout'
+              : matBangVe ? '1. Mặt bằng tòa, khoanh đỏ vị trí căn'
+              : '1. Không có layout — bỏ qua'}
           </div>
           <div style={s.previewLabel}>
             {media.length

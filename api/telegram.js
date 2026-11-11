@@ -99,7 +99,7 @@ async function guiCan(req, res, sheetId, email, key) {
 
   // maCan = chuỗi gửi đi (có trái tim). maCanLog = mã trần, dùng làm khoá nhật ký —
   // khoá phải là mã thuần, không thì đổi biểu tượng một cái là mất dấu hết tin cũ.
-  const { chatId, maCan, maCanLog, message, images, layout } = req.body || {};
+  const { chatId, maCan, maCanLog, message, images, layout, matBangVe } = req.body || {};
   if (!chatId)  return res.status(400).json({ error: 'Thiếu chatId' });
   if (!message) return res.status(400).json({ error: 'Thiếu nội dung tin' });
 
@@ -114,6 +114,11 @@ async function guiCan(req, res, sheetId, email, key) {
   if (layout) {
     const r = await api('sendPhoto', { chat_id: chatId, photo: layout });
     if (!r.ok) loi.push(`layout: ${r.detail}`);
+  } else if (matBangVe) {
+    // Mặt bằng khoanh đỏ do máy người gửi vẽ ra, không nằm ở URL nào để Telegram tự
+    // đi tải, nên phải đẩy thẳng tệp lên.
+    const r = await guiAnhTuDuLieu(TOKEN, chatId, matBangVe);
+    if (!r.ok) loi.push(`mặt bằng: ${r.detail}`);
   }
 
   for (let i = 0; i < media.length; i += MEDIA_MOI_ALBUM) {
@@ -152,6 +157,29 @@ async function guiCan(req, res, sheetId, email, key) {
 
 function laVideo(url) {
   return /\.(mp4|mov|webm|m4v|avi)(\?|$)/i.test(url) || /\/video\/upload\//.test(url);
+}
+
+// sendPhoto nhận ảnh theo hai đường: một URL để Telegram tự tải, hoặc chính tệp ảnh
+// đẩy lên bằng multipart. Ảnh vẽ tại chỗ không có URL nên đi đường thứ hai.
+async function guiAnhTuDuLieu(token, chatId, dataUrl) {
+  const m = /^data:(image\/[a-z+]+);base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl || ''));
+  if (!m) return { ok: false, detail: 'ảnh mặt bằng không đúng định dạng' };
+  try {
+    const fd = new FormData();
+    fd.append('chat_id', String(chatId));
+    fd.append('photo', new Blob([Buffer.from(m[2], 'base64')], { type: m[1] }), 'mat-bang.jpg');
+    const r = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: fd });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || data.ok === false) {
+      const detail = data.description || `HTTP ${r.status}`;
+      console.error(`[telegram] sendPhoto (tệp) lỗi: ${detail}`);
+      return { ok: false, detail };
+    }
+    return { ok: true, data };
+  } catch (e) {
+    console.error(`[telegram] sendPhoto (tệp) không gọi được: ${e.message}`);
+    return { ok: false, detail: e.message };
+  }
 }
 
 async function goiTelegram(token, method, body) {

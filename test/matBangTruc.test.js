@@ -1,19 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { anhTrucCan, anhTrucCanTuyetDoi, matBangSach, khungTrucCan, trucCuaCan, coBanDo } from '../src/utils/matBangTruc.js';
+import { anhTrucCan, veKhoanhDo, matBangSach, khungTrucCan, trucCuaCan, coBanDo } from '../src/utils/matBangTruc.js';
 
-test('đường dẫn gửi Telegram phải tuyệt đối', () => {
-  assert.equal(anhTrucCanTuyetDoi('T011201', 'https://phongdephn.vercel.app'),
-    'https://phongdephn.vercel.app/mat-bang/truc/T01-01.jpg');
-  // thừa dấu / ở cuối không đẻ ra //
-  assert.equal(anhTrucCanTuyetDoi('T011201', 'https://phongdephn.vercel.app/'),
-    'https://phongdephn.vercel.app/mat-bang/truc/T01-01.jpg');
-});
-
-test('không có gốc http thì trả rỗng, không gửi đường dẫn Telegram không mở được', () => {
-  for (const g of [undefined, null, '', '/', 'phongdephn.vercel.app', 'file:///C:/x'])
-    assert.equal(anhTrucCanTuyetDoi('T011201', g), '');
-  assert.equal(anhTrucCanTuyetDoi('P110312A', 'https://phongdephn.vercel.app'), '');
+test('không có canvas (ngoài trình duyệt) thì trả rỗng chứ không văng', async () => {
+  assert.equal(await veKhoanhDo('T011201'), '');
+  assert.equal(await veKhoanhDo('P110312A'), '');
+  assert.equal(await veKhoanhDo(''), '');
 });
 
 test('mã căn tòa đã cắt -> ảnh đúng trục', () => {
