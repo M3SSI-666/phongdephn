@@ -45,13 +45,27 @@ CHAT_LUONG = 92    # ảnh nền: nét bản vẽ mảnh, nén mạnh là rỗ h
 LE_NGANG = 0.018
 LE_DOC = 0.040
 
-def toa_do(b, W, H):
-    """Bao (pixel) -> toạ độ % đã nới lề, kẹp trong khung ảnh."""
+def toa_do(b, W, H, khung_toa):
+    """Bao (pixel) -> toạ độ % đã nới lề.
+
+    Kẹp trong KHUNG TÒA NHÀ chứ không phải khung ảnh: nhãn "T1-04 / 75,2 M2" nằm ngay
+    sát mép tòa, nới quá là cạnh khung đè lên chữ.
+    """
     lx, ly = W * LE_NGANG, H * LE_DOC
-    x1, y1 = max(0, b[0] - lx), max(0, b[1] - ly)
-    x2, y2 = min(W - 1, b[2] + lx), min(H - 1, b[3] + ly)
+    kx1, ky1, kx2, ky2 = khung_toa
+    x1, y1 = max(kx1, b[0] - lx), max(ky1, b[1] - ly)
+    x2, y2 = min(kx2, b[2] + lx), min(ky2, b[3] + ly)
     return {"x": round(x1 / W * 100, 2), "y": round(y1 / H * 100, 2),
             "w": round((x2 - x1) / W * 100, 2), "h": round((y2 - y1) / H * 100, 2)}
+
+
+def khung_toa_cua(im_day):
+    """Khung tòa nhà trên ảnh đầy đủ, nhích ra một chút để nét đỏ nằm ngoài tường bao."""
+    W, H = im_day.size
+    cat, ox, oy = cat_khung(im_day)
+    dx, dy = W * 0.005, H * 0.012
+    return (max(0, ox - dx), max(0, oy - dy),
+            min(W - 1, ox + cat.width + dx), min(H - 1, oy + cat.height + dy))
 
 # Mỗi tòa: danh sách DẢI MÀU theo thứ tự trái sang phải, mỗi dải ghi các trục trong đó.
 #   ["04", "05"]            dải này một cột, ô trên là trục 04, ô dưới là 05
@@ -361,8 +375,9 @@ def lam_toa_vung(toa, chi_do=False):
 
     os.makedirs(THUMUC_RA, exist_ok=True)
     im.save(os.path.join(THUMUC_RA, "%s.jpg" % toa), quality=CHAT_LUONG, optimize=True)
+    khung = khung_toa_cua(im)
     du = doc_ban_do()
-    du[toa] = {t: toa_do(b, W, H) for t, b in sorted(hop.items())}
+    du[toa] = {t: toa_do(b, W, H, khung) for t, b in sorted(hop.items())}
     ghi_ban_do(du)
     print("%s: %d truc  (mat bang %dx%d)" % (toa, len(hop), W, H))
     return hop
@@ -426,8 +441,10 @@ def lam_toa(toa, chi_do=False):
 
     # Toạ độ tính theo % của ẢNH NỀN đầy đủ, nên phải cộng lại chỗ lệch của khung đo.
     DW, DH = im_day.size
+    khung = (max(0, ox - DW * 0.005), max(0, oy - DH * 0.012),
+             min(DW - 1, ox + W + DW * 0.005), min(DH - 1, oy + H + DH * 0.012))
     du = doc_ban_do()
-    du[toa] = {t: toa_do((ox + b[0], oy + b[1], ox + b[2], oy + b[3]), DW, DH)
+    du[toa] = {t: toa_do((ox + b[0], oy + b[1], ox + b[2], oy + b[3]), DW, DH, khung)
                for t, b in sorted(hop.items())}
     ghi_ban_do(du)
 
