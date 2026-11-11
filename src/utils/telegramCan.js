@@ -1,5 +1,7 @@
 // Đuôi .js bắt buộc: Vite tự đoán được, nhưng node --test (ESM thuần) thì không.
 import { anhCloudinary } from './anhCloudinary.js';
+// Giữ tên cũ cho chỗ gọi: phép đổi vị trí giờ dùng chung với thẻ bảng con.
+export { doiViTri as doiViTriNhom } from './doiViTri.js';
 
 // Bề ngang ảnh gửi sang Telegram. Gửi thẳng ảnh gốc Cloudinary (3-8MB) thì vừa đốt
 // băng thông Cloudinary, vừa dễ bị Telegram từ chối vì quá nặng. 1600px là thừa nét
@@ -13,19 +15,6 @@ export function maCanTelegram(maCan) {
   return (maCan || '').toString().toUpperCase().trim();
 }
 
-// Kéo thả đổi thứ tự nhóm trong hộp "Gửi sang Telegram": cầm phần tử `tu`, thả vào
-// TRÊN (duoi=false) hoặc DƯỚI (duoi=true) phần tử `i`. Trả mảng mới, hoặc null nếu
-// thả về đúng chỗ cũ (khỏi lưu). Tách khỏi component để kiểm thử được.
-export function doiViTriNhom(ds, tu, i, duoi) {
-  if (!Array.isArray(ds) || tu == null || i == null) return null;
-  let den = i + (duoi ? 1 : 0);
-  if (den > tu) den -= 1;                    // bỏ phần tử ra trước thì chỉ số dồn lên 1
-  if (den === tu) return null;
-  const moi = [...ds];
-  const [x] = moi.splice(tu, 1);
-  moi.splice(den, 0, x);
-  return moi;
-}
 
 // Trái tim đứng trước mã căn cho dễ nhìn khi cuộn trong nhóm. Để riêng khỏi
 // maCanTelegram vì chỉ TIN GỬI ĐI mới cần nó — tiêu đề hộp thoại và câu thông báo

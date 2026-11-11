@@ -79,3 +79,18 @@ export function validateTagName(name, existing) {
   if ((existing || []).some(x => x.toLowerCase() === t.toLowerCase())) return 'Thẻ này đã có';
   return '';
 }
+
+// Đổi tên một thẻ trong ô Bang_Con của MỘT dòng. Trả chuỗi mới, hoặc null nếu dòng
+// đó không mang thẻ cũ (chỗ gọi khỏi ghi lại dòng không đổi gì).
+// Giữ nguyên THỨ TỰ các thẻ còn lại, và gộp nếu tên mới trùng thẻ đã có — đổi "2 ngủ"
+// thành "3 ngủ" ở dòng vốn có cả hai thì phải ra một thẻ, không phải hai thẻ trùng.
+export function doiTenTrongBangCon(bangCon, cu, moi) {
+  const ds = parseBangCon(bangCon);
+  if (!ds.includes(cu)) return null;
+  const ra = [];
+  for (const t of ds) {
+    const v = t === cu ? moi : t;
+    if (!ra.includes(v)) ra.push(v);
+  }
+  return joinBangCon(ra);
+}

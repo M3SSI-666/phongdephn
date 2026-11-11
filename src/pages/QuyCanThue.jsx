@@ -9,7 +9,8 @@ import { giaBaoKhach, DON_VI_THUE } from '../utils/giaBaoKhach';
 import { dongXuatCan, xuatDanhSach } from '../utils/xuatCan';
 import TelegramModal from '../components/TelegramModal';
 import TelegramSettingsModal from '../components/TelegramSettingsModal';
-import { parseBangCon, validateTagName } from '../utils/conTagState';
+import { parseBangCon, validateTagName, doiTenTrongBangCon } from '../utils/conTagState';
+import { doiViTri } from '../utils/doiViTri';
 import { maCanTrucMatch, maCanTangInRange, normalizeTruc, tangToNumber, numberToTang } from '../utils/maCan';
 import { resolveKhu } from '../utils/khuToa';
 import { parseDienTich, dienTichInRange, formatDienTich } from '../utils/dienTich';
@@ -318,7 +319,23 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
   const [hidePaused, setHidePaused] = useState(false); // ẩn "dừng cho thuê" (vàng)
   // Bảng hàng con (tag).
   const [activeTag, setActiveTag]   = useState(null); // tag đang lọc; null = tất cả
-  const [customTags, setCustomTags] = useState(() => { try { return JSON.parse(localStorage.getItem('bangConTags_thue') || '[]'); } catch { return []; } });
+  // Danh sách thẻ ĐẦY ĐỦ, CÓ THỨ TỰ — lưu cả thẻ mặc định chứ không chỉ thẻ tự thêm,
+  // vì giờ đổi tên và sắp lại được cả thẻ mặc định. Khóa riêng (_v2) để không lẫn với
+  // khóa cũ chỉ chứa thẻ tự thêm; lần đầu chưa có thì dựng từ mặc định + khóa cũ.
+  const KHOA_THE = 'bangConTags_thue_v2';
+  const [tags, setTags] = useState(() => {
+    try {
+      const moi = JSON.parse(localStorage.getItem(KHOA_THE) || 'null');
+      if (Array.isArray(moi) && moi.length) return moi;
+      const cu = JSON.parse(localStorage.getItem('bangConTags_thue') || '[]');
+      return [...new Set([...DEFAULT_TAGS, ...(Array.isArray(cu) ? cu : [])])];
+    } catch { return [...DEFAULT_TAGS]; }
+  });
+  const luuTags = useCallback(next => {
+    setTags(next);
+    try { localStorage.setItem(KHOA_THE, JSON.stringify(next)); } catch { /* chế độ ẩn danh */ }
+  }, []);
+  const [keoThe, setKeoThe] = useState(null);   // chỉ số thẻ đang cầm
   const [tagMenuFor, setTagMenuFor] = useState(null); // item đang mở popover gắn tag
   const [telegramFor, setTelegramFor] = useState(null);
   const [chonMode, setChonMode] = useState(false);       // bật cột tích chọn
@@ -490,11 +507,13 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     const counts = {};
     for (const it of conItems) for (const t of parseBangCon(it.Bang_Con)) counts[t] = (counts[t] || 0) + 1;
     const seen = new Set(), all = [];
-    for (const t of [...DEFAULT_TAGS, ...customTags, ...Object.keys(counts)]) {
+    // Thẻ lạ còn sót trong dữ liệu vẫn hiện (xếp cuối) — giấu đi là căn trong đó biến mất
+    // khỏi thanh chip mà không ai biết.
+    for (const t of [...tags, ...Object.keys(counts)]) {
       if (!seen.has(t)) { seen.add(t); all.push(t); }
     }
     return { allTags: all, tagCounts: counts };
-  }, [conItems, customTags]);
+  }, [conItems, tags]);
 
   function addCustomTag() {
     const name = (window.prompt('Tên bảng hàng con mới:') || '').trim();
@@ -502,9 +521,37 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     if (allTags.includes(name)) { setActiveTag(name); return; }
     const err = validateTagName(name, allTags);
     if (err) return showToast(err, 'error');
-    const next = [...customTags, name];
-    setCustomTags(next);
-    try { localStorage.setItem('bangConTags_thue', JSON.stringify(next)); } catch { /* ignore */ }
+    luuTags([...tags, name]);
+  }
+
+  // Đổi tên thẻ: sửa danh sách trên máy VÀ ghi lại ô Bảng Con của mọi dòng mang thẻ đó —
+  // không ghi dữ liệu thì đổi tên xong là mất sạch căn trong thẻ.
+  // Tải lại ngay trước khi ghi, cùng lý do với xoá hàng loạt: đường bulk đi theo số dòng,
+  // mà số dòng trên máy chỉ là ảnh chụp lúc tải trang.
+  async function doiTenThe(cu) {
+    const moi = (window.prompt(`Đổi tên thẻ “${cu}” thành:`, cu) || '').trim();
+    if (!moi || moi === cu) return;
+    if (tags.includes(moi) && moi !== cu) {
+      if (!window.confirm(`Thẻ “${moi}” đã có. Gộp “${cu}” vào “${moi}”?`)) return;
+    } else {
+      const err = validateTagName(moi, tags);
+      if (err) return showToast(err, 'error');
+    }
+    try {
+      setSaving(true);
+      const ds = await fetchQuyCanThueCon(userId, role, isViewAs);
+      const updates = [];
+      for (const r of (Array.isArray(ds) ? ds : [])) {
+        const bc = doiTenTrongBangCon(r.Bang_Con, cu, moi);
+        if (bc != null) updates.push({ ...r, Bang_Con: bc });
+      }
+      if (updates.length) await postQuyCanThueCon({ action: 'bulk', updates });
+      luuTags([...new Set(tags.map(t => (t === cu ? moi : t)))]);
+      if (activeTag === cu) setActiveTag(moi);
+      await loadConData();
+      showToast(updates.length ? `Đã đổi tên, cập nhật ${updates.length} căn` : 'Đã đổi tên thẻ');
+    } catch (e) { onWriteError(e); }
+    finally { setSaving(false); }
   }
 
   // Tất cả cột dữ liệu (trừ _rowIndex) để copy 1 căn sang sheet con.
@@ -1159,15 +1206,35 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
         <button onClick={() => setActiveTag(null)} style={activeTag === null ? st.tagChipActive : st.tagChip}>
           Tất cả
         </button>
-        {allTags.map(t => (
-          <button key={t} onClick={() => setActiveTag(activeTag === t ? null : t)}
-            style={activeTag === t ? st.tagChipActive : st.tagChip}>
+        {allTags.map((t, i) => (
+          <button key={t}
+            draggable
+            onDragStart={() => setKeoThe(i)}
+            onDragOver={e => e.preventDefault()}
+            onDrop={e => {
+              e.preventDefault();
+              // Thả vào NỬA TRÁI của chip đích = chèn trước, nửa phải = chèn sau.
+              const o = e.currentTarget.getBoundingClientRect();
+              const moi = doiViTri(allTags, keoThe, i, e.clientX > o.left + o.width / 2);
+              setKeoThe(null);
+              if (moi) luuTags(moi);
+            }}
+            onDragEnd={() => setKeoThe(null)}
+            onDoubleClick={() => doiTenThe(t)}
+            onClick={() => setActiveTag(activeTag === t ? null : t)}
+            title="Kéo để đổi thứ tự — nháy đúp để đổi tên"
+            style={{
+              ...(activeTag === t ? st.tagChipActive : st.tagChip),
+              cursor: 'grab',
+              opacity: keoThe === i ? 0.4 : 1,
+            }}>
             {t}{tagCounts[t] ? <span style={{ opacity:0.7, marginLeft:4 }}>({tagCounts[t]})</span> : null}
           </button>
         ))}
         <button onClick={addCustomTag} style={{ ...st.tagChip, borderStyle:'dashed', color:'#38b274' }} title="Thêm bảng con mới">
           + Thẻ
         </button>
+        <span style={{ fontSize:11, color:'#6b7a94', marginLeft:4 }}>kéo để sắp lại · nháy đúp để đổi tên</span>
       </div>
 
       {/* AI Search */}
