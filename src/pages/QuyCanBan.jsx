@@ -18,7 +18,8 @@ import TelegramModal from '../components/TelegramModal';
 import TelegramSettingsModal from '../components/TelegramSettingsModal';
 import { parseBangCon, joinBangCon, validateTagName, doiTenTrongBangCon } from '../utils/conTagState';
 import { doiViTri } from '../utils/doiViTri';
-import { maCanTrucMatch, maCanTangInRange, normalizeTruc, tangToNumber, numberToTang } from '../utils/maCan';
+import { maCanTrucMatch, maCanTangInRange, normalizeTruc, tangToNumber, numberToTang, parseMaCan } from '../utils/maCan';
+import { anhTrucCan, matBangSach, khungTrucCan } from '../utils/matBangTruc';
 import { resolveKhu } from '../utils/khuToa';
 import { parseDienTich, dienTichInRange, formatDienTich } from '../utils/dienTich';
 import { anhCloudinary } from '../utils/anhCloudinary';
@@ -1046,6 +1047,10 @@ function QuyCanBanInner({
     if ((item.Layout || '').trim()) {
       layout = await napAnh(anhCloudinary(item.Layout.trim(), 2000));
     }
+    // Tòa đã cắt theo trục thì lấy đúng mặt bằng căn đó — khách cầm báo cáo thấy căn
+    // mình vừa đi xem, chứ không phải sơ đồ cả tòa rồi tự dò.
+    const anhTruc = anhTrucCan(item.Ma_Can);
+    if (!layout && anhTruc) layout = await napAnh(anhTruc);
     if (!layout) {
       const toa = extractBuilding(item.Ma_Can);
       if (toa) {
@@ -1149,12 +1154,17 @@ function QuyCanBanInner({
     return [...urls.filter(isVideo), ...urls.filter(u => !isVideo(u))];
   }
 
-  // Ô Layout: có thì hiện ảnh thu nhỏ, chưa có thì hiện dấu mờ để nhìn lướt biết căn nào
-  // còn thiếu mặt bằng — đó là thứ phải bù trước khi xuất báo cáo dẫn khách.
-  function LayoutCell({ value }) {
+  // Ô Layout: ưu tiên ảnh import riêng cho căn, không có thì lấy ảnh TRỤC cắt sẵn từ mặt
+  // bằng tòa — mọi tầng cùng trục dùng chung một ảnh nên căn mới nhập là có ngay.
+  // Hết cả hai mới hiện dấu mờ, lúc đó mới thật sự thiếu mặt bằng để đi dẫn khách.
+  function LayoutCell({ value, maCan }) {
     const url = (value || '').trim();
-    if (!url) return <span style={{ color:'#3a3f52', fontSize:15 }} title="Chưa có layout">▦</span>;
-    return <img src={anhCloudinary(url, 64)} alt="layout" style={{ width:32, height:32, objectFit:'cover', borderRadius:4, border:'1px solid #3a3f52' }} />;
+    const tuDong = url ? null : anhTrucCan(maCan);
+    if (!url && !tuDong) return <span style={{ color:'#3a3f52', fontSize:15 }} title="Chưa có layout">▦</span>;
+    return <img src={url ? anhCloudinary(url, 64) : tuDong} alt="layout"
+      title={url ? 'Layout nhập riêng cho căn' : 'Mặt bằng trục, cắt tự động từ mặt bằng tòa'}
+      style={{ width:32, height:32, borderRadius:4, border:'1px solid #3a3f52',
+               objectFit: url ? 'cover' : 'contain', background: url ? 'none' : '#fff' }} />;
   }
 
   function ThumbCell({ value }) {
@@ -1441,7 +1451,7 @@ function QuyCanBanInner({
                           const urls = item.Hinh_Anh ? item.Hinh_Anh.split(',').map(u=>u.trim()).filter(Boolean) : [];
                           setLightbox({ urls: sortMedia(urls), index: 0, maCan: item.Ma_Can || 'media', layout: item.Layout || '', defaultTab: 'matbang' });
                         }}
-                      ><LayoutCell value={item.Layout} /></td>
+                      ><LayoutCell value={item.Layout} maCan={item.Ma_Can} /></td>
                       </>)}
                       <td style={{...st.td, textAlign:'center', fontSize:12, background: rowBg}}>{item.Nguon}</td>
                       <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8', background: rowBg}}>{item.Ghi_Chu}</td>
@@ -1934,6 +1944,29 @@ function FloorPlanTab({ maCan, layout = '' }) {
         style={{ maxWidth:'100%', maxHeight:'82vh', objectFit:'contain', borderRadius:10, background:'#fff', boxShadow:'0 8px 40px rgba(0,0,0,0.7)' }} />
     </div>
   );
+  // Tòa đã cắt mặt bằng theo trục: hiện layout riêng của căn, kèm mặt bằng cả tòa khoanh
+  // đỏ vị trí căn — khách luôn hỏi căn nằm chỗ nào, gần thang máy không.
+  // Khung đỏ là div định vị theo %, không phải ảnh lưu sẵn, nên đổi cỡ bao nhiêu cũng đúng.
+  const tuDong = anhTrucCan(maCan), khung = khungTrucCan(maCan);
+  if (tuDong && khung) {
+    const p = parseMaCan(maCan);
+    return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8 }}>
+        <div style={{ fontSize:13, color:'#8a9bb8' }}>
+          Mặt bằng trục <strong style={{color:'#e2e8f0'}}>{p.truc}</strong> — căn {maCan}
+        </div>
+        <img src={tuDong} alt={`Mặt bằng ${maCan}`}
+          style={{ maxWidth:'100%', maxHeight:'46vh', objectFit:'contain', borderRadius:10, background:'#fff', boxShadow:'0 8px 40px rgba(0,0,0,0.7)' }} />
+        <div style={{ fontSize:13, color:'#8a9bb8', marginTop:6 }}>Vị trí trong tòa {p.toa}</div>
+        {/* inline-block để khối co đúng bằng ảnh — khung đỏ tính theo % của khối này */}
+        <div style={{ position:'relative', display:'inline-block', lineHeight:0, background:'#fff', borderRadius:8, overflow:'hidden' }}>
+          <img src={matBangSach(maCan)} alt={`Mặt bằng tòa ${p.toa}`}
+            style={{ display:'block', maxWidth:'100%', maxHeight:'26vh', width:'auto' }} />
+          <span style={{ position:'absolute', ...khung, border:'2px solid #e11d48', borderRadius:3, boxSizing:'border-box' }} />
+        </div>
+      </div>
+    );
+  }
   if (!code) return <div style={lb.mbMsg}>Không xác định được mã tòa từ "{maCan}"</div>;
   if (failed)  return <div style={lb.mbMsg}>Chưa có ảnh mặt bằng cho tòa <strong>{code}</strong></div>;
   return (
