@@ -1176,7 +1176,7 @@ function QuyCanBanInner({
         style={{ position:'relative', display:'inline-block', lineHeight:0, width:58,
                  borderRadius:3, overflow:'hidden', border:'1px solid #3a3f52', background:'#fff' }}>
         <img src={matBangSach(maCan)} alt="mặt bằng" style={{ display:'block', width:'100%' }} />
-        <span style={{ position:'absolute', ...khung, border:'1px solid #e11d48', boxSizing:'border-box' }} />
+        <span style={{ position:'absolute', ...khung, border:'2px solid #e11d48', boxSizing:'border-box' }} />
       </span>
     );
   }
@@ -1975,7 +1975,7 @@ function FloorPlanTab({ maCan, layout = '' }) {
         <div style={{ position:'relative', display:'inline-block', lineHeight:0, background:'#fff', borderRadius:10, overflow:'hidden', boxShadow:'0 8px 40px rgba(0,0,0,0.7)' }}>
           <img src={matBangSach(maCan)} alt={`Mặt bằng tòa ${p.toa}`}
             style={{ display:'block', maxWidth:'100%', maxHeight:'80vh', width:'auto' }} />
-          <span style={{ position:'absolute', ...khung, border:'3px solid #e11d48', borderRadius:3, boxSizing:'border-box' }} />
+          <span style={{ position:'absolute', ...khung, border:'4px solid #e11d48', borderRadius:3, boxSizing:'border-box' }} />
         </div>
       </div>
     );

@@ -39,6 +39,20 @@ DAU_FILE = ("// Toạ độ từng trục trên mặt bằng tòa, tính theo % 
 
 CHAT_LUONG = 92    # ảnh nền: nét bản vẽ mảnh, nén mạnh là rỗ hết
 
+# Khung đỏ nới ra ngoài mép căn một chút chứ không ôm sát: ôm sát thì lan can, tường bao
+# không được tô màu rơi ra ngoài khung, nhìn như khoanh thiếu. Tính theo % ảnh để tòa
+# ảnh to hay nhỏ nới ra một tỉ lệ như nhau.
+LE_NGANG = 0.018
+LE_DOC = 0.040
+
+def toa_do(b, W, H):
+    """Bao (pixel) -> toạ độ % đã nới lề, kẹp trong khung ảnh."""
+    lx, ly = W * LE_NGANG, H * LE_DOC
+    x1, y1 = max(0, b[0] - lx), max(0, b[1] - ly)
+    x2, y2 = min(W - 1, b[2] + lx), min(H - 1, b[3] + ly)
+    return {"x": round(x1 / W * 100, 2), "y": round(y1 / H * 100, 2),
+            "w": round((x2 - x1) / W * 100, 2), "h": round((y2 - y1) / H * 100, 2)}
+
 # Mỗi tòa: danh sách DẢI MÀU theo thứ tự trái sang phải, mỗi dải ghi các trục trong đó.
 #   ["04", "05"]            dải này một cột, ô trên là trục 04, ô dưới là 05
 #   ["02", "01", "03"]      đầu hồi: trên / giữa / dưới, ô giữa khác màu hai ô kia
@@ -247,6 +261,7 @@ def tim_vung(im):
             dem = tx = ty = 0
             x1 = x2 = sx
             y1 = y2 = sy
+            tr = tg = tb = 0
             while ngan:
                 x, y = ngan.pop()
                 dem += 1
@@ -257,6 +272,9 @@ def tim_vung(im):
                 if y < y1: y1 = y
                 if y > y2: y2 = y
                 c = mau[x][y]
+                tr += c[0]
+                tg += c[1]
+                tb += c[2]
                 for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
                     for b in range(1, VOI + 1):
                         nx, ny = x + dx * b, y + dy * b
@@ -269,9 +287,38 @@ def tim_vung(im):
                             nhan[nx][ny] = k
                             ngan.append((nx, ny))
                         break
-            ra.append({"dt": dem, "bao": (x1, y1, x2, y2), "tam": (tx // dem, ty // dem)})
+            ra.append({"dt": dem, "bao": [x1, y1, x2, y2], "tam": (tx // dem, ty // dem),
+                       "mau": (tr // dem, tg // dem, tb // dem)})
+
     nho = W * H * 0.004
-    return [v for v in ra if v["dt"] >= nho]
+    to = [v for v in ra if v["dt"] >= nho]
+    vun = [v for v in ra if 150 <= v["dt"] < nho]
+
+    # Mảnh vụn cùng màu nằm sát một mảng lớn là phần của căn đó bị vách tường cắt rời
+    # (góc trên-trái căn P1-17 là 3.500 px như thế). Nới bao mảng lớn ra trùm mảnh.
+    # Chạy hai lượt vì mảnh có thể chỉ chạm mảng lớn sau khi mảng đã nở ra trùm mảnh khác.
+    GAN = 8
+    def cung_mau(a, b):
+        return abs(a[0]-b[0]) + abs(a[1]-b[1]) + abs(a[2]-b[2]) <= SAI_MAU
+    def cham(a, b):
+        return a[0] <= b[2] + GAN and b[0] <= a[2] + GAN and a[1] <= b[3] + GAN and b[1] <= a[3] + GAN
+    for _ in range(2):
+        con = []
+        for v in vun:
+            ung = [t for t in to if cung_mau(v["mau"], t["mau"]) and cham(v["bao"], t["bao"])]
+            if not ung:
+                con.append(v)
+                continue
+            # kẹt giữa hai mảng cùng màu (P1-09 và 10 cùng cam) thì về mảng có tâm gần hơn
+            t = min(ung, key=lambda t: (t["tam"][0]-v["tam"][0])**2 + (t["tam"][1]-v["tam"][1])**2)
+            t["bao"][0] = min(t["bao"][0], v["bao"][0])
+            t["bao"][1] = min(t["bao"][1], v["bao"][1])
+            t["bao"][2] = max(t["bao"][2], v["bao"][2])
+            t["bao"][3] = max(t["bao"][3], v["bao"][3])
+        vun = con
+    for t in to:
+        t["bao"] = tuple(t["bao"])
+    return to
 
 
 def lam_toa_vung(toa, chi_do=False):
@@ -315,9 +362,7 @@ def lam_toa_vung(toa, chi_do=False):
     os.makedirs(THUMUC_RA, exist_ok=True)
     im.save(os.path.join(THUMUC_RA, "%s.jpg" % toa), quality=CHAT_LUONG, optimize=True)
     du = doc_ban_do()
-    du[toa] = {t: {"x": round(b[0] / W * 100, 2), "y": round(b[1] / H * 100, 2),
-                   "w": round((b[2] - b[0]) / W * 100, 2), "h": round((b[3] - b[1]) / H * 100, 2)}
-               for t, b in sorted(hop.items())}
+    du[toa] = {t: toa_do(b, W, H) for t, b in sorted(hop.items())}
     ghi_ban_do(du)
     print("%s: %d truc  (mat bang %dx%d)" % (toa, len(hop), W, H))
     return hop
@@ -382,8 +427,7 @@ def lam_toa(toa, chi_do=False):
     # Toạ độ tính theo % của ẢNH NỀN đầy đủ, nên phải cộng lại chỗ lệch của khung đo.
     DW, DH = im_day.size
     du = doc_ban_do()
-    du[toa] = {t: {"x": round((ox + b[0]) / DW * 100, 2), "y": round((oy + b[1]) / DH * 100, 2),
-                   "w": round((b[2] - b[0]) / DW * 100, 2), "h": round((b[3] - b[1]) / DH * 100, 2)}
+    du[toa] = {t: toa_do((ox + b[0], oy + b[1], ox + b[2], oy + b[3]), DW, DH)
                for t, b in sorted(hop.items())}
     ghi_ban_do(du)
 

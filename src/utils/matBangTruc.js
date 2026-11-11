@@ -52,7 +52,7 @@ export function veKhoanhDo(maCan) {
         const { x, y, w, h } = t.khung;
         // Nét dày theo cỡ ảnh, không ghi cứng: mặt bằng tòa to nhỏ khác nhau, ghi cứng
         // 3px thì tòa ảnh lớn nhìn ra sợi chỉ.
-        const net = Math.max(2, Math.round(c.width / 320));
+        const net = Math.max(3, Math.round(c.width / 220));
         g.strokeStyle = '#e11d48';
         g.lineWidth = net;
         // strokeRect vẽ nét đè lên đường biên nên thụt vào nửa nét, không thì khung
