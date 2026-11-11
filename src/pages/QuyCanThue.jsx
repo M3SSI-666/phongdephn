@@ -9,7 +9,7 @@ import { giaBaoKhach, DON_VI_THUE } from '../utils/giaBaoKhach';
 import { dongXuatCan, xuatDanhSach } from '../utils/xuatCan';
 import TelegramModal from '../components/TelegramModal';
 import TelegramSettingsModal from '../components/TelegramSettingsModal';
-import { parseBangCon, validateTagName, doiTenTrongBangCon } from '../utils/conTagState';
+import { parseBangCon, joinBangCon, validateTagName, doiTenTrongBangCon } from '../utils/conTagState';
 import { doiViTri } from '../utils/doiViTri';
 import { maCanTrucMatch, maCanTangInRange, normalizeTruc, tangToNumber, numberToTang } from '../utils/maCan';
 import { resolveKhu } from '../utils/khuToa';
@@ -550,6 +550,40 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       if (activeTag === cu) setActiveTag(moi);
       await loadConData();
       showToast(updates.length ? `Đã đổi tên, cập nhật ${updates.length} căn` : 'Đã đổi tên thẻ');
+    } catch (e) { onWriteError(e); }
+    finally { setSaving(false); }
+  }
+
+  // Xoá thẻ. Phải gỡ thẻ khỏi ô Bảng Con của mọi dòng mang nó, và XOÁ HẮN những dòng
+  // chỉ có mỗi thẻ đó: dòng bảng con không thuộc thẻ nào thì không hiện ở đâu cả, để lại
+  // chỉ tồn chỗ trong sheet mà không ai thấy để dọn.
+  // Đếm trước rồi hỏi, vì hai con số này khác hẳn nhau về hậu quả: mất thẻ thì căn vẫn còn,
+  // còn xoá dòng là mất bản lưu căn đó trong bảng con.
+  async function xoaThe(the) {
+    try {
+      setSaving(true);
+      const ds = await fetchQuyCanThueCon(userId, role, isViewAs);
+      const updates = [], deletes = [];
+      for (const r of (Array.isArray(ds) ? ds : [])) {
+        const con = parseBangCon(r.Bang_Con).filter(x => x !== the);
+        if (con.length === parseBangCon(r.Bang_Con).length) continue;   // dòng không mang thẻ này
+        if (con.length) updates.push({ ...r, Bang_Con: joinBangCon(con) });
+        else deletes.push(r._rowIndex);
+      }
+      const loi = [
+        `Xoá thẻ “${the}”?`,
+        updates.length ? `• ${updates.length} căn chỉ bị gỡ thẻ này, vẫn nằm ở thẻ khác.` : '',
+        deletes.length ? `• ${deletes.length} căn CHỈ nằm trong thẻ này sẽ bị xoá khỏi bảng con.` : '',
+        !updates.length && !deletes.length ? '• Thẻ đang trống, không căn nào bị ảnh hưởng.' : '',
+        'Bảng hàng chính không bị ảnh hưởng. Hành động này không thể hoàn tác.',
+      ].filter(Boolean).join('\n');
+      if (!window.confirm(loi)) return;
+
+      if (updates.length || deletes.length) await postQuyCanThueCon({ action: 'bulk', updates, deletes });
+      luuTags(tags.filter(t => t !== the));
+      if (activeTag === the) setActiveTag(null);
+      await loadConData();
+      showToast(`Đã xoá thẻ ${the}` + (deletes.length ? ` — xoá ${deletes.length} căn khỏi bảng con` : ''));
     } catch (e) { onWriteError(e); }
     finally { setSaving(false); }
   }
@@ -1221,8 +1255,9 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
             }}
             onDragEnd={() => setKeoThe(null)}
             onDoubleClick={() => doiTenThe(t)}
+            onContextMenu={e => { e.preventDefault(); xoaThe(t); }}
             onClick={() => setActiveTag(activeTag === t ? null : t)}
-            title="Kéo để đổi thứ tự — nháy đúp để đổi tên"
+            title="Kéo để đổi thứ tự — nháy đúp để đổi tên — chuột phải để xoá"
             style={{
               ...(activeTag === t ? st.tagChipActive : st.tagChip),
               cursor: 'grab',
@@ -1234,7 +1269,7 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
         <button onClick={addCustomTag} style={{ ...st.tagChip, borderStyle:'dashed', color:'#38b274' }} title="Thêm bảng con mới">
           + Thẻ
         </button>
-        <span style={{ fontSize:11, color:'#6b7a94', marginLeft:4 }}>kéo để sắp lại · nháy đúp để đổi tên</span>
+        <span style={{ fontSize:11, color:'#6b7a94', marginLeft:4 }}>kéo để sắp lại · nháy đúp để đổi tên · chuột phải để xoá</span>
       </div>
 
       {/* AI Search */}
