@@ -34,6 +34,22 @@ test('tòa chưa đo thì trả null để rơi về mặt bằng tòa như cũ'
   assert.equal(khungTrucCan('P110312A'), null);
   assert.equal(coBanDo('P11'), false);
   assert.equal(coBanDo('T01'), true);
+  assert.equal(coBanDo('P01'), true);
+});
+
+test('P1 có 17 trục, không có 13, 14, 18', () => {
+  const co = ['01','02','03','04','05','06','07','08','09','10','11','12','12A','12B','15','16','17'];
+  for (const t of co) {
+    const k = khungTrucCan(`P0103${t}`);
+    assert.ok(k, `thiếu trục ${t}`);
+    assert.ok(parseFloat(k.width) > 1 && parseFloat(k.height) > 1, `trục ${t} khung rỗng`);
+  }
+  for (const t of ['13', '14', '18']) assert.equal(khungTrucCan(`P0103${t}`), null, `thừa trục ${t}`);
+  assert.equal(matBangSach('P010301'), '/mat-bang/truc/P01.jpg');
+});
+
+test('hai tòa dùng hai ảnh nền khác nhau', () => {
+  assert.notEqual(matBangSach('P010301'), matBangSach('T010301'));
 });
 
 test('mã căn hỏng không làm văng', () => {

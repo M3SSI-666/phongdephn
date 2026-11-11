@@ -44,6 +44,21 @@ CHAT_LUONG = 92    # ảnh nền: nét bản vẽ mảnh, nén mạnh là rỗ h
 #   ["02", "01", "03"]      đầu hồi: trên / giữa / dưới, ô giữa khác màu hai ô kia
 #   [["08","09"], ["10","11"]]  hai cột cùng một màu -> chia đôi dải tại tâm
 # Chạy với --do để script in ra các dải màu đo được rồi điền vào đây.
+# Cách 2 — VÙNG MÀU LIÊN THÔNG, cho tòa không xếp thành lưới cột đều.
+# Tòa P1 hình chữ H, 17 trục xếp vòng quanh, mỗi căn một màu riêng. Khai báo mốc gần
+# đúng (% ảnh) của từng trục; script tìm mảng màu liền chứa mốc đó rồi lấy bao của nó.
+# Chạy với --vung để script in ra tâm của mọi mảng màu, chép vào đây là xong.
+CONFIG_VUNG = {
+    "P01": {
+        "15": (16.4, 25.0), "16": (31.0, 26.7), "17": (44.7, 32.0), "01": (55.8, 31.1),
+        "02": (63.8, 24.8), "03": (74.7, 26.1), "04": (84.9, 25.0),
+        "12B": (11.7, 46.9), "05": (89.5, 46.9),
+        "12A": (14.5, 72.9), "12": (24.0, 70.7), "11": (36.2, 72.5), "10": (45.3, 64.7),
+        "09": (56.0, 64.7), "08": (64.3, 71.0), "07": (77.3, 70.7), "06": (86.8, 72.9),
+    },
+}
+
+# Cách 1 — DẢI MÀU DỌC, cho tòa xếp thành lưới cột đều như T1.
 CONFIG = {
     "T01": [
         ["02", "01", "03"],
@@ -199,6 +214,115 @@ def o_trong_cot(im, xa, xb, ds, tam_y):
     return {k: tuple(v) for k, v in bao.items()}, None, None
 
 
+# ============ Cách 2: vùng màu liên thông ============
+
+VOI = 4          # nối qua được tối đa ngần này pixel nét vẽ
+SAI_MAU = 42     # hai pixel coi là cùng màu nếu lệch dưới mức này
+
+def tim_vung(im):
+    """Mọi mảng màu liền nhau trong ảnh, kèm bao và tâm.
+
+    Vách tường đen mảnh cắt đứt mảng màu, nên cho phép nối qua vài pixel — nhưng chỉ khi
+    hai đầu cùng màu, để không dính sang căn bên cạnh.
+    """
+    W, H = im.size
+    px = im.load()
+    mau = [[None] * H for _ in range(W)]
+    for x in range(W):
+        for y in range(H):
+            r, g, b = px[x, y]
+            mx, mn = max(r, g, b), min(r, g, b)
+            if mx >= 70 and (mx - mn) >= 14:
+                mau[x][y] = (r, g, b)
+
+    nhan = [[0] * H for _ in range(W)]
+    ra = []
+    for sx in range(W):
+        for sy in range(H):
+            if mau[sx][sy] is None or nhan[sx][sy]:
+                continue
+            k = len(ra) + 1
+            nhan[sx][sy] = k
+            ngan = [(sx, sy)]
+            dem = tx = ty = 0
+            x1 = x2 = sx
+            y1 = y2 = sy
+            while ngan:
+                x, y = ngan.pop()
+                dem += 1
+                tx += x
+                ty += y
+                if x < x1: x1 = x
+                if x > x2: x2 = x
+                if y < y1: y1 = y
+                if y > y2: y2 = y
+                c = mau[x][y]
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    for b in range(1, VOI + 1):
+                        nx, ny = x + dx * b, y + dy * b
+                        if not (0 <= nx < W and 0 <= ny < H):
+                            break
+                        c2 = mau[nx][ny]
+                        if c2 is None:
+                            continue
+                        if not nhan[nx][ny] and abs(c[0]-c2[0]) + abs(c[1]-c2[1]) + abs(c[2]-c2[2]) <= SAI_MAU:
+                            nhan[nx][ny] = k
+                            ngan.append((nx, ny))
+                        break
+            ra.append({"dt": dem, "bao": (x1, y1, x2, y2), "tam": (tx // dem, ty // dem)})
+    nho = W * H * 0.004
+    return [v for v in ra if v["dt"] >= nho]
+
+
+def lam_toa_vung(toa, chi_do=False):
+    nguon = os.path.join(THUMUC_RA, "%s.jpg" % toa)
+    if not os.path.exists(nguon):
+        nguon = os.path.join(THUMUC_MB, "%s.jpg" % toa)
+    if not os.path.exists(nguon):
+        raise SystemExit("khong thay mat bang cua toa %s" % toa)
+
+    im = Image.open(nguon).convert("RGB")
+    W, H = im.size
+    vung = tim_vung(im)
+
+    if chi_do:
+        print("%s: anh %dx%d — %d mang mau du to" % (toa, W, H, len(vung)))
+        for v in sorted(vung, key=lambda v: (v["tam"][1], v["tam"][0])):
+            x1, y1, x2, y2 = v["bao"]
+            print("   tam %5.1f,%5.1f   bao x %5.1f..%5.1f  y %5.1f..%5.1f   %d px"
+                  % (v["tam"][0]/W*100, v["tam"][1]/H*100,
+                     x1/W*100, x2/W*100, y1/H*100, y2/H*100, v["dt"]))
+        return
+
+    moc = CONFIG_VUNG[toa]
+    if len(vung) != len(moc):
+        raise SystemExit("%s: khai %d truc nhung tim duoc %d mang mau — chay --vung xem lai"
+                         % (toa, len(moc), len(vung)))
+
+    hop, da_dung = {}, set()
+    for truc, (mx, my) in moc.items():
+        px_, py_ = mx / 100 * W, my / 100 * H
+        # mảng chứa đúng mốc; mốc lỡ rơi vào nét vẽ thì lấy mảng có tâm gần nhất
+        trong = [i for i, v in enumerate(vung)
+                 if v["bao"][0] <= px_ <= v["bao"][2] and v["bao"][1] <= py_ <= v["bao"][3]]
+        i = min(trong, key=lambda i: (vung[i]["tam"][0]-px_)**2 + (vung[i]["tam"][1]-py_)**2) if trong \
+            else min(range(len(vung)), key=lambda i: (vung[i]["tam"][0]-px_)**2 + (vung[i]["tam"][1]-py_)**2)
+        if i in da_dung:
+            raise SystemExit("%s: truc %s tro vao mang da thuoc truc khac — moc dat sai" % (toa, truc))
+        da_dung.add(i)
+        hop[truc] = vung[i]["bao"]
+
+    os.makedirs(THUMUC_RA, exist_ok=True)
+    im.save(os.path.join(THUMUC_RA, "%s.jpg" % toa), quality=CHAT_LUONG, optimize=True)
+    du = doc_ban_do()
+    du[toa] = {t: {"x": round(b[0] / W * 100, 2), "y": round(b[1] / H * 100, 2),
+                   "w": round((b[2] - b[0]) / W * 100, 2), "h": round((b[3] - b[1]) / H * 100, 2)}
+               for t, b in sorted(hop.items())}
+    ghi_ban_do(du)
+    print("%s: %d truc  (mat bang %dx%d)" % (toa, len(hop), W, H))
+    return hop
+
+
 def lam_toa(toa, chi_do=False):
     nguon = os.path.join(THUMUC_RA, "%s.jpg" % toa)
     if not os.path.exists(nguon):
@@ -268,9 +392,14 @@ def lam_toa(toa, chi_do=False):
 
 
 if __name__ == "__main__":
-    args = [a for a in sys.argv[1:]]
+    args = sys.argv[1:]
     do = "--do" in args
+    vung = "--vung" in args
     args = [a for a in args if not a.startswith("--")]
-    danh = args or sorted(CONFIG)
+    danh = args or sorted(set(CONFIG) | set(CONFIG_VUNG))
     for t in danh:
-        lam_toa(t, chi_do=do)
+        # Tòa nào khai mốc vùng thì đi đường vùng màu; còn lại đi đường dải màu dọc.
+        if vung or t in CONFIG_VUNG:
+            lam_toa_vung(t, chi_do=do or vung)
+        else:
+            lam_toa(t, chi_do=do)
