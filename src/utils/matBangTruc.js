@@ -26,11 +26,21 @@ export function anhTrucCan(maCan) {
   return t ? `${THU_MUC}/${t.toa}-${t.truc}.jpg` : null;
 }
 
-// Mặt bằng cả tòa đã cắt sạch tiêu đề / la bàn — khung đỏ tính theo % của ẢNH NÀY,
-// không dùng được với file /mat-bang/<tòa>.jpg cũ.
+// Mặt bằng cả tòa dùng làm nền khoanh đỏ. Khung đỏ tính theo % của ẢNH NÀY, không
+// dùng được với file /mat-bang/<tòa>.jpg cũ — hai ảnh lệch khung nhau.
 export function matBangSach(maCan) {
   const t = trucCuaCan(maCan);
   return t ? `${THU_MUC}/${t.toa}.jpg` : null;
+}
+
+// Telegram tự đi tải ảnh từ URL nên phải là đường dẫn TUYỆT ĐỐI công khai; đưa đường
+// dẫn tương đối thì máy chủ Telegram không biết lấy ở đâu. Chạy localhost thì Telegram
+// không với tới máy mình được — chỗ này chỉ thật sự chạy trên bản đã deploy.
+export function anhTrucCanTuyetDoi(maCan, goc) {
+  const duong = anhTrucCan(maCan);
+  if (!duong) return '';
+  const g = String(goc || '').replace(/\/+$/, '');
+  return /^https?:\/\//i.test(g) ? `${g}${duong}` : '';
 }
 
 // Khung đỏ vị trí căn, đơn vị %. Trả về dạng dán thẳng vào style tuyệt đối được.

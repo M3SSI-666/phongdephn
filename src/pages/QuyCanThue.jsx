@@ -1910,25 +1910,22 @@ function FloorPlanTab({ maCan, layout = '' }) {
         style={{ maxWidth:'100%', maxHeight:'82vh', objectFit:'contain', borderRadius:10, background:'#fff', boxShadow:'0 8px 40px rgba(0,0,0,0.7)' }} />
     </div>
   );
-  // Tòa đã cắt mặt bằng theo trục: hiện layout riêng của căn, kèm mặt bằng cả tòa khoanh
-  // đỏ vị trí căn — khách luôn hỏi căn nằm chỗ nào, gần thang máy không.
+  // Tòa đã đo theo trục: khoanh đỏ vị trí căn trên mặt bằng ĐẦY ĐỦ, giữ nguyên nhãn mã
+  // căn và diện tích quanh hình tòa — đó là hai thứ khách đọc đầu tiên.
   // Khung đỏ là div định vị theo %, không phải ảnh lưu sẵn, nên đổi cỡ bao nhiêu cũng đúng.
-  const tuDong = anhTrucCan(maCan), khung = khungTrucCan(maCan);
-  if (tuDong && khung) {
+  const khung = khungTrucCan(maCan);
+  if (khung) {
     const p = parseMaCan(maCan);
     return (
-      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8 }}>
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
         <div style={{ fontSize:13, color:'#8a9bb8' }}>
-          Mặt bằng trục <strong style={{color:'#e2e8f0'}}>{p.truc}</strong> — căn {maCan}
+          Mặt bằng tòa <strong style={{color:'#e2e8f0'}}>{p.toa}</strong> — căn {maCan} ở trục <strong style={{color:'#e2e8f0'}}>{p.truc}</strong>
         </div>
-        <img src={tuDong} alt={`Mặt bằng ${maCan}`}
-          style={{ maxWidth:'100%', maxHeight:'46vh', objectFit:'contain', borderRadius:10, background:'#fff', boxShadow:'0 8px 40px rgba(0,0,0,0.7)' }} />
-        <div style={{ fontSize:13, color:'#8a9bb8', marginTop:6 }}>Vị trí trong tòa {p.toa}</div>
         {/* inline-block để khối co đúng bằng ảnh — khung đỏ tính theo % của khối này */}
-        <div style={{ position:'relative', display:'inline-block', lineHeight:0, background:'#fff', borderRadius:8, overflow:'hidden' }}>
+        <div style={{ position:'relative', display:'inline-block', lineHeight:0, background:'#fff', borderRadius:10, overflow:'hidden', boxShadow:'0 8px 40px rgba(0,0,0,0.7)' }}>
           <img src={matBangSach(maCan)} alt={`Mặt bằng tòa ${p.toa}`}
-            style={{ display:'block', maxWidth:'100%', maxHeight:'26vh', width:'auto' }} />
-          <span style={{ position:'absolute', ...khung, border:'2px solid #e11d48', borderRadius:3, boxSizing:'border-box' }} />
+            style={{ display:'block', maxWidth:'100%', maxHeight:'80vh', width:'auto' }} />
+          <span style={{ position:'absolute', ...khung, border:'3px solid #e11d48', borderRadius:3, boxSizing:'border-box' }} />
         </div>
       </div>
     );

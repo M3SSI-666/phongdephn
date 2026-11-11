@@ -11,10 +11,14 @@ Mặt bằng Times City tô màu theo LOẠI căn, nên ranh giới các trục 
     python scripts/catTrucMatBang.py T01         # cắt ảnh + ghi toạ độ
     python scripts/catTrucMatBang.py --tatca
 
+Nguồn ảnh: public/mat-bang/truc/<tòa>.jpg nếu có, không thì public/mat-bang/<tòa>.jpg.
+Nên đặt sẵn vào thư mục truc/ một bản mặt bằng gọn — còn đủ nhãn mã căn và diện tích,
+nhưng không có tiêu đề, la bàn, sơ đồ vị trí — vì chính ảnh đó là nền khoanh đỏ.
+
 Đầu ra:
-    public/mat-bang/truc/<tòa>.jpg        mặt bằng đã cắt bỏ tiêu đề / la bàn
+    public/mat-bang/truc/<tòa>.jpg        ảnh nền để khoanh đỏ (giữ nguyên bản nguồn)
     public/mat-bang/truc/<tòa>-<trục>.jpg ảnh riêng từng trục
-    src/data/matBangTruc.json             toạ độ % để khoanh đỏ bằng CSS
+    src/data/matBangTruc.js               toạ độ % để khoanh đỏ bằng CSS
 """
 import colorsys
 import io
@@ -90,9 +94,11 @@ def ho_mau(px, x, y):
 
 
 def cat_khung(im):
-    """Cắt bỏ tiêu đề, la bàn, sơ đồ vị trí — chỉ giữ hình tòa nhà.
+    """Khoanh riêng hình tòa nhà để đo, trả về (ảnh đã cắt, lệch x, lệch y).
 
     Lọc theo pixel CÓ MÀU nên chữ (xám đen) tự rụng, không cần biết trước nó nằm đâu.
+    Chỉ dùng để ĐO và để cắt ảnh trục — ảnh nền vẫn giữ nguyên bản đầy đủ, vì nhãn mã
+    căn và diện tích nằm ngoài hình tòa, cắt đi là mất thông tin khách cần nhất.
     """
     W, H = im.size
     px = im.load()
@@ -102,7 +108,8 @@ def cat_khung(im):
     xs = [x for x, v in enumerate(cot) if v > H * 0.05]
     if not xs or not ys:
         raise SystemExit("khong tim thay vung mau nao trong anh")
-    return im.crop((min(xs), min(ys), max(xs) + 1, max(ys) + 1))
+    ox, oy = min(xs), min(ys)
+    return im.crop((ox, oy, max(xs) + 1, max(ys) + 1)), ox, oy
 
 
 def dai_mau_ngang(im):
@@ -201,7 +208,8 @@ def lam_toa(toa, chi_do=False):
     if not os.path.exists(nguon):
         raise SystemExit("khong thay mat bang cua toa %s" % toa)
 
-    im = cat_khung(Image.open(nguon).convert("RGB"))
+    im_day = Image.open(nguon).convert("RGB")
+    im, ox, oy = cat_khung(im_day)
     W, H = im.size
     tam_y, tam_x = H // 2, W // 2
     dai = dai_mau_ngang(im)
@@ -244,8 +252,10 @@ def lam_toa(toa, chi_do=False):
                 hop[ds[0]] = (xa, 0, xb, day_tren)
                 hop[ds[1]] = (xa, dau_duoi, xb, H - 1)
 
+    # Ảnh nền giữ NGUYÊN BẢN đầy đủ, không cắt: nhãn "T1-04 / 75,2 M2" nằm ngoài hình
+    # tòa, cắt sát khung là khách mất đúng hai thứ họ đọc đầu tiên.
     os.makedirs(THUMUC_RA, exist_ok=True)
-    im.save(os.path.join(THUMUC_RA, "%s.jpg" % toa), quality=92, optimize=True)
+    im_day.save(os.path.join(THUMUC_RA, "%s.jpg" % toa), quality=92, optimize=True)
 
     dientich = lambda b: (b[2] - b[0]) * (b[3] - b[1])
     trang = Image.new("RGB", (W, H), (255, 255, 255))
@@ -267,9 +277,11 @@ def lam_toa(toa, chi_do=False):
         c.save(os.path.join(THUMUC_RA, "%s-%s.jpg" % (toa, t)),
                quality=CHAT_LUONG, optimize=True)
 
+    # Toạ độ tính theo % của ẢNH NỀN đầy đủ, nên phải cộng lại chỗ lệch của khung đo.
+    DW, DH = im_day.size
     du = doc_ban_do()
-    du[toa] = {t: {"x": round(b[0] / W * 100, 2), "y": round(b[1] / H * 100, 2),
-                   "w": round((b[2] - b[0]) / W * 100, 2), "h": round((b[3] - b[1]) / H * 100, 2)}
+    du[toa] = {t: {"x": round((ox + b[0]) / DW * 100, 2), "y": round((oy + b[1]) / DH * 100, 2),
+                   "w": round((b[2] - b[0]) / DW * 100, 2), "h": round((b[3] - b[1]) / DH * 100, 2)}
                for t, b in sorted(hop.items())}
     ghi_ban_do(du)
 

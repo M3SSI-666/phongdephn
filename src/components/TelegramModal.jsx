@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { C } from '../utils/theme';
 import { maCanTelegram, tinMaCan, mediaTelegram, doiViTriNhom, RONG_ANH_TELEGRAM } from '../utils/telegramCan';
+import { anhTrucCanTuyetDoi } from '../utils/matBangTruc';
 import { anhCloudinary } from '../utils/anhCloudinary';
 import { fetchTelegramNhom, guiTelegram, fetchTelegramLog, suaTelegram, sapXepTelegramNhom } from '../utils/api';
 
@@ -34,7 +35,11 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
   // Cột số điện thoại tên khác nhau giữa hai bảng: Bán dùng SDT, Thuê dùng Lien_He.
   const maCanGui = tinMaCan(item?.Ma_Can, item?.SDT || item?.Lien_He, item?.Ten_Chu);
   // Layout gửi RIÊNG một tin trước album ảnh — xem api/telegram.js.
-  const layout = (item?.Layout || '').trim() ? anhCloudinary(item.Layout.trim(), RONG_ANH_TELEGRAM) : '';
+  // Không có ảnh nhập tay thì gửi ảnh trục cắt sẵn từ mặt bằng tòa, nên căn nào cũng có
+  // layout để gửi chứ không phải chờ ai upload.
+  const layout = (item?.Layout || '').trim()
+    ? anhCloudinary(item.Layout.trim(), RONG_ANH_TELEGRAM)
+    : anhTrucCanTuyetDoi(item?.Ma_Can, typeof window === 'undefined' ? '' : window.location.origin);
 
   const taiNhom = useCallback(async () => {
     setDangTai(true);
@@ -121,7 +126,10 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
 
         {/* Xem trước đúng thứ tự sẽ gửi, để không phải sang Telegram mới biết sai. */}
         <div style={s.preview}>
-          <div style={s.previewLabel}>1. {layout ? 'Ảnh layout' : 'Không có layout — bỏ qua'}</div>
+          <div style={s.previewLabel}>
+            {!layout ? '1. Không có layout — bỏ qua'
+              : (item?.Layout || '').trim() ? '1. Ảnh layout' : '1. Ảnh layout (mặt bằng trục)'}
+          </div>
           <div style={s.previewLabel}>
             {media.length
               ? `2. ${media.length} ảnh/video${media.length > MEDIA_MOI_ALBUM ? ` (chia ${Math.ceil(media.length / MEDIA_MOI_ALBUM)} album)` : ''}`
