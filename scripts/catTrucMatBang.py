@@ -45,34 +45,35 @@ CHAT_LUONG = 92    # ảnh nền: nét bản vẽ mảnh, nén mạnh là rỗ h
 LE_NGANG = 0.018
 LE_DOC = 0.040
 
-TRANG = 215        # sáng hơn mức này coi là nền trắng (JPEG làm trắng lệch còn ~245)
-QUA_TUONG = 6      # bỏ qua ngần này pixel ngay ngoài vùng màu: đó là tường bao, không phải chữ
+# Tối hơn mức này là MỰC (chữ nhãn ~100–130, tường và nét vẽ < 80). Màu tô các căn nằm ở
+# 160–230 nên không bị tính là mực — quan trọng, vì dải kiểm tra của một căn hay lọt
+# sang màu tô của căn bên cạnh (P3-10 có căn 11 ôm bên trái); lấy mốc "trắng tinh" thì
+# không hàng nào sạch và luật dò chữ chết lặng, khung gạch thẳng qua nhãn.
+MUC = 140
 CACH_CHU = 3       # dừng cách chữ ngần này pixel
 
 
-def toa_do(b, im_day, vien_toa):
+def toa_do(b, im_day):
     """Bao (pixel) -> toạ độ % đã nới lề.
 
-    Trong lòng tòa thì nới đủ lề. Ra ngoài mép tòa thì nới TIẾP cho đến khi sắp chạm
-    chữ nhãn: nhãn T1 nằm sát tòa chỉ ~10px, nhãn P1 cách xa hơn — kẹp cứng tại mép
-    tòa thì căn góc T1 nhìn bó sát trong khi P1 lại thoáng. Dò khoảng trắng thật thì
-    mỗi cạnh tự lấy được tối đa chỗ nó có.
+    Nới mỗi cạnh ra đủ lề, nhưng không được gạch qua chữ nhãn. Tiêu chí là KHE SẠCH:
+    đi từ mép căn ra ngoài, nếu gặp một hàng không có mực rồi sau đó mới gặp mực, thì
+    mực đó là chữ nhãn (hoặc thứ gì đó ngoài tòa) -> dừng cách nó vài pixel. Chưa qua
+    hàng sạch nào mà gặp mực thì đó là tường của chính căn -> cứ nới tiếp.
+    "Sạch" = không có mực, còn màu tô thì được: dải kiểm tra thường lọt sang màu tô của
+    căn bên cạnh, đòi trắng tinh là không bao giờ có hàng sạch.
+
+    Không dùng "viền bao của tòa" làm mốc được: tòa chữ U như P3 có nhãn nằm ngay trong
+    lòng khuyết, tức là BÊN TRONG viền bao — mốc đó cho phép khung gạch ngang chữ.
     """
     W, H = im_day.size
     px = im_day.load()
     lx, ly = W * LE_NGANG, H * LE_DOC
-    tx1, ty1, tx2, ty2 = vien_toa
     bx1, by1, bx2, by2 = b
 
-    def co_muc(x, y):
+    def muc(x, y):
         r, g, bb = px[x, y]
-        return (r * 299 + g * 587 + bb * 114) / 1000.0 < TRANG
-
-    def doc_hang(y, xa, xb):      # hàng y có chữ trong khoảng [xa, xb] không
-        return any(co_muc(x, y) for x in range(max(0, xa), min(W, xb + 1)))
-
-    def doc_cot(x, ya, yb):
-        return any(co_muc(x, y) for y in range(max(0, ya), min(H, yb + 1)))
+        return (r * 299 + g * 587 + bb * 114) / 1000.0 < MUC
 
     # Dải kiểm tra thụt vào 15% mỗi đầu: nhãn của căn BÊN CẠNH nằm chéo góc, không
     # được để nó chặn cạnh của căn này.
@@ -80,25 +81,31 @@ def toa_do(b, im_day, vien_toa):
         d = (c - a) * 0.15
         return int(a + d), int(c - d)
 
-    def noi(mong, mep_toa, chieu, kiem_tra):
-        """Cạnh mong muốn `mong`; nếu vượt ra ngoài `mep_toa` thì dò chữ, dừng trước chữ."""
-        if (chieu < 0 and mong >= mep_toa) or (chieu > 0 and mong <= mep_toa):
-            return mong                                   # còn trong lòng tòa
-        v = mep_toa + chieu * QUA_TUONG
+    def sach(hang):                # cả dải không có mực?
+        return not any(muc(x, y) for x, y in hang)
+
+    def noi(mep_can, mong, chieu, lay_dai, gioi_han):
+        """Từ mép căn đi theo `chieu` tới `mong`; qua khe sạch rồi mà gặp mực thì dừng."""
+        qua_sach = False
+        v = mep_can + chieu
         while (v > mong) if chieu < 0 else (v < mong):
-            if v < 0 or v >= (H if kiem_tra is doc_hang else W):
+            if v < 0 or v >= gioi_han:
                 break
-            if kiem_tra(v):
-                return v - chieu * CACH_CHU               # vướng chữ: lùi lại
+            if sach(lay_dai(v)):
+                qua_sach = True
+            elif qua_sach:
+                return v - chieu * CACH_CHU            # mực sau khe sạch = chữ, lùi lại
             v += chieu
         return mong
 
     sx1, sx2 = thut(bx1, bx2)
     sy1, sy2 = thut(by1, by2)
-    y1 = noi(int(by1 - ly), ty1, -1, lambda y: doc_hang(y, sx1, sx2))
-    y2 = noi(int(by2 + ly), ty2, +1, lambda y: doc_hang(y, sx1, sx2))
-    x1 = noi(int(bx1 - lx), tx1, -1, lambda x: doc_cot(x, sy1, sy2))
-    x2 = noi(int(bx2 + lx), tx2, +1, lambda x: doc_cot(x, sy1, sy2))
+    hang = lambda y: [(x, y) for x in range(max(0, sx1), min(W, sx2 + 1))]
+    cot  = lambda x: [(x, y) for y in range(max(0, sy1), min(H, sy2 + 1))]
+    y1 = noi(by1, int(by1 - ly), -1, hang, H)
+    y2 = noi(by2, int(by2 + ly), +1, hang, H)
+    x1 = noi(bx1, int(bx1 - lx), -1, cot, W)
+    x2 = noi(bx2, int(bx2 + lx), +1, cot, W)
     x1, y1 = max(0, x1), max(0, y1)
     x2, y2 = min(W - 1, x2), min(H - 1, y2)
     return {"x": round(x1 / W * 100, 2), "y": round(y1 / H * 100, 2),
@@ -134,6 +141,15 @@ CONFIG_VUNG = {
         "12B": (14.7, 40.1), "05": (85.1, 40.1),
         "12A": (14.1, 65.8), "12": (22.4, 72.6), "11": (37.9, 71.0), "10": (43.4, 65.3),
         "09": (56.3, 65.3), "08": (62.0, 71.1), "07": (77.4, 72.6), "06": (85.7, 65.8),
+    },
+    # Chữ U, 18 trục, nhãn ghi "CH-xx". Bốn góc là bốn căn to (15, 03, 11, 06); nhãn của
+    # hàng trên nằm trong lòng khuyết chữ U.
+    "P03": {
+        "15": (16.5, 12.3), "16": (30.3, 29.2), "17": (42.4, 28.5), "18": (49.7, 34.8),
+        "01": (56.4, 32.0), "02": (69.5, 29.0), "03": (80.4, 14.1),
+        "12B": (18.1, 29.5), "12A": (16.8, 46.2), "12": (18.2, 70.7), "11": (17.5, 85.6),
+        "04": (82.3, 38.1), "05": (81.9, 62.7), "06": (80.3, 84.2),
+        "10": (29.3, 68.5), "09": (43.9, 64.9), "08": (56.5, 65.2), "07": (69.8, 67.3),
     },
 }
 
@@ -454,9 +470,8 @@ def lam_toa_vung(toa, chi_do=False):
 
     os.makedirs(THUMUC_RA, exist_ok=True)
     im.save(os.path.join(THUMUC_RA, "%s.jpg" % toa), quality=CHAT_LUONG, optimize=True)
-    vien = vien_toa_cua(im)
     du = doc_ban_do()
-    du[toa] = {t: toa_do(b, im, vien) for t, b in sorted(hop.items())}
+    du[toa] = {t: toa_do(b, im) for t, b in sorted(hop.items())}
     ghi_ban_do(du)
     print("%s: %d truc  (mat bang %dx%d)" % (toa, len(hop), W, H))
     return hop
@@ -519,9 +534,8 @@ def lam_toa(toa, chi_do=False):
     im_day.save(os.path.join(THUMUC_RA, "%s.jpg" % toa), quality=CHAT_LUONG, optimize=True)
 
     # Toạ độ tính theo % của ẢNH NỀN đầy đủ, nên phải cộng lại chỗ lệch của khung đo.
-    vien = (ox, oy, ox + W, oy + H)
     du = doc_ban_do()
-    du[toa] = {t: toa_do((ox + b[0], oy + b[1], ox + b[2], oy + b[3]), im_day, vien)
+    du[toa] = {t: toa_do((ox + b[0], oy + b[1], ox + b[2], oy + b[3]), im_day)
                for t, b in sorted(hop.items())}
     ghi_ban_do(du)
 
