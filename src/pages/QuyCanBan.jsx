@@ -468,9 +468,13 @@ function QuyCanBanInner({
 
   // Đang xem 1 tab con (bảng con) hay tab "Tất cả" (bảng chính công ty)?
   const viewingCon = activeTag !== null;
-  // Cột "Giá Nét" (index 7) chỉ hiện ở tab con.
-  const headersGoc   = viewingCon ? TABLE_HEADERS : TABLE_HEADERS.filter((_, i) => i !== 7);
-  const colWidthsGoc = viewingCon ? COL_WIDTHS    : COL_WIDTHS.filter((_, i) => i !== 7);
+  // Ở tab "Tất cả" (bảng hàng công ty) ẩn Giá Nét và Layout — hai thứ riêng của bảng con.
+  // Lọc theo TÊN cột chứ không theo số thứ tự: bản trước ghi cứng `i !== 7`, thêm cột View
+  // vào trước đó là lệch hết — tab "Tất cả" mất cột Giá, giá trị nằm dưới nhãn Giá Nét.
+  const anCot = viewingCon ? [] : ['Giá Nét', 'Layout'];
+  const giuCot = i => !anCot.includes(TABLE_HEADERS[i]);
+  const headersGoc   = TABLE_HEADERS.filter((_, i) => giuCot(i));
+  const colWidthsGoc = COL_WIDTHS.filter((_, i) => giuCot(i));
   // Bật chọn căn -> chèn thêm một cột tích ở đầu bảng. Dựng từ headersGoc chứ không sửa
   // mảng hằng TABLE_HEADERS: mảng đó dùng chung cho nhiều bảng.
   const headers   = chonMode ? ['', ...headersGoc]   : headersGoc;
@@ -1430,6 +1434,7 @@ function QuyCanBanInner({
                           setLightbox({ urls: sortMedia(urls), index: 0, maCan: item.Ma_Can || 'media', layout: item.Layout || '', defaultTab: urls.length ? 'anh' : 'matbang' });
                         }}
                       ><ThumbCell value={item.Hinh_Anh} /></td>
+                      {viewingCon && (<>
                       {/* Layout: mặt bằng riêng của căn. Bấm vào mở thẳng tab Mặt bằng. */}
                       <td style={{...st.td, textAlign:'center', cursor:'pointer', background: rowBg}}
                         onClick={() => {
@@ -1437,6 +1442,7 @@ function QuyCanBanInner({
                           setLightbox({ urls: sortMedia(urls), index: 0, maCan: item.Ma_Can || 'media', layout: item.Layout || '', defaultTab: 'matbang' });
                         }}
                       ><LayoutCell value={item.Layout} /></td>
+                      </>)}
                       <td style={{...st.td, textAlign:'center', fontSize:12, background: rowBg}}>{item.Nguon}</td>
                       <td style={{...st.td, textAlign:'left', fontSize:12, color:'#94a3b8', background: rowBg}}>{item.Ghi_Chu}</td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'nowrap', borderRight:'none', background: rowBg}}>
