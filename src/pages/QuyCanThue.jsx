@@ -255,12 +255,12 @@ function isSoonMoveIn(val) {
 
 const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
-  'Hướng BC', 'View', 'Giá', 'Giá Nét', 'Phí MG', 'Nội Thất', 'Thời Gian Vào', 'Tên Chủ', 'Liên Hệ', 'Ảnh', 'Layout', 'Nguồn', 'Ghi Chú', '',
+  'Hướng BC', 'Giá', 'Giá Nét', 'Phí MG', 'Nội Thất', 'Thời Gian Vào', 'Tên Chủ', 'Liên Hệ', 'Ảnh', 'Layout', 'Nguồn', 'Ghi Chú', '',
 ];
 // Cột cuối là 6 nút thao tác (sales / copy / Telegram / tag / sửa / xoá), mỗi nút ~28px
 // nên cần ~176. Trước là 140 — đủ cho 5 nút, thêm nút Telegram thì nút xoá bị cắt.
 // Phần thêm vào lấy đúng từ cột Ghi Chú để bảng không rộng thêm.
-const COL_WIDTHS = [92, 100, 72, 66, 76, 85, 120, 70, 70, 90, 110, 100, 100, 100, 80, 70, 100, 234, 176];
+const COL_WIDTHS = [92, 100, 72, 66, 76, 85, 70, 70, 90, 110, 100, 100, 100, 80, 70, 100, 234, 176];
 
 export function QuyCanThueContent({ overrideUserId, overrideRole, isViewAs } = {}) {
   return <QuyCanThueInner overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
@@ -1075,8 +1075,8 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       // Hướng gõ trong hộp đè lên bảng hàng; để trống thì dùng cột Hướng BC.
       huongBC: (them.huong || '').trim() || huongText(item.Huong_BC),
       noiBat: !!them.noiBat,
-      // View gõ trong hộp đè lên cột View của bảng hàng; để trống thì dùng cột.
-      view: (them.view || '').trim() || (item.View || '').trim(),
+      // View chỉ gõ trong hộp xuất lộ trình — bảng hàng không còn cột View.
+      view: (them.view || '').trim(),
       // Bảng Thuê không có cột Tr/m² — đơn giá thuê theo m² không phải cách bên này định giá.
       donGia: '',
       hienTrang: normalizeNoiThat(item.Noi_That),
@@ -1413,8 +1413,6 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
                         }}>{item.Slot_Xe || 'Không'}</span>
                       </td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'normal', background: rowBg}}>{huongText(item.Huong_BC)}</td>
-                      {/* View: mô tả tầm nhìn, gõ tay. Hiện trong bảng lộ trình của báo cáo dẫn khách. */}
-                      <td style={{...st.td, textAlign:'center', whiteSpace:'normal', fontSize:12, background: rowBg}}>{item.View}</td>
                       <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap', background: rowBg}}>{item.Gia}</td>
                       {viewingCon && <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', color:'#34D399', background: rowBg}}>{item.Gia_Net}</td>}
                       <td style={{...st.td, textAlign:'center', fontSize:12, background: rowBg}}>{item.Phi_MG}</td>
@@ -1653,10 +1651,6 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
 
             {/* Modal footer */}
             <div style={{ marginTop:14 }}>
-              <div style={{ marginBottom: 14 }}>
-                <FormField label="View" value={form.View} onChange={v => set('View', v)}
-                  placeholder="VD: Nhạc Nước, Quảng trường, Đường nội khu..." />
-              </div>
               <label style={st.fieldLabel}>Layout (mặt bằng riêng của căn)</label>
               {form.Layout ? (
                 <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:6 }}>

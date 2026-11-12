@@ -32,9 +32,9 @@ export default function LoTrinhModal({ cans, toUnit, giaCuaCan, donViGia, tenSal
   const [ghiChu, setGhiChu] = useState(() => Object.fromEntries(cans.map(c => [c.Ma_Can, ''])));
   // Để TRỐNG = dùng giá của bảng hàng (ưu tiên Giá Nét). Gõ vào mới đè lên.
   const [gia, setGia] = useState(() => Object.fromEntries(cans.map(c => [c.Ma_Can, ''])));
-  // Để TRỐNG = dùng cột View của bảng hàng. Gõ vào mới đè lên, chỉ cho lần xuất này.
   // Để TRỐNG = lấy hướng ban công của bảng hàng. Gõ vào mới đè, chỉ cho lần xuất này.
   const [huong, setHuong] = useState(() => Object.fromEntries(cans.map(c => [c.Ma_Can, ''])));
+  // View chỉ gõ ở đây, cho lần xuất này — bảng hàng không có cột View.
   const [view, setView] = useState(() => Object.fromEntries(cans.map(c => [c.Ma_Can, ''])));
   // Căn đáng chú ý của buổi xem — tô nổi trong bảng lộ trình ở trang đầu file.
   const [noiBat, setNoiBat] = useState(() => new Set());
@@ -153,8 +153,8 @@ export default function LoTrinhModal({ cans, toUnit, giaCuaCan, donViGia, tenSal
                   <input
                     value={view[c.Ma_Can] || ''}
                     onChange={e => setView(p => ({ ...p, [c.Ma_Can]: e.target.value }))}
-                    placeholder={(c.View || '').trim() || 'View'}
-                    title="View hiện trong bảng lộ trình. Để trống thì lấy cột View của bảng hàng."
+                    placeholder="View"
+                    title="View hiện trong bảng lộ trình. Để trống thì cột View của căn này bỏ trống."
                     style={{ ...s.inpNho, marginTop:0, width:200, flexShrink:0 }} />
                   <input
                     value={ghiChu[c.Ma_Can] || ''}
@@ -169,7 +169,7 @@ export default function LoTrinhModal({ cans, toUnit, giaCuaCan, donViGia, tenSal
 
         <div style={s.hint}>
           Bấm ★ để đánh dấu căn đáng chú ý — căn đó sẽ được tô nổi trong bảng lộ trình.
-          Ô giá, hướng và View để trống thì lấy theo bảng hàng (mờ sẵn trong ô); gõ “6.5” là thành “6.5 {donViGia}”.
+          Ô giá và hướng để trống thì lấy theo bảng hàng (mờ sẵn trong ô); gõ “6.5” là thành “6.5 {donViGia}”.
           Tổng {soAnh} ảnh. Ảnh phải tải về trước khi dựng trang nên bước này có thể mất
           một lúc — đừng đóng cửa sổ giữa chừng.
         </div>

@@ -204,12 +204,12 @@ function isRecentUpdate(val) {
 
 const TABLE_HEADERS = [
   'Ngày Update', 'Mã Căn', 'Thiết Kế', 'DT', 'Slot Xe',
-  'Hướng BC', 'View', 'Giá', 'Giá Nét', 'Tr/m²', 'Phí', 'SDT', 'Tên Chủ', 'Ảnh', 'Layout', 'Nguồn', 'Ghi Chú', '',
+  'Hướng BC', 'Giá', 'Giá Nét', 'Tr/m²', 'Phí', 'SDT', 'Tên Chủ', 'Ảnh', 'Layout', 'Nguồn', 'Ghi Chú', '',
 ];
 // Cột cuối là 5 nút thao tác (copy / Telegram / tag / sửa / xoá), mỗi nút ~28px nên cần
 // ~148. Trước là 104 — đủ cho 4 nút, nhưng thêm nút Telegram thì nút xoá bị cắt mất một
 // nửa. Phần thêm vào lấy đúng từ cột Ghi Chú để bảng không rộng thêm.
-const COL_WIDTHS = [92, 100, 72, 66, 76, 80, 120, 72, 80, 80, 110, 100, 110, 100, 70, 80, 276, 148];
+const COL_WIDTHS = [92, 100, 72, 66, 76, 80, 72, 80, 80, 110, 100, 110, 100, 70, 80, 276, 148];
 
 export function QuyCanBanContent({ overrideUserId, overrideRole, isViewAs } = {}) {
   return <QuyCanBanInner overrideUserId={overrideUserId} overrideRole={overrideRole} isViewAs={isViewAs} />;
@@ -1084,8 +1084,8 @@ function QuyCanBanInner({
       // Hướng gõ trong hộp đè lên bảng hàng; để trống thì dùng cột Hướng BC.
       huongBC: (them.huong || '').trim() || huongText(item.Huong_BC),
       noiBat: !!them.noiBat,
-      // View gõ trong hộp đè lên cột View của bảng hàng; để trống thì dùng cột.
-      view: (them.view || '').trim() || (item.View || '').trim(),
+      // View chỉ gõ trong hộp xuất lộ trình — bảng hàng không còn cột View.
+      view: (them.view || '').trim(),
       // Đơn giá/m² đã có sẵn hàm tính, dùng chung với cột Tr/m² của bảng.
       donGia: dgBaoCao != null ? String(dgBaoCao) : '',
       hienTrang: normalizeNoiThat(item.Noi_That),
@@ -1434,8 +1434,6 @@ function QuyCanBanInner({
                         })()}
                       </td>
                       <td style={{...st.td, textAlign:'center', whiteSpace:'normal', background: rowBg}}>{huongText(item.Huong_BC)}</td>
-                      {/* View: mô tả tầm nhìn, gõ tay. Hiện trong bảng lộ trình của báo cáo dẫn khách. */}
-                      <td style={{...st.td, textAlign:'center', whiteSpace:'normal', fontSize:12, background: rowBg}}>{item.View}</td>
                       <td style={{...st.td, textAlign:'center', fontWeight:600, whiteSpace:'nowrap', background: rowBg}}>{(perM2Price(item) != null || isDateSerialGia(item.Gia)) ? '' : item.Gia}</td>
                       {viewingCon && <td style={{...st.td, textAlign:'center', fontWeight:700, whiteSpace:'nowrap', color:'#34D399', background: rowBg}}>{item.Gia_Net}</td>}
                       <td style={{...st.td, textAlign:'center', fontSize:12, color:'#38b274', fontWeight:700, background: rowBg}}>
@@ -1692,10 +1690,6 @@ function QuyCanBanInner({
             </div>
 
             <div style={{ marginTop:14 }}>
-              <div style={{ marginBottom: 14 }}>
-                <FormField label="View" value={form.View} onChange={v => set('View', v)}
-                  placeholder="VD: Nhạc Nước, Quảng trường, Đường nội khu..." />
-              </div>
               <label style={st.fieldLabel}>Layout (mặt bằng riêng của căn)</label>
               {form.Layout ? (
                 <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:6 }}>
