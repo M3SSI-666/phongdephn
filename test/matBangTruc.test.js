@@ -29,10 +29,12 @@ test('tòa T1 không có trục 13, 14', () => {
   assert.equal(khungTrucCan('T010314'), null);
 });
 
+// Mã tòa không có thật (Z99), không phải một tòa "chưa làm tới": tòa thật nào rồi cũng
+// được đo, và test này đã vỡ một lần đúng như thế khi P11 vào bản đồ.
 test('tòa chưa đo thì trả null để rơi về mặt bằng tòa như cũ', () => {
-  assert.equal(matBangSach('P110312A'), null);
-  assert.equal(khungTrucCan('P110312A'), null);
-  assert.equal(coBanDo('P11'), false);
+  assert.equal(matBangSach('Z990312A'), null);
+  assert.equal(khungTrucCan('Z990312A'), null);
+  assert.equal(coBanDo('Z99'), false);
   assert.equal(coBanDo('T01'), true);
   assert.equal(coBanDo('P01'), true);
 });
