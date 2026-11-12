@@ -202,6 +202,18 @@ CONFIG = {
 }
 
 
+def luu_nen(im, nguon, toa):
+    """Lưu ảnh nền vào thư mục truc/ — trừ khi nguồn CHÍNH LÀ file đó.
+
+    Lưu đè lên chính nó là nén JPEG thêm một lần: chạy lại script bao nhiêu lần, ảnh mờ
+    đi bấy nhiêu, và git báo sửa 4 ảnh mà không ai đổi gì.
+    """
+    dich = os.path.join(THUMUC_RA, "%s.jpg" % toa)
+    if os.path.exists(dich) and os.path.samefile(nguon, dich):
+        return
+    im.save(dich, quality=CHAT_LUONG, optimize=True)
+
+
 def doc_ban_do():
     """Đọc lại bản đồ cũ để chạy một tòa không xoá mất các tòa đã làm trước."""
     if not os.path.exists(FILE_DATA):
@@ -668,7 +680,7 @@ def lam_toa_vung(toa, chi_do=False):
         hop[truc] = vung[i]["bao"]
 
     os.makedirs(THUMUC_RA, exist_ok=True)
-    im.save(os.path.join(THUMUC_RA, "%s.jpg" % toa), quality=CHAT_LUONG, optimize=True)
+    luu_nen(im, nguon, toa)
     du = doc_ban_do()
     du[toa] = {t: toa_do(b, im, [k for t2, k in hop.items() if t2 != t])
                for t, b in sorted(hop.items())}
@@ -731,7 +743,7 @@ def lam_toa(toa, chi_do=False):
     # Ảnh nền giữ NGUYÊN BẢN đầy đủ, không cắt: nhãn "T1-04 / 75,2 M2" nằm ngoài hình
     # tòa, cắt sát khung là khách mất đúng hai thứ họ đọc đầu tiên.
     os.makedirs(THUMUC_RA, exist_ok=True)
-    im_day.save(os.path.join(THUMUC_RA, "%s.jpg" % toa), quality=CHAT_LUONG, optimize=True)
+    luu_nen(im_day, nguon, toa)
 
     # Toạ độ tính theo % của ẢNH NỀN đầy đủ, nên phải cộng lại chỗ lệch của khung đo.
     day = {t: (ox + b[0], oy + b[1], ox + b[2], oy + b[3]) for t, b in hop.items()}
