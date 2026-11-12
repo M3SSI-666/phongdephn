@@ -82,6 +82,6 @@ test('18 trục của T1 đều có khung, không khung nào rỗng', () => {
 
 test('ngoài trình duyệt thì veKhoanhDo trả rỗng chứ không văng', async () => {
   assert.equal(await veKhoanhDo('T011201'), '');
-  assert.equal(await veKhoanhDo('P110312A'), '');
+  assert.equal(await veKhoanhDo('Z990312A'), '');
   assert.equal(await veKhoanhDo(''), '');
 });
