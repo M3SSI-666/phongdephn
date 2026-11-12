@@ -21,6 +21,7 @@ import { doiViTri } from '../utils/doiViTri';
 import { maCanTrucMatch, maCanTangInRange, normalizeTruc, tangToNumber, numberToTang, parseMaCan } from '../utils/maCan';
 import { matBangSach, khungTrucCan, veKhoanhDo } from '../utils/matBangTruc';
 import { khopHuong } from '../utils/huong';
+import { buAnhBangCon } from '../utils/bangConAnh';
 import { resolveKhu } from '../utils/khuToa';
 import { parseDienTich, dienTichInRange, formatDienTich } from '../utils/dienTich';
 import { anhCloudinary } from '../utils/anhCloudinary';
@@ -491,11 +492,14 @@ function QuyCanBanInner({
   // Tách ra để ô tìm mã căn soi đúng danh sách này: bảng con giữ được căn mà bảng chính
   // công ty đã bỏ đi, nên soi nhầm vào `items` là báo "không tìm thấy" đúng cái căn đang
   // nằm ngay trên màn hình.
+  // Bảng con là bản sao chụp lúc gắn thẻ — import ảnh SAU đó thì bản con không có ảnh.
+  // Bù ảnh từ bảng chính cho dòng con còn trống (xem utils/bangConAnh.js).
+  const conCoAnh = useMemo(() => buAnhBangCon(conItems, items), [conItems, items]);
   const baseList = useMemo(() => (
     viewingCon
-      ? conItems.filter(it => parseBangCon(it.Bang_Con).includes(activeTag))
+      ? conCoAnh.filter(it => parseBangCon(it.Bang_Con).includes(activeTag))
       : items
-  ), [viewingCon, conItems, activeTag, items]);
+  ), [viewingCon, conCoAnh, activeTag, items]);
 
   const filtered = useMemo(() => {
     let list = [...baseList];
