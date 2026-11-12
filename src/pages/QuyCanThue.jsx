@@ -13,6 +13,7 @@ import { parseBangCon, joinBangCon, validateTagName, doiTenTrongBangCon } from '
 import { doiViTri } from '../utils/doiViTri';
 import { maCanTrucMatch, maCanTangInRange, normalizeTruc, tangToNumber, numberToTang, parseMaCan } from '../utils/maCan';
 import { matBangSach, khungTrucCan, veKhoanhDo } from '../utils/matBangTruc';
+import { khopHuong } from '../utils/huong';
 import { resolveKhu } from '../utils/khuToa';
 import { parseDienTich, dienTichInRange, formatDienTich } from '../utils/dienTich';
 import { parseGiaThue } from '../utils/giaThue';
@@ -489,7 +490,8 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
       if (aiFilter.Slot_Xe)  list = list.filter(it => (it.Slot_Xe||'Không') === aiFilter.Slot_Xe);
       if (aiFilter.Gia_Max != null) list = list.filter(it => { const g = parseGiaValue(it.Gia); return g == null || g <= aiFilter.Gia_Max; });
       if (aiFilter.Gia_Min != null) list = list.filter(it => { const g = parseGiaValue(it.Gia); return g == null || g >= aiFilter.Gia_Min; });
-      if (aiFilter.Huong_BC) list = list.filter(it => (it.Huong_BC||'').toLowerCase().includes(aiFilter.Huong_BC.toLowerCase()));
+      // Sheet lưu hướng bằng ký hiệu (N, ĐN…), khách gõ chữ đầy đủ — so qua mã chuẩn.
+      if (aiFilter.Huong_BC) list = list.filter(it => khopHuong(it.Huong_BC, aiFilter.Huong_BC));
       if (aiFilter.Noi_That) { const target = normalizeNoiThat(aiFilter.Noi_That); list = list.filter(it => normalizeNoiThat(it.Noi_That) === target); }
       if (aiFilter.Toa_List) list = list.filter(it => aiFilter.Toa_List.some(t => (it.Ma_Can||'').toUpperCase().startsWith(t)));
       else if (aiFilter.Toa) list = list.filter(it => (it.Ma_Can||'').toUpperCase().startsWith(aiFilter.Toa.toUpperCase()));
