@@ -388,6 +388,7 @@ DOI_TEN_ZIP = {
     "T18": {"13": "12A", "14": "12B"},   # đã soi ảnh: file 13 khoanh T18-12A, file 14 khoanh T18-12B
     "P08": {"13": "12A", "14": "12B"},   # đã soi ảnh: file 13 khoanh P8-12A, file 14 khoanh P8-12B
     "P07": {"13": "12A", "14": "12B"},   # đã soi ảnh: file 13 khoanh P7-12A, file 14 khoanh P7-12B
+    "P06": {"13": "12A", "14": "12B"},   # đã soi ảnh: file 13 khoanh P6-12A, file 14 khoanh P6-12B
 }
 TRUC_HOP_LE = re.compile(r"^(\d{2}|12[AB])$")
 
