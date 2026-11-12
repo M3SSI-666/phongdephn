@@ -184,16 +184,8 @@ CONFIG_VUNG = {
         "04": (82.3, 38.1), "05": (81.9, 62.7), "06": (80.3, 84.2),
         "10": (29.3, 68.5), "09": (43.9, 64.9), "08": (56.5, 65.2), "07": (69.8, 67.3),
     },
-    # 21 trục — có cả 19, 20, 21. Căn 15 tô xám trung tính, bắt bằng luật "xám đặc".
-    "P05": {
-        "04": (16.3, 21.6), "03": (25.3, 17.0),
-        "02": (31.7, 34.2), "01": (47.3, 34.4), "21": (57.1, 32.1), "20": (68.5, 33.9),
-        "19": (76.2, 16.7), "18": (85.5, 17.2),
-        "05": (16.9, 30.3), "06": (17.8, 45.2), "07": (18.0, 67.0), "08": (16.1, 76.2),
-        "09": (25.5, 81.3), "10": (28.3, 67.4), "11": (42.9, 63.2), "12": (56.6, 63.5),
-        "12A": (71.2, 67.6), "12B": (77.3, 80.2), "15": (84.3, 73.0),
-        "17": (82.2, 38.2), "16": (81.3, 51.0),
-    },
+    # P05 KHÔNG nằm ở đây: tòa đó lấy từ khung vẽ tay (Cách 3). Để ở đây thì lần chạy lại
+    # toàn bộ sẽ ghi đè khung vẽ tay bằng kết quả máy đo.
 }
 
 # Cách 1 — DẢI MÀU DỌC, cho tòa xếp thành lưới cột đều như T1.
@@ -389,6 +381,7 @@ DOI_TEN_ZIP = {
     "P08": {"13": "12A", "14": "12B"},   # đã soi ảnh: file 13 khoanh P8-12A, file 14 khoanh P8-12B
     "P07": {"13": "12A", "14": "12B"},   # đã soi ảnh: file 13 khoanh P7-12A, file 14 khoanh P7-12B
     "P06": {"13": "12A", "14": "12B"},   # đã soi ảnh: file 13 khoanh P6-12A, file 14 khoanh P6-12B
+    "P05": {"13": "12A", "14": "12B"},   # đã soi ảnh: file 13 khoanh P5-12A, file 14 khoanh P5-12B
 }
 TRUC_HOP_LE = re.compile(r"^(\d{2}|12[AB])$")
 
@@ -413,16 +406,39 @@ def khung_toa_bo_do(im):
 
 
 def khung_do_trong(im):
+    """Khung đỏ vẽ tay = MẢNG ĐỎ LIỀN LỚN NHẤT trong ảnh.
+
+    Không lấy bao của mọi pixel đỏ: bản vẽ P5 có sẵn vài ký hiệu đỏ nhỏ cạnh sảnh thang,
+    gộp vào là khung giãn ra gần bằng cả tòa. Nét khung là một đường liền nên luôn là
+    mảng lớn nhất; nối qua khe 2px để nét bị nén JPEG làm đứt vẫn tính là một.
+    """
     W, H = im.size
     px = im.load()
-    xs, ys = [], []
-    for x in range(W):
-        for y in range(H):
-            if la_do(px[x, y]):
-                xs.append(x); ys.append(y)
-    if len(xs) < 200:
+    do = set((x, y) for x in range(W) for y in range(H) if la_do(px[x, y]))
+    tot, tot_n = None, 0
+    while do:
+        x0, y0 = do.pop()
+        ngan, n = [(x0, y0)], 0
+        x1 = x2 = x0
+        y1 = y2 = y0
+        while ngan:
+            x, y = ngan.pop()
+            n += 1
+            if x < x1: x1 = x
+            if x > x2: x2 = x
+            if y < y1: y1 = y
+            if y > y2: y2 = y
+            for dx in (-2, -1, 0, 1, 2):
+                for dy in (-2, -1, 0, 1, 2):
+                    p = (x + dx, y + dy)
+                    if p in do:
+                        do.discard(p)
+                        ngan.append(p)
+        if n > tot_n:
+            tot, tot_n = (x1, y1, x2, y2), n
+    if tot_n < 200:
         return None
-    return min(xs), min(ys), max(xs), max(ys)
+    return tot
 
 
 def lam_toa_zip(toa, thu_muc):
@@ -452,8 +468,11 @@ def lam_toa_zip(toa, thu_muc):
         kt = khung_toa_bo_do(im)
         sx = (gk[2] - gk[0]) / float(kt[2] - kt[0])
         sy = (gk[3] - gk[1]) / float(kt[3] - kt[1])
-        if not (0.95 <= sx <= 1.05 and 0.95 <= sy <= 1.05):
-            raise SystemExit("%s: %s khac ti le anh nen (%.2f/%.2f) — chup cung mot cua so" % (toa, os.path.basename(f), sx, sy))
+        # Ảnh nền và ảnh vẽ chụp ở hai mức zoom khác nhau vẫn được (P5: nền to hơn 1,12
+        # lần) — căn theo khung tòa đã tự lo tỉ lệ. Cái phải chặn là hai chiều phóng KHÁC
+        # nhau: nghĩa là khung tòa đo sai ở một ảnh, và toạ độ chiếu ra sẽ lệch.
+        if not (0.5 <= sx <= 2 and abs(sx / sy - 1) <= 0.03):
+            raise SystemExit("%s: %s lech ti le voi anh nen (ngang %.3f, doc %.3f)" % (toa, os.path.basename(f), sx, sy))
         hop[truc] = (gk[0] + (kd[0] - kt[0]) * sx, gk[1] + (kd[1] - kt[1]) * sy,
                      gk[0] + (kd[2] - kt[0]) * sx, gk[1] + (kd[3] - kt[1]) * sy)
     if not hop:
