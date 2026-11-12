@@ -382,6 +382,7 @@ DOI_TEN_ZIP = {
     "P07": {"13": "12A", "14": "12B"},   # đã soi ảnh: file 13 khoanh P7-12A, file 14 khoanh P7-12B
     "P06": {"13": "12A", "14": "12B"},   # đã soi ảnh: file 13 khoanh P6-12A, file 14 khoanh P6-12B
     "P05": {"13": "12A", "14": "12B"},   # đã soi ảnh: file 13 khoanh P5-12A, file 14 khoanh P5-12B
+    "P09": {"13": "12A", "14": "12B"},   # đã soi ảnh: file 13 khoanh P9-12A, file 14 khoanh P9-12B
 }
 TRUC_HOP_LE = re.compile(r"^(\d{2}|12[AB])$")
 
@@ -394,10 +395,21 @@ def khung_toa_bo_do(im):
     """Khung bao vùng màu của tòa, bỏ qua pixel đỏ của khung vẽ tay."""
     W, H = im.size
     px = im.load()
-    def mau(p):
-        return max(p) >= 70 and (max(p) - min(p)) >= 10 and not la_do(p)
-    hang = [sum(1 for x in range(W) if mau(px[x, y])) for y in range(H)]
-    cot  = [sum(1 for y in range(H) if mau(px[x, y])) for x in range(W)]
+    # Bỏ cả VIỀN 3px quanh nét đỏ, không chỉ pixel đỏ tinh: quanh nét khung có một lớp
+    # răng cưa hồng nhạt — không đủ đỏ để bị loại, nhưng đủ "có màu" để được tính là tòa.
+    # Khung vẽ chạy ra ngoài mép tòa là kéo giãn khung tòa (P9-01 cao thêm 12px).
+    gan_do = [[False] * H for _ in range(W)]
+    for x in range(W):
+        for y in range(H):
+            if la_do(px[x, y]):
+                for xx in range(max(0, x - 3), min(W, x + 4)):
+                    for yy in range(max(0, y - 3), min(H, y + 4)):
+                        gan_do[xx][yy] = True
+    def mau(x, y):
+        p = px[x, y]
+        return max(p) >= 70 and (max(p) - min(p)) >= 10 and not gan_do[x][y]
+    hang = [sum(1 for x in range(W) if mau(x, y)) for y in range(H)]
+    cot  = [sum(1 for y in range(H) if mau(x, y)) for x in range(W)]
     ys = bo_dai_mong([y for y, v in enumerate(hang) if v > W * 0.25], H * 0.05)
     xs = bo_dai_mong([x for x, v in enumerate(cot) if v > H * 0.20], W * 0.05)
     if not xs or not ys:
