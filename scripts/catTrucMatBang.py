@@ -401,6 +401,7 @@ DOI_TEN_ZIP = {
     "T11": {"13": "12A", "14": "12B"},   # đã soi ảnh: file 13 khoanh T11-12A, file 14 khoanh T11-12B
     "T10": {"13": "12A", "14": "12B"},   # đã soi ảnh: file 13 khoanh T10-12A, file 14 khoanh T10-12B
     "T09": {"13": "12A", "14": "12B"},   # đã soi ảnh: file 13 khoanh T09-12A, file 14 khoanh T09-12B
+    "T07": {"13": "12A", "14": "12B"},   # đã soi ảnh: file 13 khoanh T7-12A, file 14 khoanh T7-12B
 }
 
 # Tòa có mặt bằng Y HỆT tòa khác: dùng chung ảnh nền và toạ độ. Chạy lại tòa mẫu là
@@ -409,6 +410,8 @@ DOI_TEN_ZIP = {
 # cùng một bản vẽ.
 GIONG = {
     "T08": "T09",   # người dùng xác nhận: layout T08 y hệt T09
+    "T05": "T07",   # người dùng xác nhận: T05, T06, T07 cùng một layout
+    "T06": "T07",
 }
 
 
