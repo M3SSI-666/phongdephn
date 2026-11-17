@@ -422,7 +422,7 @@ GIONG = {
 # mẫu, khớp sang ảnh riêng bằng viền tòa (ảnh hai tòa cắt / zoom khác nhau). Ảnh riêng
 # không bao giờ bị ảnh tòa mẫu ghi đè. Thêm ảnh riêng:
 #   python scripts/catTrucMatBang.py T08 --nen "C:\...\T08.jpg"
-NEN_RIENG = {"T08", "T05", "T06"}
+NEN_RIENG = {"T08", "T05", "T06", "T02", "T04"}
 
 
 def khop_toa_do(toa_do_mau, im_mau, im_dich):
