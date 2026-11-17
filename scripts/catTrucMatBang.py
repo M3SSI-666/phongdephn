@@ -400,7 +400,28 @@ DOI_TEN_ZIP = {
     "P12": {"13": "12A", "14": "12B"},   # đã soi ảnh: file 13 khoanh P12-12A, file 14 khoanh P12-12B
     "T11": {"13": "12A", "14": "12B"},   # đã soi ảnh: file 13 khoanh T11-12A, file 14 khoanh T11-12B
     "T10": {"13": "12A", "14": "12B"},   # đã soi ảnh: file 13 khoanh T10-12A, file 14 khoanh T10-12B
+    "T09": {"13": "12A", "14": "12B"},   # đã soi ảnh: file 13 khoanh T09-12A, file 14 khoanh T09-12B
 }
+
+# Tòa có mặt bằng Y HỆT tòa khác: dùng chung ảnh nền và toạ độ. Chạy lại tòa mẫu là
+# tòa theo được chép lại ngay, hai tòa không bao giờ lệch nhau.
+# Nhãn in trên ảnh là của tòa mẫu (T08 sẽ thấy chữ "T09-xx") — chấp nhận, vì đây là
+# cùng một bản vẽ.
+GIONG = {
+    "T08": "T09",   # người dùng xác nhận: layout T08 y hệt T09
+}
+
+
+def chep_toa_giong(mau):
+    import shutil
+    du = doc_ban_do()
+    for toa, nguon in GIONG.items():
+        if nguon != mau or mau not in du:
+            continue
+        shutil.copyfile(os.path.join(THUMUC_RA, "%s.jpg" % mau), os.path.join(THUMUC_RA, "%s.jpg" % toa))
+        du[toa] = du[mau]
+        print("%s: chep tu %s (%d truc)" % (toa, mau, len(du[mau])))
+    ghi_ban_do(du)
 TRUC_HOP_LE = re.compile(r"^(\d{2}|12[AB])$")
 
 
@@ -764,6 +785,7 @@ if __name__ == "__main__":
         i = args.index("--zip")
         toa_zip, thu_muc = args[i - 1], args[i + 1]
         lam_toa_zip(toa_zip, thu_muc)
+        chep_toa_giong(toa_zip)
         raise SystemExit(0)
     do = "--do" in args
     vung = "--vung" in args
