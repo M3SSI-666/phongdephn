@@ -309,7 +309,6 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
   const [upProgress, setUpProgress] = useState(0);
   const [dragOver, setDragOver]     = useState(false);
   const fileInputRef                = useRef();
-  const layoutInputRef = useRef(null);
 
   const [toast, setToast]           = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -818,20 +817,6 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
     }
     setUploading(false); setUpProgress(0);
     setForm(prev => ({ ...prev, Hinh_Anh: newUrls.join(', ') }));
-  }
-
-  // Layout chỉ MỘT ảnh, khác cột Ảnh (nhiều ảnh + video). Chọn ảnh mới là thay hẳn ảnh cũ —
-  // báo cáo dẫn khách chỉ đặt được một mặt bằng cho mỗi căn.
-  async function handleLayoutFile(files) {
-    const file = files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) return showToast('Layout phải là ảnh', 'error');
-    setUploading(true);
-    try {
-      const url = await uploadToCloudinary(file, 'image', setUpProgress);
-      setForm(prev => ({ ...prev, Layout: url }));
-    } catch (e) { showToast('Upload thất bại: ' + e.message, 'error'); }
-    finally { setUploading(false); setUpProgress(0); }
   }
 
   function removeImage(url) {
@@ -1654,29 +1639,6 @@ function QuyCanThueInner({ overrideUserId, overrideRole, isViewAs = false } = {}
             </div>
 
             {/* Modal footer */}
-            <div style={{ marginTop:14 }}>
-              <label style={st.fieldLabel}>Layout (mặt bằng riêng của căn)</label>
-              {form.Layout ? (
-                <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:6 }}>
-                  <img src={anhCloudinary(form.Layout, 240)} alt="layout"
-                    style={{ width:120, height:120, objectFit:'contain', background:'#fff', borderRadius:8, border:'1px solid #3a3f52' }} />
-                  <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                    <button onClick={() => layoutInputRef.current?.click()} disabled={uploading}
-                      style={st.cancelBtn} className="ct-btn">Đổi ảnh khác</button>
-                    <button onClick={() => setForm(prev => ({ ...prev, Layout: '' }))} disabled={uploading}
-                      style={{ ...st.cancelBtn, color:C.error }} className="ct-btn">Xoá layout</button>
-                  </div>
-                </div>
-              ) : (
-                <div onClick={() => !uploading && layoutInputRef.current?.click()}
-                  style={{ border:'2px dashed #3a3f52', borderRadius:10, padding:'14px 20px', marginTop:6,
-                    cursor: uploading ? 'default':'pointer', textAlign:'center', color:'#8a9bb8', fontSize:13, background:'#1e2130' }}>
-                  ▦ Click để chọn ảnh layout
-                </div>
-              )}
-              <input ref={layoutInputRef} type="file" accept="image/*" style={{ display:'none' }}
-                onChange={e => { handleLayoutFile(e.target.files); e.target.value=''; }} />
-            </div>
 
             <div style={st.modalFooter}>
               <button onClick={closeModal} style={st.cancelBtn} className="ct-btn">Huỷ</button>
