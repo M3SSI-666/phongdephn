@@ -418,15 +418,50 @@ GIONG = {
 }
 
 
+# Tòa giống tòa mẫu nhưng có ẢNH NỀN RIÊNG in đúng tên mình. Chỉ toạ độ đi theo tòa
+# mẫu, khớp sang ảnh riêng bằng viền tòa (ảnh hai tòa cắt / zoom khác nhau). Ảnh riêng
+# không bao giờ bị ảnh tòa mẫu ghi đè. Thêm ảnh riêng:
+#   python scripts/catTrucMatBang.py T08 --nen "C:\...\T08.jpg"
+NEN_RIENG = {"T08"}
+
+
+def khop_toa_do(toa_do_mau, im_mau, im_dich):
+    """Chiếu toạ độ % trên ảnh tòa mẫu sang ảnh tòa đích, căn theo viền tòa."""
+    MW, MH = im_mau.size
+    DW, DH = im_dich.size
+    a = khung_toa_bo_do(im_mau)
+    b = khung_toa_bo_do(im_dich)
+    sx = (b[2] - b[0]) / float(a[2] - a[0])
+    sy = (b[3] - b[1]) / float(a[3] - a[1])
+    if abs(sx / sy - 1) > 0.03:
+        raise SystemExit("viền tòa hai ảnh không cùng tỉ lệ (ngang %.3f, dọc %.3f) — có phải cùng một layout?" % (sx, sy))
+    ra = {}
+    for t, k in toa_do_mau.items():
+        x1 = b[0] + (k["x"] / 100 * MW - a[0]) * sx
+        y1 = b[1] + (k["y"] / 100 * MH - a[1]) * sy
+        x2 = b[0] + ((k["x"] + k["w"]) / 100 * MW - a[0]) * sx
+        y2 = b[1] + ((k["y"] + k["h"]) / 100 * MH - a[1]) * sy
+        x1, y1, x2, y2 = max(0, x1), max(0, y1), min(DW - 1, x2), min(DH - 1, y2)
+        ra[t] = {"x": round(x1 / DW * 100, 2), "y": round(y1 / DH * 100, 2),
+                 "w": round((x2 - x1) / DW * 100, 2), "h": round((y2 - y1) / DH * 100, 2)}
+    return ra, sx, sy
+
+
 def chep_toa_giong(mau):
     import shutil
     du = doc_ban_do()
     for toa, nguon in GIONG.items():
         if nguon != mau or mau not in du:
             continue
-        shutil.copyfile(os.path.join(THUMUC_RA, "%s.jpg" % mau), os.path.join(THUMUC_RA, "%s.jpg" % toa))
-        du[toa] = du[mau]
-        print("%s: chep tu %s (%d truc)" % (toa, mau, len(du[mau])))
+        nen = os.path.join(THUMUC_RA, "%s.jpg" % toa)
+        if toa in NEN_RIENG and os.path.exists(nen):
+            im_mau = Image.open(os.path.join(THUMUC_RA, "%s.jpg" % mau)).convert("RGB")
+            du[toa], sx, sy = khop_toa_do(du[mau], im_mau, Image.open(nen).convert("RGB"))
+            print("%s: khop toa do tu %s sang anh rieng (ti le %.3f/%.3f, %d truc)" % (toa, mau, sx, sy, len(du[toa])))
+        else:
+            shutil.copyfile(os.path.join(THUMUC_RA, "%s.jpg" % mau), nen)
+            du[toa] = du[mau]
+            print("%s: chep tu %s (%d truc)" % (toa, mau, len(du[mau])))
     ghi_ban_do(du)
 TRUC_HOP_LE = re.compile(r"^(\d{2}|12[AB])$")
 
@@ -790,6 +825,17 @@ if __name__ == "__main__":
     # Chỉ chép tòa mẫu sang các tòa giống nó, KHÔNG đo lại tòa mẫu — dùng cho tòa mẫu làm
     # bằng máy đo (T01) mà toạ độ đã duyệt, đo lại là lệch vài pixel so với bản đã duyệt.
     #   python scripts/catTrucMatBang.py T01 --chep
+    if "--nen" in args:
+        i = args.index("--nen")
+        toa_nen, duong = args[i - 1], args[i + 1]
+        if toa_nen not in NEN_RIENG or toa_nen not in GIONG:
+            raise SystemExit("%s: phai co trong GIONG va NEN_RIENG truoc" % toa_nen)
+        im = Image.open(duong).convert("RGB")
+        if khung_do_trong(im):
+            raise SystemExit("anh nen dang co khung do — anh nen phai sach")
+        im.save(os.path.join(THUMUC_RA, "%s.jpg" % toa_nen), quality=CHAT_LUONG, optimize=True)
+        chep_toa_giong(GIONG[toa_nen])
+        raise SystemExit(0)
     if "--chep" in args:
         chep_toa_giong(args[args.index("--chep") - 1])
         raise SystemExit(0)
