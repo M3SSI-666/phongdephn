@@ -414,6 +414,7 @@ GIONG = {
     "T05": "T07",   # người dùng xác nhận: T05, T06, T07 cùng một layout
     "T06": "T07",
     "T02": "T03",   # người dùng gửi một bộ ảnh T03 cho cả T02 và T03
+    "T04": "T01",   # người dùng xác nhận: layout T04 y hệt T01
 }
 
 
@@ -786,6 +787,12 @@ def lam_toa(toa, chi_do=False):
 
 if __name__ == "__main__":
     args = sys.argv[1:]
+    # Chỉ chép tòa mẫu sang các tòa giống nó, KHÔNG đo lại tòa mẫu — dùng cho tòa mẫu làm
+    # bằng máy đo (T01) mà toạ độ đã duyệt, đo lại là lệch vài pixel so với bản đã duyệt.
+    #   python scripts/catTrucMatBang.py T01 --chep
+    if "--chep" in args:
+        chep_toa_giong(args[args.index("--chep") - 1])
+        raise SystemExit(0)
     if "--zip" in args:
         i = args.index("--zip")
         toa_zip, thu_muc = args[i - 1], args[i + 1]
