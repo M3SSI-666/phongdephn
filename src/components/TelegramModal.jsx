@@ -143,7 +143,7 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
           </div>
           <div style={s.previewLabel}>
             {media.length
-              ? `2. ${media.length} ảnh/video${media.length > MEDIA_MOI_ALBUM ? ` (chia ${Math.ceil(media.length / MEDIA_MOI_ALBUM)} album)` : ''}`
+              ? `2. ${media.length} ảnh (không gửi video)${media.length > MEDIA_MOI_ALBUM ? ` (chia ${Math.ceil(media.length / MEDIA_MOI_ALBUM)} album)` : ''}`
               : '2. Không có ảnh căn — bỏ qua'}
           </div>
           <div style={{ ...s.previewLabel, whiteSpace: 'pre-wrap' }}>3. {maCanGui}</div>
