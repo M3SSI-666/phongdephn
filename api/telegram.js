@@ -140,15 +140,17 @@ async function guiCan(req, res, sheetId, email, key) {
     if (!r.ok) loi.push(`mặt bằng: ${r.detail}`);
   }
 
-  for (let i = 0; i < media.length; i += MEDIA_MOI_ALBUM) {
-    const lo = media.slice(i, i + MEDIA_MOI_ALBUM).map(url => ({
-      type: laVideo(url) ? 'video' : 'photo',
-      media: url,
-    }));
-    const r = await api('sendMediaGroup', { chat_id: chatId, media: lo });
+  const albums = chiaAlbum(media);
+  for (let i = 0; i < albums.length; i++) {
+    const lo = albums[i];
+    // Album phải có 2–10 món, nên căn chỉ có đúng 1 ảnh thì gửi ảnh lẻ.
+    const r = lo.length === 1
+      ? await api('sendPhoto', { chat_id: chatId, photo: lo[0] })
+      : await api('sendMediaGroup', { chat_id: chatId, media: lo.map(url => ({
+          type: laVideo(url) ? 'video' : 'photo', media: url })) });
     // Ảnh hỏng thì VẪN gửi tiếp phần chữ: thiếu ảnh còn đỡ hơn là nhóm không nhận
     // được thông tin căn nào cả. Nhưng phải báo lại để người gửi biết mà đăng bù.
-    if (!r.ok) loi.push(`ảnh ${Math.floor(i / MEDIA_MOI_ALBUM) + 1}: ${r.detail}`);
+    if (!r.ok) loi.push(`ảnh ${i + 1}: ${r.detail}`);
   }
 
   if (maCan) {
@@ -172,6 +174,26 @@ async function guiCan(req, res, sheetId, email, key) {
   }
 
   return res.status(200).json({ ok: true, anhLoi: loi, chatMoi: chat !== String(chatId) ? chat : undefined });
+}
+
+// Chia ảnh thành các album ĐỀU NHAU, mỗi album tối đa 10.
+//
+// sendMediaGroup đòi 2–10 món. Cắt tuần tự 10 một (cách cũ) thì 11 ảnh ra 10 + 1, 21
+// ảnh ra 10 + 10 + 1: album 1 ảnh bị Telegram trả "Bad Request" — 16 căn bán, 6 căn thuê
+// rơi đúng vào đó. Chia đều thì 11 → 6 + 5, 21 → 7 + 7 + 7. Chỉ khi cả căn có đúng 1 ảnh
+// mới còn album 1 món, chỗ gọi gửi nó bằng sendPhoto.
+export function chiaAlbum(ds) {
+  const n = (ds || []).length;
+  if (!n) return [];
+  const so = Math.ceil(n / MEDIA_MOI_ALBUM);
+  const ra = [];
+  let dau = 0;
+  for (let i = 0; i < so; i++) {
+    const co = Math.floor(n / so) + (i < n % so ? 1 : 0);
+    ra.push(ds.slice(dau, dau + co));
+    dau += co;
+  }
+  return ra;
 }
 
 // Mã nhóm mới Telegram trả kèm khi nhóm đã nâng lên siêu nhóm; không có thì null.

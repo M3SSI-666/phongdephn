@@ -73,3 +73,22 @@ test('đọc mã nhóm mới khi nhóm đã nâng lên siêu nhóm', async () =>
   assert.equal(maNhomMoi({}), null);
   assert.equal(maNhomMoi(null), null);
 });
+
+// sendMediaGroup đòi 2–10 món: không album nào được lẻ 1 ảnh (trừ căn chỉ có 1 ảnh).
+test('chiaAlbum: chia đều, không album nào 1 ảnh', async () => {
+  const { chiaAlbum } = await import('../api/telegram.js');
+  const ds = n => Array.from({ length: n }, (_, i) => 'a' + i);
+  const co = n => chiaAlbum(ds(n)).map(a => a.length);
+  assert.deepEqual(co(0), []);
+  assert.deepEqual(co(1), [1]);
+  assert.deepEqual(co(10), [10]);
+  assert.deepEqual(co(11), [6, 5]);
+  assert.deepEqual(co(21), [7, 7, 7]);
+  assert.deepEqual(co(24), [8, 8, 8]);
+  for (let n = 2; n <= 60; n++) {
+    const a = co(n);
+    assert.ok(a.every(k => k >= 2 && k <= 10), `n=${n}: ${a}`);
+    assert.equal(a.reduce((s, k) => s + k, 0), n, `n=${n} mat anh`);
+  }
+  assert.deepEqual(chiaAlbum(ds(11)).flat(), ds(11));   // giữ đúng thứ tự
+});
