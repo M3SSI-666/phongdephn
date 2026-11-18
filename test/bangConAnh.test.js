@@ -37,3 +37,17 @@ test('không đổi gì thì trả lại đúng mảng cũ', () => {
   assert.equal(buAnhBangCon(con, chinh), con);
   assert.equal(buAnhBangCon(con, []), con);
 });
+
+// P03-0611: bảng con còn sót rác trong ô Ảnh -> phải bù, không thì Telegram gửi 0 ảnh.
+test('ô Ảnh bản con chỉ có video cũ hoặc dấu phẩy thừa thì vẫn bù', () => {
+  const chinh2 = [{ Ma_Can: 'P030611', Hinh_Anh: 'p1.jpg, p2.jpg' }];
+  for (const rac of [' , ', ',', 'https://res.cloudinary.com/x/video/upload/v1/a.mp4']) {
+    const ra = buAnhBangCon([{ Ma_Can: 'P030611', Hinh_Anh: rac }], chinh2);
+    assert.equal(ra[0].Hinh_Anh, 'p1.jpg, p2.jpg', JSON.stringify(rac));
+  }
+});
+
+test('bảng chính chỉ có video thì không đem về', () => {
+  const ra = buAnhBangCon([{ Ma_Can: 'A', Hinh_Anh: '' }], [{ Ma_Can: 'A', Hinh_Anh: 'x/video/upload/a.mp4' }]);
+  assert.equal(ra[0].Hinh_Anh, '');
+});
