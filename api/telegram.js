@@ -104,7 +104,26 @@ async function guiCan(req, res, sheetId, email, key) {
   if (!message) return res.status(400).json({ error: 'Thiếu nội dung tin' });
 
   const media = Array.isArray(images) ? images.filter(u => typeof u === 'string' && u) : [];
-  const api = (method, body) => goiTelegram(TOKEN, method, body);
+
+  // Nhóm thường bị Telegram NÂNG LÊN SIÊU NHÓM (admin bật lịch sử cho người mới, bật chủ
+  // đề, quá 200 người…) thì đổi chat_id sang dạng -100…, và mọi lần gửi vào mã cũ bị từ
+  // chối "Bad Request: group chat was upgraded to a supergroup chat". Telegram trả kèm
+  // mã mới (migrate_to_chat_id): đổi sang mã đó, gửi lại, và ghi mã mới vào danh sách
+  // nhóm — để nhóm tự khỏi, không bắt người dùng đi dò mã mới.
+  let chat = String(chatId);
+  const guiVaoNhom = async (lam) => {
+    let r = await lam(chat);
+    if (!r.ok && r.maMoi && r.maMoi !== chat) {
+      const cu = chat;
+      chat = r.maMoi;
+      console.warn(`[telegram] nhom ${cu} da nang len sieu nhom -> ${chat}`);
+      try { await doiChatIdNhom(sheetId, email, key, cu, chat); }
+      catch (e) { console.error(`[telegram] khong luu duoc ma nhom moi: ${e.message}`); }
+      r = await lam(chat);
+    }
+    return r;
+  };
+  const api = (method, body) => guiVaoNhom(c => goiTelegram(TOKEN, method, { ...body, chat_id: c }));
 
   // Thứ tự: layout -> ảnh căn -> mã căn + SĐT -> thông tin.
   // Layout đi đầu vì nó cho thấy bố cục căn trước khi xem ảnh thật, và gửi RIÊNG một
@@ -117,7 +136,7 @@ async function guiCan(req, res, sheetId, email, key) {
   } else if (matBangVe) {
     // Mặt bằng khoanh đỏ do máy người gửi vẽ ra, không nằm ở URL nào để Telegram tự
     // đi tải, nên phải đẩy thẳng tệp lên.
-    const r = await guiAnhTuDuLieu(TOKEN, chatId, matBangVe);
+    const r = await guiVaoNhom(c => guiAnhTuDuLieu(TOKEN, c, matBangVe));
     if (!r.ok) loi.push(`mặt bằng: ${r.detail}`);
   }
 
@@ -146,13 +165,31 @@ async function guiCan(req, res, sheetId, email, key) {
   const messageId = r.data?.result?.message_id;
   if (messageId && maCanLog) {
     try {
-      await ghiLog(sheetId, email, key, String(chatId), maCanLog, String(messageId));
+      await ghiLog(sheetId, email, key, chat, maCanLog, String(messageId));
     } catch (e) {
       console.error(`[telegram] ghi nhat ky that bai: ${e.message}`);
     }
   }
 
-  return res.status(200).json({ ok: true, anhLoi: loi });
+  return res.status(200).json({ ok: true, anhLoi: loi, chatMoi: chat !== String(chatId) ? chat : undefined });
+}
+
+// Mã nhóm mới Telegram trả kèm khi nhóm đã nâng lên siêu nhóm; không có thì null.
+export function maNhomMoi(data) {
+  const m = data && data.parameters && data.parameters.migrate_to_chat_id;
+  return m == null ? null : String(m);
+}
+
+// Thay mã cũ bằng mã mới ở mọi dòng của danh sách nhóm mang mã cũ.
+async function doiChatIdNhom(sheetId, email, key, cu, moi) {
+  const token = await getAccessToken(email, key, true);
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${NHOM_SHEET}!${NHOM_COLUMNS}`,
+    { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) throw new Error(await r.text());
+  const rows = (await r.json()).values || [];
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][1] || '').trim() === cu) await ghiDong(sheetId, token, i + 1, [rows[i][0], moi]);
+  }
 }
 
 function laVideo(url) {
@@ -173,7 +210,7 @@ async function guiAnhTuDuLieu(token, chatId, dataUrl) {
     if (!r.ok || data.ok === false) {
       const detail = data.description || `HTTP ${r.status}`;
       console.error(`[telegram] sendPhoto (tệp) lỗi: ${detail}`);
-      return { ok: false, detail };
+      return { ok: false, detail, maMoi: maNhomMoi(data) };
     }
     return { ok: true, data };
   } catch (e) {
@@ -196,7 +233,7 @@ async function goiTelegram(token, method, body) {
       // làm người đọc log mất manh mối.
       const detail = data.description || `HTTP ${r.status}`;
       console.error(`[telegram] ${method} lỗi: ${detail}`);
-      return { ok: false, detail };
+      return { ok: false, detail, maMoi: maNhomMoi(data) };
     }
     return { ok: true, data };
   } catch (e) {

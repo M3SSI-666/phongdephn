@@ -73,6 +73,9 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
     try {
       const kq = await guiTelegram({ chatId: n.Chat_Id, maCan: maCanGui, maCanLog: maCan,
         message, images: media, layout, matBangVe });
+      // Nhóm vừa được Telegram nâng lên siêu nhóm, máy chủ đã tự chuyển sang mã mới và
+      // lưu vào danh sách — nạp lại để lần gửi sau đi thẳng vào mã mới.
+      if (kq.chatMoi) taiNhom();
       // Ảnh hỏng mà chữ đã gửi được thì KHÔNG báo "thành công" trơn: người gửi phải
       // biết để còn đăng bù ảnh, không thì nhóm nhận được tin cụt mà không ai hay.
       if (kq.anhLoi?.length) {

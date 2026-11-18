@@ -59,3 +59,17 @@ test('xepNhomTheoThuTu: tên lạ trong thứ tự (nhóm đã bị xoá) thì b
   const { moi } = xepNhomTheoThuTu(ROWS, ['Nhóm đã xoá', 'B - 2PN']);
   assert.deepEqual(moi.map(n => n[0]), ['B - 2PN', 'T - 3PN', 'B - 1PN']);
 });
+
+// Nhóm thường bị nâng lên siêu nhóm: Telegram từ chối mã cũ và trả kèm mã mới.
+test('đọc mã nhóm mới khi nhóm đã nâng lên siêu nhóm', async () => {
+  const { maNhomMoi } = await import('../api/telegram.js');
+  const tuChoi = {
+    ok: false, error_code: 400,
+    description: 'Bad Request: group chat was upgraded to a supergroup chat',
+    parameters: { migrate_to_chat_id: -1001340370079 },
+  };
+  assert.equal(maNhomMoi(tuChoi), '-1001340370079');
+  assert.equal(maNhomMoi({ ok: false, description: 'Bad Request: chat not found' }), null);
+  assert.equal(maNhomMoi({}), null);
+  assert.equal(maNhomMoi(null), null);
+});
