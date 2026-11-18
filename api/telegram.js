@@ -144,10 +144,17 @@ async function guiCan(req, res, sheetId, email, key) {
   for (let i = 0; i < albums.length; i++) {
     const lo = albums[i];
     // Album phải có 2–10 món, nên căn chỉ có đúng 1 ảnh thì gửi ảnh lẻ.
-    const r = lo.length === 1
-      ? await api('sendPhoto', { chat_id: chatId, photo: lo[0] })
-      : await api('sendMediaGroup', { chat_id: chatId, media: lo.map(url => ({
-          type: laVideo(url) ? 'video' : 'photo', media: url })) });
+    // Máy chủ TỰ TẢI ảnh rồi đẩy tệp lên, không đưa URL cho Telegram tự đi tải: ảnh mới
+    // tải lên Cloudinary chưa có bản thu nhỏ, lần mở đầu phải chờ dựng vài giây, Telegram
+    // không đợi và trả "Bad Request" cho cả album — đúng cảnh quỹ thuê (ảnh mới hôm nay)
+    // hỏng còn quỹ bán (ảnh cũ, bản thu nhỏ có sẵn) chạy. Tải hỏng thì rơi về gửi URL.
+    let r = await guiVaoNhom(c => guiAlbumTep(TOKEN, c, lo));
+    if (!r.ok && !r.maMoi) {
+      r = lo.length === 1
+        ? await api('sendPhoto', { chat_id: chatId, photo: lo[0] })
+        : await api('sendMediaGroup', { chat_id: chatId, media: lo.map(url => ({
+            type: laVideo(url) ? 'video' : 'photo', media: url })) });
+    }
     // Ảnh hỏng thì VẪN gửi tiếp phần chữ: thiếu ảnh còn đỡ hơn là nhóm không nhận
     // được thông tin căn nào cả. Nhưng phải báo lại để người gửi biết mà đăng bù.
     if (!r.ok) loi.push(`ảnh ${i + 1}: ${r.detail}`);
@@ -237,6 +244,39 @@ async function guiAnhTuDuLieu(token, chatId, dataUrl) {
     return { ok: true, data };
   } catch (e) {
     console.error(`[telegram] sendPhoto (tệp) không gọi được: ${e.message}`);
+    return { ok: false, detail: e.message };
+  }
+}
+
+// Tải các ảnh về máy chủ (song song) rồi gửi thành MỘT album bằng tệp đính kèm.
+async function guiAlbumTep(token, chatId, urls) {
+  try {
+    const tep = await Promise.all(urls.map(async u => {
+      const r = await fetch(u, { headers: { Accept: 'image/jpeg,image/*' } });
+      if (!r.ok) throw new Error(`tải ảnh HTTP ${r.status}`);
+      return { buf: Buffer.from(await r.arrayBuffer()), loai: r.headers.get('content-type') || 'image/jpeg' };
+    }));
+    const fd = new FormData();
+    fd.append('chat_id', String(chatId));
+    let method;
+    if (tep.length === 1) {
+      method = 'sendPhoto';
+      fd.append('photo', new Blob([tep[0].buf], { type: tep[0].loai }), 'anh-1.jpg');
+    } else {
+      method = 'sendMediaGroup';
+      fd.append('media', JSON.stringify(tep.map((_, i) => ({ type: 'photo', media: `attach://f${i}` }))));
+      tep.forEach((t, i) => fd.append(`f${i}`, new Blob([t.buf], { type: t.loai }), `anh-${i + 1}.jpg`));
+    }
+    const r = await fetch(`https://api.telegram.org/bot${token}/${method}`, { method: 'POST', body: fd });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || data.ok === false) {
+      const detail = data.description || `HTTP ${r.status}`;
+      console.error(`[telegram] ${method} (tệp) lỗi: ${detail}`);
+      return { ok: false, detail, maMoi: maNhomMoi(data) };
+    }
+    return { ok: true, data };
+  } catch (e) {
+    console.error(`[telegram] album tệp không gửi được: ${e.message}`);
     return { ok: false, detail: e.message };
   }
 }
