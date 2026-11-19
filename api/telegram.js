@@ -141,24 +141,23 @@ async function guiCan(req, res, sheetId, email, key) {
   }
 
   const albums = chiaAlbum(media);
-  // Tải TOÀN BỘ ảnh song song ngay từ đầu, trong lúc mặt bằng đang gửi — tải lần lượt
-  // từng album là 3 album × vài giây dựng bản thu nhỏ, vượt hạn chạy của Vercel và người
-  // gửi nhận "Bad Gateway" với tin cụt ở nhóm.
-  const taiSan = albums.map(lo => taiAnh(lo));
   for (let i = 0; i < albums.length; i++) {
     const lo = albums[i];
-    // Album phải có 2–10 món, nên căn chỉ có đúng 1 ảnh thì gửi ảnh lẻ.
-    // Máy chủ TỰ TẢI ảnh rồi đẩy tệp lên, không đưa URL cho Telegram tự đi tải: ảnh mới
-    // tải lên Cloudinary chưa có bản thu nhỏ, lần mở đầu phải chờ dựng vài giây, Telegram
-    // không đợi và trả "Bad Request" cho cả album — đúng cảnh quỹ thuê (ảnh mới hôm nay)
-    // hỏng còn quỹ bán (ảnh cũ, bản thu nhỏ có sẵn) chạy. Tải hỏng thì rơi về gửi URL.
-    const tep = await taiSan[i];
-    let r = tep ? await guiVaoNhom(c => guiAlbumTep(TOKEN, c, tep)) : { ok: false };
-    if (!r.ok && !r.maMoi) {
-      r = lo.length === 1
-        ? await api('sendPhoto', { chat_id: chatId, photo: lo[0] })
-        : await api('sendMediaGroup', { chat_id: chatId, media: lo.map(url => ({
-            type: laVideo(url) ? 'video' : 'photo', media: url })) });
+    // Gửi bằng URL TRƯỚC — đường nhanh, đường quỹ bán vẫn chạy. Album 1 món phải đi
+    // sendPhoto vì sendMediaGroup đòi 2–10.
+    let r = lo.length === 1
+      ? await api('sendPhoto', { chat_id: chatId, photo: lo[0] })
+      : await api('sendMediaGroup', { chat_id: chatId, media: lo.map(url => ({
+          type: laVideo(url) ? 'video' : 'photo', media: url })) });
+    // Telegram từ chối (thường là ảnh vừa tải lên, Cloudinary chưa dựng xong bản thu nhỏ
+    // nên Telegram tải hụt) thì máy chủ TỰ TẢI ảnh về rồi đẩy tệp lên. Chỉ album hỏng mới
+    // đi đường này, để lần gửi bình thường không bị kéo dài quá hạn chạy của Vercel.
+    if (!r.ok) {
+      const tep = await taiAnh(lo);
+      if (tep) {
+        const r2 = await guiVaoNhom(c => guiAlbumTep(TOKEN, c, tep));
+        if (r2.ok) r = r2;
+      }
     }
     // Ảnh hỏng thì VẪN gửi tiếp phần chữ: thiếu ảnh còn đỡ hơn là nhóm không nhận
     // được thông tin căn nào cả. Nhưng phải báo lại để người gửi biết mà đăng bù.
