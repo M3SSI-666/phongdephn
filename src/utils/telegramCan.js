@@ -44,38 +44,10 @@ export function tinMaCan(maCan, sdt, tenChu) {
   return [`${TIM} ${ma}`, ...phan].join(' - ');
 }
 
-// Ô Hình Ảnh (các URL nối nhau bằng dấu phẩy) -> danh sách ẢNH gửi Telegram.
-//
-// BỎ VIDEO. Telegram chỉ tự tải video qua URL tới 20 MB, mà video quay căn thuê thường
-// 18–35 MB; một video quá cỡ là Telegram từ chối CẢ ALBUM ("Bad Request"), kéo theo
-// mọi ảnh trong album đó. Người dùng chốt: không cần gửi video.
-export function laVideoUrl(u) {
-  return /\.(mp4|mov|avi|webm|mkv|m4v)(\?|$)/i.test(u) || u.includes('/video/upload/');
-}
-
+// Ô Hình Ảnh (các URL nối nhau bằng dấu phẩy) -> danh sách media gửi Telegram.
+// anhCloudinary không đụng vào /video/upload/ nên video đi qua nguyên vẹn.
 export function mediaTelegram(hinhAnh) {
   if (!hinhAnh) return [];
   return hinhAnh.toString().split(',').map(u => u.trim()).filter(Boolean)
-    .filter(u => !laVideoUrl(u))
     .map(u => anhCloudinary(u, RONG_ANH_TELEGRAM));
-}
-
-// Chia ảnh thành các album ĐỀU NHAU, mỗi album tối đa 10.
-//
-// sendMediaGroup đòi 2–10 món. Cắt tuần tự 10 một (cách cũ) thì 11 ảnh ra 10 + 1, 21
-// ảnh ra 10 + 10 + 1: album 1 ảnh bị Telegram trả "Bad Request" — 16 căn bán, 6 căn thuê
-// rơi đúng vào đó. Chia đều thì 11 → 6 + 5, 21 → 7 + 7 + 7. Chỉ khi cả căn có đúng 1 ảnh
-// mới còn album 1 món, chỗ gọi gửi nó bằng sendPhoto.
-export function chiaAlbum(ds) {
-  const n = (ds || []).length;
-  if (!n) return [];
-  const so = Math.ceil(n / 10);
-  const ra = [];
-  let dau = 0;
-  for (let i = 0; i < so; i++) {
-    const co = Math.floor(n / so) + (i < n % so ? 1 : 0);
-    ra.push(ds.slice(dau, dau + co));
-    dau += co;
-  }
-  return ra;
 }
