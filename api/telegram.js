@@ -104,7 +104,26 @@ async function guiCan(req, res, sheetId, email, key) {
   if (!message) return res.status(400).json({ error: 'Thiếu nội dung tin' });
 
   const media = Array.isArray(images) ? images.filter(u => typeof u === 'string' && u) : [];
-  const api = (method, body) => goiTelegram(TOKEN, method, body);
+
+  // Nhóm thường bị Telegram NÂNG LÊN SIÊU NHÓM (admin bật lịch sử cho người mới, bật chủ
+  // đề, quá 200 người…) thì đổi chat_id sang dạng -100…, và mọi lần gửi vào mã cũ bị từ
+  // chối "Bad Request: group chat was upgraded to a supergroup chat". Telegram trả kèm
+  // mã mới (migrate_to_chat_id): đổi sang mã đó, gửi lại, và ghi mã mới vào danh sách
+  // nhóm — để nhóm tự khỏi, không bắt người dùng đi dò mã mới.
+  let chat = String(chatId);
+  const guiVaoNhom = async (lam) => {
+    let r = await lam(chat);
+    if (!r.ok && r.maMoi && r.maMoi !== chat) {
+      const cu = chat;
+      chat = r.maMoi;
+      console.warn(`[telegram] nhom ${cu} da nang len sieu nhom -> ${chat}`);
+      try { await doiChatIdNhom(sheetId, email, key, cu, chat); }
+      catch (e) { console.error(`[telegram] khong luu duoc ma nhom moi: ${e.message}`); }
+      r = await lam(chat);
+    }
+    return r;
+  };
+  const api = (method, body) => guiVaoNhom(c => goiTelegram(TOKEN, method, { ...body, chat_id: c }));
 
   // Thứ tự: layout -> ảnh căn -> mã căn + SĐT -> thông tin.
   // Layout đi đầu vì nó cho thấy bố cục căn trước khi xem ảnh thật, và gửi RIÊNG một
@@ -117,19 +136,28 @@ async function guiCan(req, res, sheetId, email, key) {
   } else if (matBangVe) {
     // Mặt bằng khoanh đỏ do máy người gửi vẽ ra, không nằm ở URL nào để Telegram tự
     // đi tải, nên phải đẩy thẳng tệp lên.
-    const r = await guiAnhTuDuLieu(TOKEN, chatId, matBangVe);
+    const r = await guiVaoNhom(c => guiAnhTuDuLieu(TOKEN, c, matBangVe));
     if (!r.ok) loi.push(`mặt bằng: ${r.detail}`);
   }
 
-  for (let i = 0; i < media.length; i += MEDIA_MOI_ALBUM) {
-    const lo = media.slice(i, i + MEDIA_MOI_ALBUM).map(url => ({
-      type: laVideo(url) ? 'video' : 'photo',
-      media: url,
-    }));
-    const r = await api('sendMediaGroup', { chat_id: chatId, media: lo });
+  const albums = chiaAlbum(media);
+  for (let i = 0; i < albums.length; i++) {
+    const lo = albums[i];
+    // Album phải có 2–10 món, nên căn chỉ có đúng 1 ảnh thì gửi ảnh lẻ.
+    // Máy chủ TỰ TẢI ảnh rồi đẩy tệp lên, không đưa URL cho Telegram tự đi tải: ảnh mới
+    // tải lên Cloudinary chưa có bản thu nhỏ, lần mở đầu phải chờ dựng vài giây, Telegram
+    // không đợi và trả "Bad Request" cho cả album — đúng cảnh quỹ thuê (ảnh mới hôm nay)
+    // hỏng còn quỹ bán (ảnh cũ, bản thu nhỏ có sẵn) chạy. Tải hỏng thì rơi về gửi URL.
+    let r = await guiVaoNhom(c => guiAlbumTep(TOKEN, c, lo));
+    if (!r.ok && !r.maMoi) {
+      r = lo.length === 1
+        ? await api('sendPhoto', { chat_id: chatId, photo: lo[0] })
+        : await api('sendMediaGroup', { chat_id: chatId, media: lo.map(url => ({
+            type: laVideo(url) ? 'video' : 'photo', media: url })) });
+    }
     // Ảnh hỏng thì VẪN gửi tiếp phần chữ: thiếu ảnh còn đỡ hơn là nhóm không nhận
     // được thông tin căn nào cả. Nhưng phải báo lại để người gửi biết mà đăng bù.
-    if (!r.ok) loi.push(`ảnh ${Math.floor(i / MEDIA_MOI_ALBUM) + 1}: ${r.detail}`);
+    if (!r.ok) loi.push(`ảnh ${i + 1}: ${r.detail}`);
   }
 
   if (maCan) {
@@ -146,13 +174,51 @@ async function guiCan(req, res, sheetId, email, key) {
   const messageId = r.data?.result?.message_id;
   if (messageId && maCanLog) {
     try {
-      await ghiLog(sheetId, email, key, String(chatId), maCanLog, String(messageId));
+      await ghiLog(sheetId, email, key, chat, maCanLog, String(messageId));
     } catch (e) {
       console.error(`[telegram] ghi nhat ky that bai: ${e.message}`);
     }
   }
 
-  return res.status(200).json({ ok: true, anhLoi: loi });
+  return res.status(200).json({ ok: true, anhLoi: loi, chatMoi: chat !== String(chatId) ? chat : undefined });
+}
+
+// Chia ảnh thành các album ĐỀU NHAU, mỗi album tối đa 10.
+//
+// sendMediaGroup đòi 2–10 món. Cắt tuần tự 10 một (cách cũ) thì 11 ảnh ra 10 + 1, 21
+// ảnh ra 10 + 10 + 1: album 1 ảnh bị Telegram trả "Bad Request" — 16 căn bán, 6 căn thuê
+// rơi đúng vào đó. Chia đều thì 11 → 6 + 5, 21 → 7 + 7 + 7. Chỉ khi cả căn có đúng 1 ảnh
+// mới còn album 1 món, chỗ gọi gửi nó bằng sendPhoto.
+export function chiaAlbum(ds) {
+  const n = (ds || []).length;
+  if (!n) return [];
+  const so = Math.ceil(n / MEDIA_MOI_ALBUM);
+  const ra = [];
+  let dau = 0;
+  for (let i = 0; i < so; i++) {
+    const co = Math.floor(n / so) + (i < n % so ? 1 : 0);
+    ra.push(ds.slice(dau, dau + co));
+    dau += co;
+  }
+  return ra;
+}
+
+// Mã nhóm mới Telegram trả kèm khi nhóm đã nâng lên siêu nhóm; không có thì null.
+export function maNhomMoi(data) {
+  const m = data && data.parameters && data.parameters.migrate_to_chat_id;
+  return m == null ? null : String(m);
+}
+
+// Thay mã cũ bằng mã mới ở mọi dòng của danh sách nhóm mang mã cũ.
+async function doiChatIdNhom(sheetId, email, key, cu, moi) {
+  const token = await getAccessToken(email, key, true);
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${NHOM_SHEET}!${NHOM_COLUMNS}`,
+    { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) throw new Error(await r.text());
+  const rows = (await r.json()).values || [];
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][1] || '').trim() === cu) await ghiDong(sheetId, token, i + 1, [rows[i][0], moi]);
+  }
 }
 
 function laVideo(url) {
@@ -173,11 +239,44 @@ async function guiAnhTuDuLieu(token, chatId, dataUrl) {
     if (!r.ok || data.ok === false) {
       const detail = data.description || `HTTP ${r.status}`;
       console.error(`[telegram] sendPhoto (tệp) lỗi: ${detail}`);
-      return { ok: false, detail };
+      return { ok: false, detail, maMoi: maNhomMoi(data) };
     }
     return { ok: true, data };
   } catch (e) {
     console.error(`[telegram] sendPhoto (tệp) không gọi được: ${e.message}`);
+    return { ok: false, detail: e.message };
+  }
+}
+
+// Tải các ảnh về máy chủ (song song) rồi gửi thành MỘT album bằng tệp đính kèm.
+async function guiAlbumTep(token, chatId, urls) {
+  try {
+    const tep = await Promise.all(urls.map(async u => {
+      const r = await fetch(u, { headers: { Accept: 'image/jpeg,image/*' } });
+      if (!r.ok) throw new Error(`tải ảnh HTTP ${r.status}`);
+      return { buf: Buffer.from(await r.arrayBuffer()), loai: r.headers.get('content-type') || 'image/jpeg' };
+    }));
+    const fd = new FormData();
+    fd.append('chat_id', String(chatId));
+    let method;
+    if (tep.length === 1) {
+      method = 'sendPhoto';
+      fd.append('photo', new Blob([tep[0].buf], { type: tep[0].loai }), 'anh-1.jpg');
+    } else {
+      method = 'sendMediaGroup';
+      fd.append('media', JSON.stringify(tep.map((_, i) => ({ type: 'photo', media: `attach://f${i}` }))));
+      tep.forEach((t, i) => fd.append(`f${i}`, new Blob([t.buf], { type: t.loai }), `anh-${i + 1}.jpg`));
+    }
+    const r = await fetch(`https://api.telegram.org/bot${token}/${method}`, { method: 'POST', body: fd });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || data.ok === false) {
+      const detail = data.description || `HTTP ${r.status}`;
+      console.error(`[telegram] ${method} (tệp) lỗi: ${detail}`);
+      return { ok: false, detail, maMoi: maNhomMoi(data) };
+    }
+    return { ok: true, data };
+  } catch (e) {
+    console.error(`[telegram] album tệp không gửi được: ${e.message}`);
     return { ok: false, detail: e.message };
   }
 }
@@ -196,7 +295,7 @@ async function goiTelegram(token, method, body) {
       // làm người đọc log mất manh mối.
       const detail = data.description || `HTTP ${r.status}`;
       console.error(`[telegram] ${method} lỗi: ${detail}`);
-      return { ok: false, detail };
+      return { ok: false, detail, maMoi: maNhomMoi(data) };
     }
     return { ok: true, data };
   } catch (e) {

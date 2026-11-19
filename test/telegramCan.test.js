@@ -23,10 +23,15 @@ test('mediaTelegram: tách URL và thu nhỏ ảnh', () => {
   kq.forEach(u => assert.ok(u.includes(`w_${RONG_ANH_TELEGRAM}`), `phải có w_: ${u}`));
 });
 
-// Video phải đi qua nguyên vẹn — chèn tham số ảnh vào URL video là Cloudinary trả 400.
-test('mediaTelegram: video giữ nguyên', () => {
+// Không gửi video: video quay căn thuê 18–35 MB, quá giới hạn 20 MB Telegram tự tải qua
+// URL, và một video hỏng là Telegram từ chối cả album — mất luôn các ảnh đi kèm.
+test('mediaTelegram: bỏ video, ảnh vẫn giữ', () => {
+  const a = 'https://res.cloudinary.com/demo/image/upload/v1/a.jpg';
   const v = 'https://res.cloudinary.com/demo/video/upload/v1/c.mp4';
-  assert.deepEqual(mediaTelegram(v), [v]);
+  const kq = mediaTelegram(`${a}, ${v}, https://x.com/d.MOV`);
+  assert.equal(kq.length, 1);
+  assert.ok(kq[0].includes('/a.jpg'));
+  assert.deepEqual(mediaTelegram(v), []);
 });
 
 test('mediaTelegram: ô rỗng trả mảng rỗng', () => {

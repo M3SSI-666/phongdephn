@@ -44,10 +44,18 @@ export function tinMaCan(maCan, sdt, tenChu) {
   return [`${TIM} ${ma}`, ...phan].join(' - ');
 }
 
-// Ô Hình Ảnh (các URL nối nhau bằng dấu phẩy) -> danh sách media gửi Telegram.
-// anhCloudinary không đụng vào /video/upload/ nên video đi qua nguyên vẹn.
+// Ô Hình Ảnh (các URL nối nhau bằng dấu phẩy) -> danh sách ẢNH gửi Telegram.
+//
+// BỎ VIDEO. Telegram chỉ tự tải video qua URL tới 20 MB, mà video quay căn thuê thường
+// 18–35 MB; một video quá cỡ là Telegram từ chối CẢ ALBUM ("Bad Request"), kéo theo
+// mọi ảnh trong album đó. Người dùng chốt: không cần gửi video.
+export function laVideoUrl(u) {
+  return /\.(mp4|mov|avi|webm|mkv|m4v)(\?|$)/i.test(u) || u.includes('/video/upload/');
+}
+
 export function mediaTelegram(hinhAnh) {
   if (!hinhAnh) return [];
   return hinhAnh.toString().split(',').map(u => u.trim()).filter(Boolean)
+    .filter(u => !laVideoUrl(u))
     .map(u => anhCloudinary(u, RONG_ANH_TELEGRAM));
 }
