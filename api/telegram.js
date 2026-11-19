@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { chiaAlbum } from '../src/utils/telegramCan.js';
 
 // Đẩy một căn sang nhóm Telegram, và quản lý danh sách nhóm.
 //
@@ -99,9 +100,9 @@ async function guiCan(req, res, sheetId, email, key) {
 
   // maCan = chuỗi gửi đi (có trái tim). maCanLog = mã trần, dùng làm khoá nhật ký —
   // khoá phải là mã thuần, không thì đổi biểu tượng một cái là mất dấu hết tin cũ.
-  const { chatId, maCan, maCanLog, message, images, layout, matBangVe } = req.body || {};
+  const { chatId, maCan, maCanLog, message, images, layout, matBangVe, buoc } = req.body || {};
   if (!chatId)  return res.status(400).json({ error: 'Thiếu chatId' });
-  if (!message) return res.status(400).json({ error: 'Thiếu nội dung tin' });
+  if (!message && (!buoc || buoc === 'chu')) return res.status(400).json({ error: 'Thiếu nội dung tin' });
 
   const media = Array.isArray(images) ? images.filter(u => typeof u === 'string' && u) : [];
 
@@ -124,6 +125,53 @@ async function guiCan(req, res, sheetId, email, key) {
     return r;
   };
   const api = (method, body) => guiVaoNhom(c => goiTelegram(TOKEN, method, { ...body, chat_id: c }));
+  const chatMoi = () => (chat !== String(chatId) ? chat : undefined);
+
+  // ---- Gửi THEO BƯỚC: app gọi lần lượt matbang → album (mỗi album một lần) → chu. ----
+  // Gộp cả lượt vào một yêu cầu thì chỉ cần Telegram tải ảnh chậm là Vercel cắt ngang
+  // giữa chừng ("Bad Gateway"), nhóm nhận tin cụt. Mỗi bước một yêu cầu thì không bước
+  // nào chạm hạn, và bước hỏng nói được đúng tên mình.
+  if (buoc === 'matbang') {
+    const r = layout
+      ? await api('sendPhoto', { photo: layout })
+      : matBangVe ? await guiVaoNhom(c => guiAnhTuDuLieu(TOKEN, c, matBangVe)) : { ok: true };
+    return res.status(200).json({ ok: r.ok, detail: r.detail, chatMoi: chatMoi() });
+  }
+  if (buoc === 'album') {
+    const r = await guiMotAlbum(media);
+    return res.status(200).json({ ok: r.ok, detail: r.detail, chatMoi: chatMoi() });
+  }
+  if (buoc === 'chu') {
+    if (maCan) {
+      const r = await api('sendMessage', { text: maCan });
+      if (!r.ok) return res.status(502).json({ error: `Gửi mã căn thất bại: ${r.detail}` });
+    }
+    const r = await api('sendMessage', { text: message });
+    if (!r.ok) return res.status(502).json({ error: `Gửi thông tin thất bại: ${r.detail}` });
+    const messageId = r.data?.result?.message_id;
+    if (messageId && maCanLog) {
+      try { await ghiLog(sheetId, email, key, chat, maCanLog, String(messageId)); }
+      catch (e) { console.error(`[telegram] ghi nhat ky that bai: ${e.message}`); }
+    }
+    return res.status(200).json({ ok: true, chatMoi: chatMoi() });
+  }
+
+  // Một album (đã chia sẵn 1–10 ảnh): URL trước, Telegram từ chối thì máy chủ tự tải tệp.
+  async function guiMotAlbum(lo) {
+    if (!lo.length) return { ok: true };
+    let r = lo.length === 1
+      ? await api('sendPhoto', { photo: lo[0] })
+      : await api('sendMediaGroup', { media: lo.map(url => ({
+          type: laVideo(url) ? 'video' : 'photo', media: url })) });
+    if (!r.ok) {
+      const tep = await taiAnh(lo);
+      if (tep) {
+        const r2 = await guiVaoNhom(c => guiAlbumTep(TOKEN, c, tep));
+        if (r2.ok) r = r2;
+      }
+    }
+    return r;
+  }
 
   // Thứ tự: layout -> ảnh căn -> mã căn + SĐT -> thông tin.
   // Layout đi đầu vì nó cho thấy bố cục căn trước khi xem ảnh thật, và gửi RIÊNG một
@@ -187,25 +235,8 @@ async function guiCan(req, res, sheetId, email, key) {
   return res.status(200).json({ ok: true, anhLoi: loi, chatMoi: chat !== String(chatId) ? chat : undefined });
 }
 
-// Chia ảnh thành các album ĐỀU NHAU, mỗi album tối đa 10.
-//
-// sendMediaGroup đòi 2–10 món. Cắt tuần tự 10 một (cách cũ) thì 11 ảnh ra 10 + 1, 21
-// ảnh ra 10 + 10 + 1: album 1 ảnh bị Telegram trả "Bad Request" — 16 căn bán, 6 căn thuê
-// rơi đúng vào đó. Chia đều thì 11 → 6 + 5, 21 → 7 + 7 + 7. Chỉ khi cả căn có đúng 1 ảnh
-// mới còn album 1 món, chỗ gọi gửi nó bằng sendPhoto.
-export function chiaAlbum(ds) {
-  const n = (ds || []).length;
-  if (!n) return [];
-  const so = Math.ceil(n / MEDIA_MOI_ALBUM);
-  const ra = [];
-  let dau = 0;
-  for (let i = 0; i < so; i++) {
-    const co = Math.floor(n / so) + (i < n % so ? 1 : 0);
-    ra.push(ds.slice(dau, dau + co));
-    dau += co;
-  }
-  return ra;
-}
+// chiaAlbum dùng chung với app (src/utils/telegramCan.js) để hai bên chia giống hệt.
+export { chiaAlbum };
 
 // Mã nhóm mới Telegram trả kèm khi nhóm đã nâng lên siêu nhóm; không có thì null.
 export function maNhomMoi(data) {

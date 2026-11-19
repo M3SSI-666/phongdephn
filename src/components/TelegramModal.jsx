@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { C } from '../utils/theme';
-import { maCanTelegram, tinMaCan, mediaTelegram, doiViTriNhom, RONG_ANH_TELEGRAM } from '../utils/telegramCan';
+import { maCanTelegram, tinMaCan, mediaTelegram, doiViTriNhom, RONG_ANH_TELEGRAM, chiaAlbum } from '../utils/telegramCan';
 import { veKhoanhDo } from '../utils/matBangTruc';
 import { anhCloudinary } from '../utils/anhCloudinary';
 import { fetchTelegramNhom, guiTelegram, fetchTelegramLog, suaTelegram, sapXepTelegramNhom } from '../utils/api';
@@ -71,11 +71,29 @@ export default function TelegramModal({ item, message, onClose, showToast }) {
     if (dangGui) return;
     setDangGui(true);
     try {
-      const kq = await guiTelegram({ chatId: n.Chat_Id, maCan: maCanGui, maCanLog: maCan,
-        message, images: media, layout, matBangVe });
-      // Nhóm vừa được Telegram nâng lên siêu nhóm, máy chủ đã tự chuyển sang mã mới và
-      // lưu vào danh sách — nạp lại để lần gửi sau đi thẳng vào mã mới.
-      if (kq.chatMoi) taiNhom();
+      // Gửi THEO BƯỚC, mỗi bước một yêu cầu: mặt bằng → từng album → chữ. Gộp một lần
+      // thì Telegram tải ảnh chậm là máy chủ bị Vercel cắt giữa chừng, nhóm nhận tin cụt.
+      let chat = n.Chat_Id, doiMa = false;
+      const buoc = async (ten, body) => {
+        const r = await guiTelegram({ chatId: chat, buoc: ten, ...body });
+        if (r.chatMoi) { chat = r.chatMoi; doiMa = true; }
+        return r;
+      };
+      const anhLoi = [];
+      if (layout || matBangVe) {
+        const r = await buoc('matbang', { layout, matBangVe });
+        if (!r.ok) anhLoi.push(`mặt bằng: ${r.detail}`);
+      }
+      const albums = chiaAlbum(media);
+      for (let i = 0; i < albums.length; i++) {
+        const r = await buoc('album', { images: albums[i] });
+        if (!r.ok) anhLoi.push(`album ${i + 1}/${albums.length}: ${r.detail}`);
+      }
+      await buoc('chu', { maCan: maCanGui, maCanLog: maCan, message });
+      // Nhóm vừa được Telegram nâng lên siêu nhóm, máy chủ đã chuyển sang mã mới và lưu
+      // vào danh sách — nạp lại để lần gửi sau đi thẳng vào mã mới.
+      if (doiMa) taiNhom();
+      const kq = { anhLoi };
       // Ảnh hỏng mà chữ đã gửi được thì KHÔNG báo "thành công" trơn: người gửi phải
       // biết để còn đăng bù ảnh, không thì nhóm nhận được tin cụt mà không ai hay.
       if (kq.anhLoi?.length) {
