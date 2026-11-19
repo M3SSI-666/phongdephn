@@ -141,6 +141,10 @@ async function guiCan(req, res, sheetId, email, key) {
   }
 
   const albums = chiaAlbum(media);
+  // Tải TOÀN BỘ ảnh song song ngay từ đầu, trong lúc mặt bằng đang gửi — tải lần lượt
+  // từng album là 3 album × vài giây dựng bản thu nhỏ, vượt hạn chạy của Vercel và người
+  // gửi nhận "Bad Gateway" với tin cụt ở nhóm.
+  const taiSan = albums.map(lo => taiAnh(lo));
   for (let i = 0; i < albums.length; i++) {
     const lo = albums[i];
     // Album phải có 2–10 món, nên căn chỉ có đúng 1 ảnh thì gửi ảnh lẻ.
@@ -148,7 +152,8 @@ async function guiCan(req, res, sheetId, email, key) {
     // tải lên Cloudinary chưa có bản thu nhỏ, lần mở đầu phải chờ dựng vài giây, Telegram
     // không đợi và trả "Bad Request" cho cả album — đúng cảnh quỹ thuê (ảnh mới hôm nay)
     // hỏng còn quỹ bán (ảnh cũ, bản thu nhỏ có sẵn) chạy. Tải hỏng thì rơi về gửi URL.
-    let r = await guiVaoNhom(c => guiAlbumTep(TOKEN, c, lo));
+    const tep = await taiSan[i];
+    let r = tep ? await guiVaoNhom(c => guiAlbumTep(TOKEN, c, tep)) : { ok: false };
     if (!r.ok && !r.maMoi) {
       r = lo.length === 1
         ? await api('sendPhoto', { chat_id: chatId, photo: lo[0] })
@@ -248,14 +253,27 @@ async function guiAnhTuDuLieu(token, chatId, dataUrl) {
   }
 }
 
-// Tải các ảnh về máy chủ (song song) rồi gửi thành MỘT album bằng tệp đính kèm.
-async function guiAlbumTep(token, chatId, urls) {
+// Vercel Hobby cho tối đa 60 giây; mặc định ngắn hơn, không đủ cho căn nhiều ảnh mới.
+export const config = { maxDuration: 60 };
+
+// Tải ảnh của một album về máy chủ, song song, mỗi ảnh chờ tối đa 15 giây.
+// Hỏng một ảnh là trả null cả album — chỗ gọi rơi về gửi URL, không treo cả lần gửi.
+async function taiAnh(urls) {
   try {
-    const tep = await Promise.all(urls.map(async u => {
-      const r = await fetch(u, { headers: { Accept: 'image/jpeg,image/*' } });
+    return await Promise.all(urls.map(async u => {
+      const r = await fetch(u, { headers: { Accept: 'image/jpeg,image/*' }, signal: AbortSignal.timeout(15000) });
       if (!r.ok) throw new Error(`tải ảnh HTTP ${r.status}`);
       return { buf: Buffer.from(await r.arrayBuffer()), loai: r.headers.get('content-type') || 'image/jpeg' };
     }));
+  } catch (e) {
+    console.error(`[telegram] tai anh that bai: ${e.message}`);
+    return null;
+  }
+}
+
+// Gửi các ảnh đã tải thành MỘT album bằng tệp đính kèm.
+async function guiAlbumTep(token, chatId, tep) {
+  try {
     const fd = new FormData();
     fd.append('chat_id', String(chatId));
     let method;

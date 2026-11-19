@@ -446,6 +446,11 @@ export async function guiTelegram(payload) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
+    // 502/504 không kèm lời giải thích = máy chủ bị cắt giữa chừng (quá giờ). Một phần
+    // tin có thể đã lên nhóm, nói rõ để người gửi kiểm tra trước khi bấm gửi lại.
+    if (!err.error && (res.status === 502 || res.status === 504)) {
+      throw new Error('Gửi Telegram bị ngắt giữa chừng (máy chủ quá thời gian). Xem nhóm trước khi gửi lại — có thể đã lên một phần.');
+    }
     throw new Error(err.error || `Gửi Telegram thất bại (${res.status})`);
   }
   return res.json();
